@@ -1,0 +1,9 @@
+{
+  "name": "신성 캐시 자금계획",
+  "short_name": "신성 자금계획",
+  "start_url": "/cash.html",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#17365d",
+  "lang": "ko"
+}
