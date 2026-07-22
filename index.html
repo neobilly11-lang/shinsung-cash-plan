@@ -110,7 +110,7 @@ function buildExcelWorkbook(){let bal=Number(state.opening)||0,tin=0,tout=0;cons
 $('xlsxOut').onclick=()=>{try{XLSX.writeFile(buildExcelWorkbook(),`신성캐시_자금계획_${today()}.xlsx`,{compression:true});toast('엑셀 파일을 다운로드했습니다.')}catch(e){toast('엑셀 다운로드에 실패했습니다.')}};
 $('clearBtn').onclick=async()=>{if(confirm('모든 내역과 기초잔액을 삭제할까요? 이 작업은 되돌릴 수 없습니다.')){state={opening:0,items:[],revision:state.revision};await persist();render();resetForm();toast('초기화했습니다.')}};
 
-function excelDate(v){if(v==null||v==='')return'';if(v instanceof Date&&!isNaN(v))return new Date(v-v.getTimezoneOffset()*60000).toISOString().slice(0,10);if(typeof v==='number'){const d=XLSX.SSF.parse_date_code(v);return d?String(d.y).padStart(4,'0')+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):''}const t=String(v).trim().replace(/[./]/g,'-').replace(/년\s*/,'-').replace(/월\s*/,'-').replace(/일/g,'').replace(/\s+/g,'');const d=new Date(t);return isNaN(d)?'':new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,10)}
+function excelDate(v){const ymd=(y,m,d)=>String(y).padStart(4,'0')+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');if(v==null||v==='')return'';if(v instanceof Date&&!isNaN(v))return ymd(v.getFullYear(),v.getMonth()+1,v.getDate());if(typeof v==='number'){const d=XLSX.SSF.parse_date_code(v);return d?ymd(d.y,d.m,d.d):''}const t=String(v).trim().replace(/[./]/g,'-').replace(/년\s*/,'-').replace(/월\s*/,'-').replace(/일/g,'').replace(/\s+/g,'');const parts=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|T|\s)/);if(parts)return ymd(parts[1],parts[2],parts[3]);const d=new Date(t);return isNaN(d)?'':ymd(d.getFullYear(),d.getMonth()+1,d.getDate())}
 function nval(v){if(v==null||v==='')return null;const n=Number(String(v).replaceAll(',','').replaceAll('₩','').trim());return Number.isFinite(n)?n:null}
 function excelItems(rows){const clean=x=>String(x??'').trim().replace(/\s/g,'');let h=rows.findIndex(r=>r.some(v=>clean(v)==='날짜')&&r.some(v=>clean(v)==='구분'));const items=[],errors=[];
  if(h>=0){const hdr=rows[h].map(clean),ix=(...names)=>hdr.findIndex(v=>names.includes(v));const di=ix('날짜'),ci=ix('회사명','회사'),ti=ix('구분'),pi=ix('거래처/내용','거래처','내용'),fi=ix('외화금액','금액'),ri=ix('환율'),wi=ix('원화직접입력','원화'),ai=ix('적용금액'),mi=ix('메모','비고');if([di,ti,pi].some(v=>v<0))throw new Error('날짜·구분·거래처/내용 열 제목을 확인하세요.');
@@ -131,3 +131,4 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.
 </script>
 </body>
 </html>
+
