@@ -1,6 +1,57 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": false,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/",
+      "permanent": false
+    },
+    {
+      "source": "/app.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/app.html",
+      "permanent": false
+    },
+    {
+      "source": "/scan.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/scan.html",
+      "permanent": false
+    },
+    {
+      "source": "/inspection.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/inspection.html",
+      "permanent": false
+    },
+    {
+      "source": "/completed.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/completed.html",
+      "permanent": false
+    },
+    {
+      "source": "/po.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/po.html",
+      "permanent": false
+    },
+    {
+      "source": "/shared.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/shared.html",
+      "permanent": false
+    },
+    {
+      "source": "/scan-inspect.html",
+      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "destination": "/scrap/scan-inspect.html",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/scrap", "destination": "/scrap/index.html" },
     { "source": "/scrap/", "destination": "/scrap/index.html" }
@@ -9,7 +60,8 @@
     {
       "source": "/scrap/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
     }
   ]
