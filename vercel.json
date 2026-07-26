@@ -6,49 +6,49 @@
     {
       "source": "/",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/",
+      "destination": "/scrap-v2/index.html",
       "permanent": false
     },
     {
       "source": "/app.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/app.html",
+      "destination": "/scrap-v2/index.html",
       "permanent": false
     },
     {
       "source": "/scan.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/scan.html",
+      "destination": "/scrap-v2/index.html#scan",
       "permanent": false
     },
     {
       "source": "/inspection.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/inspection.html",
+      "destination": "/scrap-v2/index.html#inspection",
       "permanent": false
     },
     {
       "source": "/completed.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/completed.html",
+      "destination": "/scrap-v2/index.html#completed",
       "permanent": false
     },
     {
       "source": "/po.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/po.html",
+      "destination": "/scrap-v2/index.html#po",
       "permanent": false
     },
     {
       "source": "/shared.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/shared.html",
+      "destination": "/scrap-v2/index.html",
       "permanent": false
     },
     {
       "source": "/scan-inspect.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/scrap/scan-inspect.html",
+      "destination": "/scrap-v2/index.html#scan",
       "permanent": false
     },
     {
@@ -60,9 +60,18 @@
   "rewrites": [
     { "source": "/scrap", "destination": "/scrap/index.html" },
     { "source": "/scrap/", "destination": "/scrap/index.html" },
+    { "source": "/scrap-v2", "destination": "/scrap-v2/index.html" },
+    { "source": "/scrap-v2/", "destination": "/scrap-v2/index.html" },
     { "source": "/sales", "destination": "/sales.html" }
   ],
   "headers": [
+    {
+      "source": "/scrap-v2/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
     {
       "source": "/scrap/(.*)",
       "headers": [
