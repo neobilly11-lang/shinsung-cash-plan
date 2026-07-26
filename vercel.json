@@ -50,17 +50,30 @@
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
       "destination": "/scrap/scan-inspect.html",
       "permanent": false
+    },
+    {
+      "source": "/sales/",
+      "destination": "/sales.html",
+      "permanent": false
     }
   ],
   "rewrites": [
     { "source": "/scrap", "destination": "/scrap/index.html" },
-    { "source": "/scrap/", "destination": "/scrap/index.html" }
+    { "source": "/scrap/", "destination": "/scrap/index.html" },
+    { "source": "/sales", "destination": "/sales.html" }
   ],
   "headers": [
     {
       "source": "/scrap/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
+    {
+      "source": "/sales.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
     }
