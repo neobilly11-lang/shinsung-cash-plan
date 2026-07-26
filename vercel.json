@@ -1,4 +1,16 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/scrap", "destination": "/scrap/index.html" },
+    { "source": "/scrap/", "destination": "/scrap/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/scrap/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ]
 }
