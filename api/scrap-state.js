@@ -24,6 +24,30 @@ async function readRow() {
   return { payload: system?.scrapPayload || emptyState, revision: rows[0].revision || 0, items };
 }
 
+async function writeRow(current, payload, baseRevision) {
+  const nextRevision = baseRevision + 1;
+  const nextItems = current.items.filter(item => item?.id !== SYSTEM_ID);
+  nextItems.push({
+    id: SYSTEM_ID,
+    hiddenSystemItem: true,
+    sold: true,
+    company: '',
+    grade: '',
+    scrapPayload: payload || emptyState
+  });
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${ROW_ID}&revision=eq.${baseRevision}`, {
+    method: 'PATCH',
+    headers: { ...headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      items: nextItems,
+      revision: nextRevision,
+      updated_at: new Date().toISOString()
+    })
+  });
+  if (!response.ok) throw new Error(`Supabase save HTTP ${response.status}: ${await response.text()}`);
+  return nextRevision;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   try {
@@ -31,39 +55,25 @@ export default async function handler(req, res) {
       const row = await readRow();
       return res.status(200).json(row);
     }
-    if (req.method === 'PUT') {
+    if (req.method === 'PUT' || req.method === 'PATCH') {
       const baseRevision = Number(req.body?.baseRevision) || 0;
-      const nextRevision = baseRevision + 1;
       const current = await readRow();
       if (Number(current.revision) !== baseRevision) {
         return res.status(409).json({ error: '다른 사용자가 먼저 저장했습니다.', payload: current.payload, revision: current.revision });
       }
-      const nextItems = current.items.filter(item => item?.id !== SYSTEM_ID);
-      nextItems.push({
-        id: SYSTEM_ID,
-        hiddenSystemItem: true,
-        sold: true,
-        company: '',
-        grade: '',
-        scrapPayload: req.body?.payload || emptyState
-      });
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${ROW_ID}&revision=eq.${baseRevision}`, {
-        method: 'PATCH',
-        headers: { ...headers, Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          items: nextItems,
-          revision: nextRevision,
-          updated_at: new Date().toISOString()
-        })
-      });
-      if (!response.ok) throw new Error(`Supabase save HTTP ${response.status}: ${await response.text()}`);
-      const verify = await readRow();
-      if (Number(verify.revision) !== nextRevision) {
-        return res.status(409).json({ error: '다른 사용자가 먼저 저장했습니다.', ...verify });
+      let payload = req.body?.payload || emptyState;
+      if (req.method === 'PATCH') {
+        const allowed = ['gradeMasters', 'gradeTypes', 'mainGrades', 'subGrades', 'locations', 'waitingLocations'];
+        const changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
+        payload = { ...current.payload };
+        for (const key of allowed) {
+          if (Object.prototype.hasOwnProperty.call(changes, key)) payload[key] = changes[key];
+        }
       }
+      const nextRevision = await writeRow(current, payload, baseRevision);
       return res.status(200).json({ revision: nextRevision });
     }
-    res.setHeader('Allow', 'GET, PUT');
+    res.setHeader('Allow', 'GET, PUT, PATCH');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     return res.status(500).json({ error: error.message || String(error) });
