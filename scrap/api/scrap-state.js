@@ -1,0 +1,59 @@
+const SUPABASE_URL = 'https://orpeybiqikrdydkhsjjs.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
+const TABLE = 'scrap_app_state';
+const headers = { apikey: SUPABASE_KEY, 'content-type': 'application/json' };
+const emptyState = {
+  pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
+  mainGrades: [], subGrades: [], locations: [], movements: []
+};
+
+async function readRow() {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&select=payload,revision`, {
+    headers,
+    cache: 'no-store'
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Supabase HTTP ${response.status}: ${text}`);
+  const rows = JSON.parse(text || '[]');
+  if (rows.length) return rows[0];
+  const create = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+    method: 'POST',
+    headers: { ...headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ id: 'main', payload: emptyState, revision: 0 })
+  });
+  if (!create.ok && create.status !== 409) throw new Error(`Supabase row create HTTP ${create.status}: ${await create.text()}`);
+  return { payload: emptyState, revision: 0 };
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  try {
+    if (req.method === 'GET') {
+      const row = await readRow();
+      return res.status(200).json(row);
+    }
+    if (req.method === 'PUT') {
+      const baseRevision = Number(req.body?.baseRevision) || 0;
+      const nextRevision = baseRevision + 1;
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&revision=eq.${baseRevision}`, {
+        method: 'PATCH',
+        headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          payload: req.body?.payload || emptyState,
+          revision: nextRevision,
+          updated_at: new Date().toISOString()
+        })
+      });
+      if (!response.ok) throw new Error(`Supabase save HTTP ${response.status}: ${await response.text()}`);
+      const verify = await readRow();
+      if (Number(verify.revision) !== nextRevision) {
+        return res.status(409).json({ error: '다른 사용자가 먼저 저장했습니다.', ...verify });
+      }
+      return res.status(200).json({ revision: nextRevision });
+    }
+    res.setHeader('Allow', 'GET, PUT');
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || String(error) });
+  }
+}
