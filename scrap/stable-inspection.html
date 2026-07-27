@@ -35,7 +35,7 @@
 <script>
 'use strict';
 const API='https://orpeybiqikrdydkhsjjs.supabase.co',KEY='sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
-const HEAD={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},TABLE='scrap_app_state',BUCKET='scrap-photos';
+const HEAD={apikey:KEY,'Content-Type':'application/json'},TABLE='scrap_app_state',BUCKET='scrap-photos';
 let state={pos:[],splits:[],inputs:[],bags:[]},revision=0,selected=new Set(),completedSelected=new Set(),currentPackage='',stream=null,scanTimer=null,saving=false,scanPurpose='inspect',cloudMode=false;
 const E=id=>document.getElementById(id),num=v=>Number(v)||0,kg=v=>num(v).toLocaleString('ko-KR',{maximumFractionDigits:2})+' kg';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
