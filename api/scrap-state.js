@@ -6,7 +6,8 @@ const SYSTEM_ID = '__SCRAP_SHARED_STATE_V1__';
 const headers = { apikey: SUPABASE_KEY, 'content-type': 'application/json' };
 const emptyState = {
   pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
-  mainGrades: [], subGrades: [], locations: [], movements: []
+  mainGrades: [], subGrades: [], locations: [], movements: [],
+  waitingLocations: [], waitingMoves: []
 };
 
 async function readRow() {
