@@ -1,6 +1,7 @@
 const SUPABASE_URL = 'https://orpeybiqikrdydkhsjjs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
-const TABLE = 'scrap_app_state';
+const TABLE = 'sales_state';
+const ROW_ID = 'scrap-main';
 const headers = { apikey: SUPABASE_KEY, 'content-type': 'application/json' };
 const emptyState = {
   pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
@@ -8,18 +9,18 @@ const emptyState = {
 };
 
 async function readRow() {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&select=payload,revision`, {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${ROW_ID}&select=items,revision`, {
     headers,
     cache: 'no-store'
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`Supabase HTTP ${response.status}: ${text}`);
   const rows = JSON.parse(text || '[]');
-  if (rows.length) return rows[0];
+  if (rows.length) return { payload: rows[0].items, revision: rows[0].revision };
   const create = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
     method: 'POST',
     headers: { ...headers, Prefer: 'return=minimal' },
-    body: JSON.stringify({ id: 'main', payload: emptyState, revision: 0 })
+    body: JSON.stringify({ id: ROW_ID, items: emptyState, revision: 0 })
   });
   if (!create.ok && create.status !== 409) throw new Error(`Supabase row create HTTP ${create.status}: ${await create.text()}`);
   return { payload: emptyState, revision: 0 };
@@ -35,11 +36,11 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const baseRevision = Number(req.body?.baseRevision) || 0;
       const nextRevision = baseRevision + 1;
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&revision=eq.${baseRevision}`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${ROW_ID}&revision=eq.${baseRevision}`, {
         method: 'PATCH',
         headers: { ...headers, Prefer: 'return=minimal' },
         body: JSON.stringify({
-          payload: req.body?.payload || emptyState,
+          items: req.body?.payload || emptyState,
           revision: nextRevision,
           updated_at: new Date().toISOString()
         })
