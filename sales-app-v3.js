@@ -1,6 +1,6 @@
 Exit code: 0
-Wall time: 1.8 seconds
-Total output lines: 1022
+Wall time: 3.2 seconds
+Total output lines: 1109
 Output:
 (() => {
   'use strict';
@@ -12,6 +12,7 @@ Output:
   const TABLE = 'sales_state';
   const META_ID = '__SALES_META_V3__';
   const META_KIND = 'SALES_META_V3';
+  const SCRAP_SYSTEM_ID = '__SCRAP_SHARED_STATE_V1__';
   const LOCAL_KEY = 'shinsung-sales-v1';
   const $ = id => document.getElementById(id);
   const BASE_IDS = ['contract', 'contractDate', 'buyCompany'];
@@ -42,6 +43,7 @@ Output:
   let editId = null;
   let currentExtraContract = '';
   let localMode = false;
+  let serverTransport = '';
 
   const n = value => Number(value) || 0;
   const normalized = value => String(value ?? '').trim().toLowerCase();
@@ -63,7 +65,12 @@ Output:
   };
 
   function businessItems() {
-    return state.items.filter(item => item && item._kind !== META_KIND);
+    return state.items.filter(item => (
+      item &&
+      item._kind !== META_KIND &&
+      item.id !== SCRAP_SYSTEM_ID &&
+      item.hiddenSystemItem !== true
+    ));
   }
 
   function meta(create = true) {
@@ -175,12 +182,23 @@ Output:
     setTimeout(() => $('toast').classList.remove('show'), 2200);
   }
 
-  async function fetchRemote() {
-    const response = await fetch(
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function readDirectRow() {
+    const response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&select=items,revision`,
-      { headers: HEAD, cache: 'no-store' }
+      { headers: HEAD, cache: 'no-store' },
+      20000
     );
-    if (!response.ok) throw new Error('공용 서버 연결을 확인해 주세요.');
+    if (!response.ok) throw new Error(`Supabase HTTP ${response.status}`);
     const rows = await response.json();
     if (!rows.length) throw new Error('영업 데이터 서버가 준비되지 않았습니다.');
     return {
@@ -189,11 +207,42 @@ Output:
     };
   }
 
+  async function fetchRemote() {
+    let apiError = '';
+    try {
+      const response = await fetchWithTimeout('/api/sales-state', { cache: 'no-store' });
+      const text = await response.text();
+      const result = JSON.parse(text || '{}');
+      if (!response.ok) throw new Error(result.error || `Vercel HTTP ${response.status}`);
+      serverTransport = 'vercel';
+      return {
+        items: Array.isArray(result.items) ? result.items : [],
+        revision: n(result.revision)
+      };
+    } catch (error) {
+      apiError = error.name === 'AbortError' ? 'Vercel 응답 시간 초과' : error.message;
+    }
+    try {
+      const direct = await readDirectRow();
+      serverTransport = 'supabase';
+      return {
+        items: direct.items.filter(item => (
+          item?.id !== SCRAP_SYSTEM_ID && item?.hiddenSystemItem !== true
+        )),
+        revision: direct.revision
+      };
+    } catch (error) {
+      serverTransport = '';
+      throw new Error(`${apiError} / ${error.message}`);
+    }
+  }
+
   async function load() {
     try {
       state = await fetchRemote();
       localMode = false;
-      $('syncStatus').textContent = `공용 서버 연결됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+      const serverName = serverTransport === 'vercel' ? 'Vercel 공용 서버' : 'Supabase 공용 서버';
+      $('syncStatus').textContent = `${serverName} 연결됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
       render();
     } catch (error) {
       localMode = true;
@@ -215,27 +264,65 @@ Output:
       $('syncStatus').textContent = `이 기기에 저장됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
       return;
     }
+    const cleanItems = state.items.filter(item => (
+      item?.id !== SCRAP_SYSTEM_ID && item?.hiddenSystemItem !== true
+    ));
+    if (serverTransport === 'vercel') {
+      try {
+        const response = await fetchWithTimeout('/api/sales-state', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ items: cleanItems, baseRevision: state.revision })
+        }, 20000);
+        const text = await response.text();
+        const result = JSON.parse(text || '{}');
+        if (response.status === 409) {
+          state = {
+            items: Array.isArray(result.items) ? result.items : cleanItems,
+            revision: n(result.revision)
+          };
+          render();
+          throw new Error(result.error || '다른 사용자의 변경사항을 불러왔습니다. 다시 저장해 주세요.');
+        }
+        if (!response.ok) throw new Error(result.error || `Vercel HTTP ${response.status}`);
+        state.revision = n(result.revision);
+        $('syncStatus').textContent = `Vercel 공용 서버 저장됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+        return;
+      } catch (error) {
+        if (error.message.includes('다른 사용자가')) throw error;
+        serverTransport = 'supabase';
+      }
+    }
+    const current = await readDirectRow();
+    if (current.revision !== state.revision) {
+      await load();
+      throw new Error('다른 사용자의 변경사항을 불러왔습니다. 다시 저장해 주세요.');
+    }
     const nextRevision = state.revision + 1;
-    const response = await fetch(
+    const preserved = current.items.filter(item => (
+      item?.id === SCRAP_SYSTEM_ID || item?.hiddenSystemItem === true
+    ));
+    const response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&revision=eq.${state.revision}`,
       {
         method: 'PATCH',
         headers: { ...HEAD, 'content-type': 'application/json', Prefer: 'return=representation' },
         body: JSON.stringify({
-          items: state.items,
+          items: [...preserved, ...cleanItems],
           revision: nextRevision,
           updated_at: new Date().toISOString()
         })
-      }
+      },
+      20000
     );
-    if (!response.ok) throw new Error('저장하지 못했습니다.');
+    if (!response.ok) throw new Error('공용 서버에 저장하지 못했습니다.');
     const rows = await response.json();
     if (!rows.length) {
       await load();
       throw new Error('다른 사용자의 변경사항을 불러왔습니다. 다시 저장해 주세요.');
     }
     state.revision = nextRevision;
-    $('syncStatus').textContent = `공용 서버 저장됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+    $('syncStatus').textContent = `Supabase 공용 서버 저장됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
   function lineFormObject() {
@@ -417,69 +504,7 @@ Output:
 
   function renderContractLineList() {
     const contract = $('contract').value.trim();
-    const rows = contract ? contractRows(contract) : [];
-    $('openExtraBtn').hidden = !rows.length;
-    $('contractLineList').innerHTML = rows.length
-      ? `<div class="section-title"><b>이 계약에 저장된 품목 ${rows.length}건</b><span class="pill">계약번호 ${esc(contract)}</span></div>` +
-        rows.map((item, index) => `<div class="line-card">
-          <div><small>${index + 1}번째 품목</small><b>${esc(item.gradeName || '강종 미입력')}</b>${item.subGrade ? `<small>${esc(item.subGrade)}</small>` : ''}</div>
-          <div><small>중량</small><b>${kg(item.weight)}</b></div>
-          <div><small>매입환율</small><b>${n(item.buyFx).toLocaleString()}</b></div>
-          <div><small>판매환율 / 회전일</small><b>${n(item.sellFx).toLocaleString()} / ${n(item.turnDays)}일</b></div>
-          <div class="actions"><button data-entry-edit="${item.id}">수정</button></div>
-        </div>`).join('')
-      : '';
-  }
-
-  function groupRow(group, isGrade) {
-    const margin = group.sales ? group.profit / group.sales : 0;
-    const days = group.dayCount ? group.days / group.dayCount : 0;
-    const annual = days ? margin * 365 / days : 0;
-    return `<tr><td>${esc(group.name)}</td><td class="num">${group.count}</td>
-      <td class="num">${kg(group.weight)}</td><td class="num">${fmt(group.sales)}</td>
-      <td class="num">${fmt(group.profit)}</td><td class="num">${pct(margin)}</td>
-      <td class="num">${days.toFixed(1)}일</td><td class="num">${pct(annual)}</td>
-      ${isGrade
-        ? `<td class="num">${kg(group.unsoldWeight)}</td><td class="num">${fmt(group.unsoldValue)}</td>`
-        : `<td class="num">${fmt(group.shinsung)}</td>`}
-    </tr>`;
-  }
-
-  function renderGroups() {
-    const company = aggregate('sellCompany').map(group => groupRow(group, false)).join('');
-    const grade = aggregate('gradeName').map(group => groupRow(group, true)).join('');
-    $('companyBody').innerHTML = company || '<tr><td colspan="9" class="empty">자료가 없습니다.</td></tr>';
-    $('gradeBody').innerHTML = grade || '<tr><td colspan="10" class="empty">자료가 없습니다.</td></tr>';
-  }
-
-  function holdingDays(dateText) {
-    if (!dateText) return 0;
-    return Math.max(0, Math.floor(
-      (new Date(`${today()}T00:00:00`) - new Date(`${dateText}T00:00:00`)) / 86400000
-    ));
-  }
-
-  function renderUnsold() {
-    const rows = businessItems()
-      .filter(item => item.status !== '판매완료')
-      .sort((a, b) => (a.contractDate || '').localeCompare(b.contractDate || ''))
-      .map(item => {
-        const result = metrics(item);
-        return `<tr><td>${item.contractDate || ''}</td><td class="num">${holdingDays(item.contractDate)}일</td>
-          <td>${esc(item.contract)}</td><td>${esc(item.buyCompany)}</td><td>${esc(item.gradeName)}</td>
-          <td class="num">${kg(item.weight)}</td><td class="num">${usd(n(item.weight) * n(item.buyUsd))}</td>
-          <td class="num">${fmt(result.buyTotal)}</td><td class="num">${fmt(result.sales)}</td>
-          <td class="num">${fmt(result.profit)}</td></tr>`;
-      }).join('');
-    $('unsoldBody').innerHTML = rows || '<tr><td colspan="10" class="empty">미판매 자료가 없습니다.</td></tr>';
-  }
-
-  function contractSummaries() {
-    const grouped = new Map();
-    for (const item of businessItems()) {
-      const key = contractKey(item.contract);
-      if (!grouped.has(key)) {
-    …939 tokens truncated…eight ? 'masterFreight' : 'masterWorkCost');
+    const ro…1790 tokens truncated…eight ? 'masterFreight' : 'masterWorkCost');
     const name = nameInput.value.trim();
     const rate = n(rateInput.value);
     if (!name) return toast(freight ? '도착지를 입력하세요.' : '소강종을 입력하세요.');
