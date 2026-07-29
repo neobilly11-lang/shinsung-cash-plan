@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.8 seconds
-Output:
 const SUPABASE_URL = 'https://orpeybiqikrdydkhsjjs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
 const TABLE = 'sales_state';
@@ -86,4 +83,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message || String(error) });
   }
 }
-
