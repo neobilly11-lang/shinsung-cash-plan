@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.6 seconds
-Output:
 (() => {
   'use strict';
 
@@ -83,6 +80,36 @@ Output:
   window.beginSaveProgress = beginSaveProgress;
   window.updateSaveProgress = updateSaveProgress;
   window.endSaveProgress = endSaveProgress;
+  window.STABLE_INSPECTION_FIX_VERSION = '20260729-2';
+
+  const originalOpenInspection = openInspection;
+  openInspection = function openInspectionWithCompletionGuard(no) {
+    const packageItem = state.pos.find(item => item.packageNo === no);
+    if (packageItem && packageRemain(packageItem) <= 0) {
+      const notice = `${no}는 사내입고 검수가 완료되어 더 이상 검수 QR 목록에서 선택할 수 없습니다.`;
+      const target = E('scan')?.classList.contains('on') ? 'scanMsg' : 'inspectMsg';
+      msg(target, notice, true);
+      if (!E('scan')?.classList.contains('on')) openScanMode('inspect');
+      return;
+    }
+    return originalOpenInspection.apply(this, arguments);
+  };
+
+  const originalFilterManualPackages = filterManualPackages;
+  filterManualPackages = function filterManualPackagesWithoutCompletedInspections() {
+    originalFilterManualPackages.apply(this, arguments);
+    if (scanPurpose !== 'inspect') return;
+    const select = E('manualPackage');
+    [...select.options].forEach(option => {
+      if (!option.value) return;
+      const packageItem = state.pos.find(item => item.packageNo === option.value);
+      if (packageItem && packageRemain(packageItem) <= 0) option.remove();
+    });
+    if (select.value) {
+      const selectedPackage = state.pos.find(item => item.packageNo === select.value);
+      if (selectedPackage && packageRemain(selectedPackage) <= 0) select.value = '';
+    }
+  };
 
   const originalSaveState = saveState;
   saveState = async function saveStateWithProgress() {
@@ -197,9 +224,10 @@ Output:
     E('inspectSave').disabled = true;
     beginSaveProgress('검수 임시보관 중', '선택한 사진을 한 장씩 압축하고 있습니다.');
     const backup = JSON.parse(JSON.stringify(state));
-    const old = state.inspectionDrafts.find(
-      item => item.packageNo === packageItem.packageNo && item.status === 'TEMP'
-    );
+    const old = state.inspectionDrafts
+      .filter(item => item.packageNo === packageItem.packageNo && item.status === 'TEMP')
+      .slice()
+      .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))[0];
     const photoInputs = [
       ['shape', 'shape-draft', E('shapePhoto').files[0]],
       ['analyzer', 'analyzer-draft', E('analyzerPhoto').files[0]],
@@ -227,10 +255,13 @@ Output:
         memo: E('memo').value.trim(),
         photos,
         status: 'TEMP',
+        saveCount: num(old?.saveCount) + 1,
         createdAt: old?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      state.inspectionDrafts = state.inspectionDrafts.filter(item => item.id !== draft.id);
+      state.inspectionDrafts = state.inspectionDrafts.filter(item => !(
+        item.packageNo === packageItem.packageNo && item.status === 'TEMP'
+      ));
       state.inspectionDrafts.push(draft);
       updateSaveProgress('임시보관 자료 저장 중', '사진 경로와 검수 내용을 공용 서버에 저장하고 있습니다.');
       await saveState();
@@ -289,4 +320,3 @@ Output:
       : '<div class="card">검수 임시보관 자료가 없습니다.</div>';
   };
 })();
-
