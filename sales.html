@@ -1,7 +1,3 @@
-Exit code: 0
-Wall time: 1.9 seconds
-Total output lines: 137
-Output:
 <!doctype html>
 <html lang="ko">
 <head>
@@ -89,7 +85,14 @@ Output:
   <section class="view" id="remittance"><div class="panel"><h2>미송금 내역</h2><div class="table-wrap"><table><thead><tr><th>계약일</th><th>계약번호</th><th>매입회사</th><th>강종</th><th>매입 USD 총액</th><th>누적 송금액</th><th>미송금 잔액</th><th>미송금 원화환산</th><th>최근 송금일</th><th>송금 메모</th></tr></thead><tbody id="remittanceBody"></tbody></table></div></div></section>
   <section class="view" id="masters"><div class="panel"><h2>도착지별 예상 운임 기준정보</h2><p class="note">도착지를 저장하면 품목 등록에서 도착지를 검색·선택할 때 USD/kg 예상 운임이 자동 입력됩니다. 자동 입력 후 직접 수정할 수도 있습니다.</p><div class="master-row"><div class="field"><label>도착지<input id="masterDestination" placeholder="예: 부산항"></label></div><div class="field"><label>운임(USD/kg)<input id="masterFreight" type="number" min="0" step="any"></label></div><button class="primary" id="saveFreightMaster">도착지·운임 저장</button></div><div id="freightMasterList" class="master-list"></div></div><div class="panel"><h2>소강종별 예상 작업비 기준정보</h2><p class="note">소강종을 저장하면 품목 등록에서 검색·선택할 때 USD/kg 예상 작업비가 자동 입력됩니다. 자동 입력 후 직접 수정할 수도 있습니다.</p><div class="master-row"><div class="field"><label>소강종<input id="masterSubGrade" placeholder="예: TURNING"></label></div><div class="field"><label>작업비(USD/kg)<input id="masterWorkCost" type="number" min="0" step="any"></label></div><button class="primary" id="saveWorkMaster">소강종·작업비 저장</button></div><div id="workMasterList" class="master-list"></div></div></section>
 </main>
-<div class="modal" id="extraModal"><div class="modal-card"><div class="section-title"><div><h2>계약별 추가정보</h2><p>품목 등록이 확정된 계약만 송금·클레임·메모를 추가할 수 있습니다.</p></div><button id="closeExtraModal">닫기</button></div><div id="extraContractTitle" class="modal-contract"></div><div class="grid"><div class="field"><label>최근 송금일</label><input id="extraRemittanceDate" type="date"></div><div class="field"><label>누적 송금액(USD)</label><input id="extraRemittedUsd" type="number" min="0" step="any"></div><div class="field wide"><label>송금 메모</label><input id="extraRemittanceMemo" placeholder="예: 1차 …221 tokens truncated…ract','contractDate','buyCompany','gradeName','weight','buyUsd','buyFx','freight','workCost','shinsungProfit','sellUsd','sellFx','sellCompany','status','soldDate','turnDays','claim','memo','remittanceDate','remittedUsd','remittanceMemo'];
+<div class="modal" id="extraModal"><div class="modal-card"><div class="section-title"><div><h2>계약별 추가정보</h2><p>품목 등록이 확정된 계약만 송금·클레임·메모를 추가할 수 있습니다.</p></div><button id="closeExtraModal">닫기</button></div><div id="extraContractTitle" class="modal-contract"></div><div class="grid"><div class="field"><label>최근 송금일</label><input id="extraRemittanceDate" type="date"></div><div class="field"><label>누적 송금액(USD)</label><input id="extraRemittedUsd" type="number" min="0" step="any"></div><div class="field wide"><label>송금 메모</label><input id="extraRemittanceMemo" placeholder="예: 1차 송금"></div><div class="field"><label>클레임비(수익·원)</label><input id="extraClaim" type="number" step="1"></div><div class="field wide"><label>계약 메모</label><input id="extraMemo" placeholder="작업·판매·클레임 관련 메모"></div></div><div class="actions"><button class="primary" id="saveExtraBtn">계약 추가정보 저장</button><button id="cancelExtraBtn">취소</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="sales-app-v3.js?v=server-api-20260729-1"></script>
+<script>
+(()=>{'use strict';if(window.SALES_APP_V3)return;
+const SUPABASE_URL='https://orpeybiqikrdydkhsjjs.supabase.co',SUPABASE_KEY='sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q',HEAD={apikey:SUPABASE_KEY},TABLE='sales_state';
+const $=id=>document.getElementById(id),ids=['contract','contractDate','buyCompany','gradeName','weight','buyUsd','buyFx','freight','workCost','shinsungProfit','sellUsd','sellFx','sellCompany','status','soldDate','turnDays','claim','memo','remittanceDate','remittedUsd','remittanceMemo'];
 const EXCEL_HEADERS=['계약번호','계약일','매입 회사명','강종 이름','중량(kg)','매입 USD 단가','매입 예상환율','예상 운임(USD/kg)','예상 작업비(USD/kg)','신성금속 수익(USD/kg)','판매 USD 단가','판매 예상환율','판매처','판매 상태','판매완료일','자금회전일','클레임비(원)','메모','최근 송금일','누적 송금액(USD)','송금 메모','매입 원화금액','판매 예상매출','예상 총이익','이익률','환차익','신성금속 귀속수익','연환산 수익률','미송금 잔액(USD)','미송금 원화환산'],EXCEL_WIDTHS=[14,12,18,16,12,14,14,18,18,20,14,14,18,12,12,12,14,25,12,17,22,16,16,16,11,16,18,15,17,18];
 let state={items:[],revision:0},editId=null,localMode=false;
 const n=v=>Number(v)||0,fmt=v=>Math.round(n(v)).toLocaleString('ko-KR')+'원',pct=v=>(n(v)*100).toFixed(1)+'%',kg=v=>n(v).toLocaleString('ko-KR',{maximumFractionDigits:2})+' kg';
@@ -131,4 +134,3 @@ addEventListener('resize',()=>{clearTimeout(window.__t);window.__t=setTimeout(dr
 </script>
 </body>
 </html>
-
