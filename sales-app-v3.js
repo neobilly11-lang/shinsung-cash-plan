@@ -1,7 +1,3 @@
-Exit code: 0
-Wall time: 3.2 seconds
-Total output lines: 1109
-Output:
 (() => {
   'use strict';
   window.SALES_APP_V3 = true;
@@ -44,6 +40,10 @@ Output:
   let currentExtraContract = '';
   let localMode = false;
   let serverTransport = '';
+  let hasRemoteLoaded = false;
+  let reconnectAttempts = 0;
+  let reconnectTimer = null;
+  let loadInProgress = false;
 
   const n = value => Number(value) || 0;
   const normalized = value => String(value ?? '').trim().toLowerCase();
@@ -182,7 +182,7 @@ Output:
     setTimeout(() => $('toast').classList.remove('show'), 2200);
   }
 
-  async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -196,7 +196,7 @@ Output:
     const response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.main&select=items,revision`,
       { headers: HEAD, cache: 'no-store' },
-      20000
+      12000
     );
     if (!response.ok) throw new Error(`Supabase HTTP ${response.status}`);
     const rows = await response.json();
@@ -238,13 +238,24 @@ Output:
   }
 
   async function load() {
+    if (loadInProgress) return;
+    loadInProgress = true;
     try {
       state = await fetchRemote();
       localMode = false;
+      hasRemoteLoaded = true;
+      reconnectAttempts = 0;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
       const serverName = serverTransport === 'vercel' ? 'Vercel 공용 서버' : 'Supabase 공용 서버';
       $('syncStatus').textContent = `${serverName} 연결됨 · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
       render();
     } catch (error) {
+      if (hasRemoteLoaded) {
+        $('syncStatus').textContent = '공용 서버 자동 재연결 중';
+        scheduleReconnect();
+        return;
+      }
       localMode = true;
       try {
         const saved = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
@@ -254,8 +265,23 @@ Output:
       }
       $('syncStatus').textContent = '이 기기에 임시 저장 중 · 공용 서버 연결 필요';
       render();
-      toast('서버 연결 전까지 이 기기에 안전하게 저장합니다.');
+      toast('공용 서버에 자동으로 다시 연결하고 있습니다.');
+      scheduleReconnect();
+    } finally {
+      loadInProgress = false;
     }
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    const delays = [800, 1800, 3500, 6000, 10000];
+    const delay = delays[Math.min(reconnectAttempts, delays.length - 1)];
+    reconnectAttempts += 1;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      $('syncStatus').textContent = `공용 서버 자동 연결 시도 ${reconnectAttempts}`;
+      load();
+    }, delay);
   }
 
   async function persist() {
@@ -273,7 +299,7 @@ Output:
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ items: cleanItems, baseRevision: state.revision })
-        }, 20000);
+        }, 12000);
         const text = await response.text();
         const result = JSON.parse(text || '{}');
         if (response.status === 409) {
@@ -313,7 +339,7 @@ Output:
           updated_at: new Date().toISOString()
         })
       },
-      20000
+      12000
     );
     if (!response.ok) throw new Error('공용 서버에 저장하지 못했습니다.');
     const rows = await response.json();
@@ -504,7 +530,151 @@ Output:
 
   function renderContractLineList() {
     const contract = $('contract').value.trim();
-    const ro…1790 tokens truncated…eight ? 'masterFreight' : 'masterWorkCost');
+    const rows = contract ? contractRows(contract) : [];
+    $('openExtraBtn').hidden = !rows.length;
+    $('contractLineList').innerHTML = rows.length
+      ? `<div class="section-title"><b>이 계약에 저장된 품목 ${rows.length}건</b><span class="pill">계약번호 ${esc(contract)}</span></div>` +
+        rows.map((item, index) => `<div class="line-card">
+          <div><small>${index + 1}번째 품목</small><b>${esc(item.gradeName || '강종 미입력')}</b>${item.subGrade ? `<small>${esc(item.subGrade)}</small>` : ''}</div>
+          <div><small>중량</small><b>${kg(item.weight)}</b></div>
+          <div><small>매입환율</small><b>${n(item.buyFx).toLocaleString()}</b></div>
+          <div><small>판매환율 / 회전일</small><b>${n(item.sellFx).toLocaleString()} / ${n(item.turnDays)}일</b></div>
+          <div class="actions"><button data-entry-edit="${item.id}">수정</button></div>
+        </div>`).join('')
+      : '';
+  }
+
+  function groupRow(group, isGrade) {
+    const margin = group.sales ? group.profit / group.sales : 0;
+    const days = group.dayCount ? group.days / group.dayCount : 0;
+    const annual = days ? margin * 365 / days : 0;
+    return `<tr><td>${esc(group.name)}</td><td class="num">${group.count}</td>
+      <td class="num">${kg(group.weight)}</td><td class="num">${fmt(group.sales)}</td>
+      <td class="num">${fmt(group.profit)}</td><td class="num">${pct(margin)}</td>
+      <td class="num">${days.toFixed(1)}일</td><td class="num">${pct(annual)}</td>
+      ${isGrade
+        ? `<td class="num">${kg(group.unsoldWeight)}</td><td class="num">${fmt(group.unsoldValue)}</td>`
+        : `<td class="num">${fmt(group.shinsung)}</td>`}
+    </tr>`;
+  }
+
+  function renderGroups() {
+    const company = aggregate('sellCompany').map(group => groupRow(group, false)).join('');
+    const grade = aggregate('gradeName').map(group => groupRow(group, true)).join('');
+    $('companyBody').innerHTML = company || '<tr><td colspan="9" class="empty">자료가 없습니다.</td></tr>';
+    $('gradeBody').innerHTML = grade || '<tr><td colspan="10" class="empty">자료가 없습니다.</td></tr>';
+  }
+
+  function holdingDays(dateText) {
+    if (!dateText) return 0;
+    return Math.max(0, Math.floor(
+      (new Date(`${today()}T00:00:00`) - new Date(`${dateText}T00:00:00`)) / 86400000
+    ));
+  }
+
+  function renderUnsold() {
+    const rows = businessItems()
+      .filter(item => item.status !== '판매완료')
+      .sort((a, b) => (a.contractDate || '').localeCompare(b.contractDate || ''))
+      .map(item => {
+        const result = metrics(item);
+        return `<tr><td>${item.contractDate || ''}</td><td class="num">${holdingDays(item.contractDate)}일</td>
+          <td>${esc(item.contract)}</td><td>${esc(item.buyCompany)}</td><td>${esc(item.gradeName)}</td>
+          <td class="num">${kg(item.weight)}</td><td class="num">${usd(n(item.weight) * n(item.buyUsd))}</td>
+          <td class="num">${fmt(result.buyTotal)}</td><td class="num">${fmt(result.sales)}</td>
+          <td class="num">${fmt(result.profit)}</td></tr>`;
+      }).join('');
+    $('unsoldBody').innerHTML = rows || '<tr><td colspan="10" class="empty">미판매 자료가 없습니다.</td></tr>';
+  }
+
+  function contractSummaries() {
+    const grouped = new Map();
+    for (const item of businessItems()) {
+      const key = contractKey(item.contract);
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          contract: key,
+          contractDate: item.contractDate || '',
+          buyCompany: item.buyCompany || '',
+          grades: new Set(),
+          buyUsdTotal: 0,
+          weightedFx: 0
+        });
+      }
+      const group = grouped.get(key);
+      const rowUsd = n(item.weight) * n(item.buyUsd);
+      group.grades.add(item.gradeName || '');
+      group.buyUsdTotal += rowUsd;
+      group.weightedFx += rowUsd * n(item.buyFx);
+      if ((item.contractDate || '') < group.contractDate || !group.contractDate) {
+        group.contractDate = item.contractDate || '';
+      }
+    }
+    return [...grouped.values()].map(group => {
+      const extra = contractExtra(group.contract);
+      const unpaidUsd = Math.max(0, group.buyUsdTotal - extra.remittedUsd);
+      const buyFx = group.buyUsdTotal ? group.weightedFx / group.buyUsdTotal : 0;
+      return {
+        ...group,
+        grades: [...group.grades].filter(Boolean).join(', '),
+        extra,
+        unpaidUsd,
+        unpaidKrw: unpaidUsd * buyFx
+      };
+    });
+  }
+
+  function renderRemittance() {
+    const rows = contractSummaries()
+      .filter(group => group.unpaidUsd > 0)
+      .sort((a, b) => b.unpaidUsd - a.unpaidUsd)
+      .map(group => `<tr><td>${group.contractDate}</td><td>${esc(group.contract)}</td>
+        <td>${esc(group.buyCompany)}</td><td>${esc(group.grades)}</td>
+        <td class="num">${usd(group.buyUsdTotal)}</td><td class="num">${usd(group.extra.remittedUsd)}</td>
+        <td class="num">${usd(group.unpaidUsd)}</td><td class="num">${fmt(group.unpaidKrw)}</td>
+        <td>${group.extra.remittanceDate}</td><td>${esc(group.extra.remittanceMemo)}</td></tr>`)
+      .join('');
+    $('remittanceBody').innerHTML = rows || '<tr><td colspan="10" class="empty">미송금 내역이 없습니다.</td></tr>';
+  }
+
+  function renderMasters() {
+    const record = meta();
+    const freight = [...record.freightMasters].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    const work = [...record.workMasters].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    $('destinationMasterList').innerHTML = freight.map(item => `<option value="${esc(item.name)}">${n(item.rate)} USD/kg</option>`).join('');
+    $('subGradeMasterList').innerHTML = work.map(item => `<option value="${esc(item.name)}">${n(item.rate)} USD/kg</option>`).join('');
+    $('freightMasterList').innerHTML = freight.length
+      ? freight.map(item => `<div class="master-item"><b>${esc(item.name)}</b><span>${n(item.rate).toLocaleString()} USD/kg</span><button class="danger" data-delete-freight="${esc(item.name)}">삭제</button></div>`).join('')
+      : '<div class="empty">저장된 도착지·운임이 없습니다.</div>';
+    $('workMasterList').innerHTML = work.length
+      ? work.map(item => `<div class="master-item"><b>${esc(item.name)}</b><span>${n(item.rate).toLocaleString()} USD/kg</span><button class="danger" data-delete-work="${esc(item.name)}">삭제</button></div>`).join('')
+      : '<div class="empty">저장된 소강종·작업비가 없습니다.</div>';
+  }
+
+  function findMaster(list, name) {
+    return list.find(item => normalized(item.name) === normalized(name));
+  }
+
+  function applyFreightMaster() {
+    const found = findMaster(meta().freightMasters, $('destination').value);
+    if (found) {
+      $('freight').value = found.rate;
+      updateCalc();
+    }
+  }
+
+  function applyWorkMaster() {
+    const found = findMaster(meta().workMasters, $('subGrade').value);
+    if (found) {
+      $('workCost').value = found.rate;
+      updateCalc();
+    }
+  }
+
+  async function saveMaster(kind) {
+    const freight = kind === 'freight';
+    const nameInput = $(freight ? 'masterDestination' : 'masterSubGrade');
+    const rateInput = $(freight ? 'masterFreight' : 'masterWorkCost');
     const name = nameInput.value.trim();
     const rate = n(rateInput.value);
     if (!name) return toast(freight ? '도착지를 입력하세요.' : '소강종을 입력하세요.');
@@ -916,7 +1086,12 @@ Output:
     });
     renderList();
   };
-  $('syncBtn').onclick = load;
+  $('syncBtn').onclick = () => {
+    reconnectAttempts = 0;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    load();
+  };
   $('xlsxOut').onclick = () => {
     try {
       XLSX.writeFile(workbook(), `신성금속_영업수익성_${today()}.xlsx`, { compression: true });
@@ -966,4 +1141,3 @@ Output:
     if (!editId && !$('extraModal').classList.contains('open')) load();
   }, 30000);
 })();
-
