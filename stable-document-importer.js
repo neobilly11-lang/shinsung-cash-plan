@@ -361,6 +361,10 @@
 
   async function importDocuments(mode, files) {
     if (!files.length) return;
+    if (editor[mode].rows.length === 1) {
+      const first = editor[mode].rows[0];
+      if (!Parser.clean(first.detailGrade) && num(first.weight) <= 0 && !Parser.clean(first.sourcePackageNo)) editor[mode].rows = [];
+    }
     setBusy(true, '문서 자동변환 시작', `${files.length}개 파일을 차례로 읽습니다.`, 4);
     let added = 0;
     const warnings = [];
