@@ -14,15 +14,15 @@
 
   const style = document.createElement('style');
   style.textContent = `
-    .document-head{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .document-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:10px}
     .document-drop{border:3px dashed var(--green);border-radius:18px;background:#eff8f4;padding:20px;text-align:center;margin:14px 0}
     .document-drop strong,.document-drop small{display:block}.document-drop strong{font-size:23px}.document-drop small{color:var(--muted);margin-top:7px;line-height:1.45}
-    .document-table{min-width:1240px}.document-table input,.document-table select{min-height:44px;margin:0;padding:7px;border-width:1px}.document-table textarea{min-height:58px;margin:0;padding:7px;border-width:1px;resize:vertical}
+    .document-table{min-width:1240px}.document-table.po-table{min-width:1660px}.document-table input,.document-table select{min-height:44px;margin:0;padding:7px;border-width:1px}.document-table textarea{min-height:58px;margin:0;padding:7px;border-width:1px;resize:vertical}
     .document-table th:nth-child(1){width:52px}.document-table th:nth-child(2){width:115px}.document-table th:nth-child(3){width:150px}.document-table th:nth-child(4){width:150px}.document-table th:nth-child(5){width:250px}.document-table th:nth-child(6){width:125px}.document-table th:nth-child(7){width:100px}.document-table th:nth-child(8){width:90px}
     .document-source{font-size:13px;color:var(--muted);line-height:1.4}.document-hint{border-left:6px solid var(--amber);background:#fff7d9;border-radius:12px;padding:12px 14px;line-height:1.5}
     .document-raw{width:100%;min-height:120px;font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap}
     .document-busy{position:fixed;inset:0;z-index:340;display:none;place-items:center;background:#07110ecc;padding:18px}.document-busy.on{display:grid}.document-busy-card{width:min(94vw,470px);border-radius:24px;background:#fff;padding:28px 22px;text-align:center;box-shadow:0 24px 70px #0008}.document-busy-icon{font-size:58px;display:block;animation:document-busy-spin 1.7s linear infinite}.document-busy-card b{display:block;font-size:24px;margin-top:12px}.document-busy-card p{color:var(--muted);line-height:1.5}.document-progress{height:14px;border-radius:999px;background:#e4ebe7;overflow:hidden}.document-progress span{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--lime));transition:width .2s}
-    .document-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.document-summary div{background:#f1f6f3;border-radius:12px;padding:12px}.document-summary small,.document-summary b{display:block}.document-summary b{font-size:20px;margin-top:4px}
+    .document-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:10px 0}.document-summary div{background:#f1f6f3;border-radius:12px;padding:12px}.document-summary small,.document-summary b{display:block}.document-summary b{font-size:20px;margin-top:4px}
     @keyframes document-busy-spin{0%{transform:rotate(0)}50%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}
     @media(max-width:720px){.document-head,.document-summary{grid-template-columns:1fr}.document-drop{padding:16px}.document-drop strong{font-size:20px}}
   `;
@@ -51,8 +51,13 @@
           <label>${po ? 'P.O 넘버' : 'S.O 넘버'}<input id="${po ? 'docPoNo' : 'docSoNo'}" placeholder="문서에서 자동 추출 또는 직접 입력"></label>
           <label>${po ? '거래처명' : '판매처'}<input id="${po ? 'docPoCompany' : 'docSoCustomer'}" list="docCompanyList" placeholder="등록 거래처 검색 또는 입력"></label>
           <label>${po ? 'P.O 일자' : '출하 예정일'}<input id="${po ? 'docPoDate' : 'docSoDate'}" type="date" value="${today()}"></label>
+          ${po ? `
+          <label>환율(원/USD)<input id="docPoExchangeRate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="엑셀에 없어도 직접 입력"></label>
+          <label>컨테이너 규격<input id="docPoContainerSpec" list="docContainerList" placeholder="예: 20FT, 40HQ, LCL"></label>
+          <label>구매여부<select id="docPoPurchaseStatus"><option value="">선택</option><option>구매예정</option><option>구매확정</option><option>보류</option><option>미구매</option></select></label>
+          <label>입항예정일<input id="docPoEta" type="date"></label>` : ''}
         </div>
-        <datalist id="docCompanyList"></datalist><datalist id="docMainGradeList"></datalist><datalist id="docSubGradeList"></datalist><datalist id="docStockGradeList"></datalist>
+        <datalist id="docCompanyList"></datalist><datalist id="docMainGradeList"></datalist><datalist id="docSubGradeList"></datalist><datalist id="docStockGradeList"></datalist><datalist id="docContainerList"><option value="20FT"></option><option value="40FT"></option><option value="40HQ"></option><option value="LCL"></option><option value="기타"></option></datalist>
         <div class="document-drop">
           <strong>📄 PACKING LIST · INVOICE · 계약서 업로드</strong>
           <small>Excel, PDF, 촬영 사진을 읽어 COMMODITY · GRADE · DESCRIPTION을 상세강종으로 합칩니다.<br>유사한 저장 강종은 자동 제안하며 등록 전에 모두 수정할 수 있습니다.</small>
@@ -60,15 +65,15 @@
         </div>
         <div id="${po ? 'docPoStatus' : 'docSoStatus'}" class="msg"></div>
         <div id="${po ? 'docPoSummary' : 'docSoSummary'}" class="document-summary"></div>
-        <div class="document-hint">${po ? '<b>P.O 확정등록을 누를 때만 사내입고번호가 자동 생성됩니다.</b> 문서 변환과 행 수정 단계에서는 사내입고번호가 생성되지 않습니다.' : '<b>S.O 품목은 여러 행을 한 번에 등록할 수 있습니다.</b> 출하재고 강종이 자동 매칭되지 않은 행은 직접 검색해 선택하세요.'}</div>
+        <div class="document-hint">${po ? '<b>엑셀 양식의 P.O 넘버·거래처명·강종명·중량을 모두 직접 입력할 수 있습니다.</b> G/W·N/W·매입단가와 엑셀에 없는 환율·컨테이너 규격·구매여부·입항예정일도 입력 후 함께 저장됩니다. 확정등록을 누를 때만 사내입고번호가 생성됩니다.' : '<b>S.O 품목은 여러 행을 한 번에 등록할 수 있습니다.</b> 출하재고 강종이 자동 매칭되지 않은 행은 직접 검색해 선택하세요.'}</div>
       </div>
       <div class="actions">
         <button class="btn" data-doc-action="add">+ 빈 행 추가</button>
         <button class="btn warn" data-doc-action="rematch">전체 강종 다시 찾기</button>
         <button class="btn" data-doc-action="download">${po ? '변환결과를 P.O 양식 Excel로 다운로드' : '변환결과를 S.O Excel로 다운로드'}</button>
       </div>
-      <div class="tablewrap"><table class="document-table"><thead><tr>
-        <th>삭제</th><th>품종</th><th>강종(유사검색)</th><th>소강종</th><th>상세강종<br><small>원문 자동합침</small></th>${po ? '<th>원문 패키지번호</th><th>중량/1개(kg)</th><th>패키지 수</th>' : '<th>출하재고 강종</th><th>중량(kg)</th><th>행</th>'}
+      <div class="tablewrap"><table class="document-table ${po ? 'po-table' : ''}"><thead><tr>
+        <th>삭제</th><th>품종</th><th>강종(유사검색)</th><th>소강종<br><small>자동입력·수정</small></th><th>강종명·상세강종<br><small>양식 직접입력 / 원문 자동합침</small></th>${po ? '<th>원문 패키지번호</th><th>G/W(kg)</th><th>N/W·중량(kg)</th><th>매입단가<br>(USD/kg)</th><th>패키지 수</th>' : '<th>출하재고 강종</th><th>중량(kg)</th><th>행</th>'}
       </tr></thead><tbody id="${po ? 'docPoRows' : 'docSoRows'}"></tbody></table></div>
       <div class="actions"><button class="btn primary" style="width:100%;min-height:68px;font-size:22px" data-doc-action="save">${po ? 'P.O 확정등록 · 사내입고번호 자동생성' : 'S.O 품목 전체 확정등록'}</button></div>
       <div id="${po ? 'docPoSaveMsg' : 'docSoSaveMsg'}" class="msg"></div>
@@ -169,7 +174,7 @@
   }
 
   function blankRow() {
-    return { productType: '', mainGrade: '', subGrade: '', detailGrade: '', stockGrade: '', sourcePackageNo: '', weight: '', packageCount: 1, sourceFile: '', sourceRow: '' };
+    return { productType: '', mainGrade: '', subGrade: '', detailGrade: '', stockGrade: '', sourcePackageNo: '', weight: '', netWeight: '', grossWeight: '', unitPriceUsd: '', packageCount: 1, sourceFile: '', sourceRow: '' };
   }
 
   function rowOptions(selected) {
@@ -189,18 +194,21 @@
         <td><input data-field="subGrade" list="docSubGradeList" value="${esc(row.subGrade || '')}" placeholder="소강종 선택·입력"></td>
         <td><textarea data-field="detailGrade" placeholder="COMMODITY / GRADE / DESCRIPTION">${esc(row.detailGrade || '')}</textarea><div class="document-source">${row.sourceFile ? `${esc(row.sourceFile)}${row.sourceRow ? ` · ${esc(row.sourceRow)}행` : ''}` : '직접 입력'}</div></td>
         ${po
-          ? `<td><input data-field="sourcePackageNo" value="${esc(row.sourcePackageNo || '')}" placeholder="원문 No"></td><td><input data-field="weight" type="number" inputmode="decimal" step="0.001" value="${esc(row.weight || '')}"></td><td><input data-field="packageCount" type="number" min="1" step="1" value="${esc(row.packageCount || 1)}"></td>`
+          ? `<td><input data-field="sourcePackageNo" value="${esc(row.sourcePackageNo || '')}" placeholder="원문 No"></td><td><input data-field="grossWeight" type="number" inputmode="decimal" min="0" step="0.001" value="${esc(row.grossWeight || '')}" placeholder="G/W"></td><td><input data-field="netWeight" type="number" inputmode="decimal" min="0" step="0.001" value="${esc(row.netWeight || row.weight || '')}" placeholder="N/W"></td><td><input data-field="unitPriceUsd" type="number" inputmode="decimal" min="0" step="0.0001" value="${esc(row.unitPriceUsd || '')}" placeholder="USD/kg"></td><td><input data-field="packageCount" type="number" min="1" step="1" value="${esc(row.packageCount || 1)}"></td>`
           : `<td><input data-field="stockGrade" list="docStockGradeList" value="${esc(row.stockGrade || '')}" placeholder="완료재고 강종 검색"></td><td><input data-field="weight" type="number" inputmode="decimal" step="0.001" value="${esc(row.weight || '')}"></td><td>${index + 1}</td>`}
-      </tr>`).join('') : `<tr><td colspan="8">품목 행이 없습니다. 파일을 업로드하거나 빈 행을 추가하세요.</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="${po ? 10 : 8}">품목 행이 없습니다. 파일을 업로드하거나 빈 행을 추가하세요.</td></tr>`;
     renderSummary(mode);
   }
 
   function renderSummary(mode) {
     const rows = editor[mode].rows;
     const packages = mode === 'po' ? rows.reduce((sum, row) => sum + Math.max(1, Math.round(num(row.packageCount))), 0) : rows.length;
-    const weight = rows.reduce((sum, row) => sum + num(row.weight) * (mode === 'po' ? Math.max(1, Math.round(num(row.packageCount))) : 1), 0);
+    const netWeight = rows.reduce((sum, row) => sum + num(mode === 'po' ? (row.netWeight || row.weight) : row.weight) * (mode === 'po' ? Math.max(1, Math.round(num(row.packageCount))) : 1), 0);
+    const grossWeight = mode === 'po' ? rows.reduce((sum, row) => sum + num(row.grossWeight) * Math.max(1, Math.round(num(row.packageCount))), 0) : 0;
     const unmatched = rows.filter(row => !row.mainGrade || (mode === 'so' && !row.stockGrade)).length;
-    E(mode === 'po' ? 'docPoSummary' : 'docSoSummary').innerHTML = `<div><small>${mode === 'po' ? '생성될 사내입고' : 'S.O 품목'}</small><b>${packages}건</b></div><div><small>합계 중량</small><b>${kg(weight)}</b></div><div><small>직접확인 필요</small><b style="color:${unmatched ? 'var(--red)' : 'var(--green)'}">${unmatched}행</b></div>`;
+    E(mode === 'po' ? 'docPoSummary' : 'docSoSummary').innerHTML = mode === 'po'
+      ? `<div><small>생성될 사내입고</small><b>${packages}건</b></div><div><small>G/W 합계</small><b>${kg(grossWeight)}</b></div><div><small>N/W 합계</small><b>${kg(netWeight)}</b></div><div><small>직접확인 필요</small><b style="color:${unmatched ? 'var(--red)' : 'var(--green)'}">${unmatched}행</b></div>`
+      : `<div><small>S.O 품목</small><b>${packages}건</b></div><div><small>합계 중량</small><b>${kg(netWeight)}</b></div><div><small>직접확인 필요</small><b style="color:${unmatched ? 'var(--red)' : 'var(--green)'}">${unmatched}행</b></div>`;
   }
 
   function updateEditorValue(mode, target) {
@@ -210,10 +218,21 @@
     const row = editor[mode].rows[Number(tr.dataset.index)];
     if (!row) return;
     row[field] = target.value;
+    if (mode === 'po' && field === 'netWeight') row.weight = target.value;
     if (field === 'mainGrade' && state.gradeTypes?.[target.value]) {
       row.productType = state.gradeTypes[target.value];
       const select = tr.querySelector('[data-field="productType"]');
       if (select) select.value = row.productType;
+    }
+    if (field === 'detailGrade') {
+      const enriched = Parser.enrichRow(row, masters());
+      if (!row.mainGrade && enriched.mainGrade) row.mainGrade = enriched.mainGrade;
+      if (!row.subGrade && enriched.subGrade) row.subGrade = enriched.subGrade;
+      if (!row.productType && enriched.productType) row.productType = enriched.productType;
+      ['mainGrade', 'subGrade', 'productType'].forEach(name => {
+        const input = tr.querySelector(`[data-field="${name}"]`);
+        if (input) input.value = row[name] || '';
+      });
     }
     renderSummary(mode);
   }
@@ -437,13 +456,19 @@
     if (!no.value && meta.documentNo) no.value = meta.documentNo;
     if (!company.value && meta.company) company.value = meta.company;
     if (meta.date) date.value = meta.date;
+    if (mode === 'po') {
+      if (!E('docPoExchangeRate').value && meta.exchangeRate) E('docPoExchangeRate').value = meta.exchangeRate;
+      if (!E('docPoContainerSpec').value && meta.containerSpec) E('docPoContainerSpec').value = meta.containerSpec;
+      if (!E('docPoPurchaseStatus').value && meta.purchaseStatus) E('docPoPurchaseStatus').value = meta.purchaseStatus;
+      if (!E('docPoEta').value && meta.eta) E('docPoEta').value = meta.eta;
+    }
   }
 
   async function importDocuments(mode, files) {
     if (!files.length) return;
     if (editor[mode].rows.length === 1) {
       const first = editor[mode].rows[0];
-      if (!Parser.clean(first.detailGrade) && num(first.weight) <= 0 && !Parser.clean(first.sourcePackageNo)) editor[mode].rows = [];
+      if (!Parser.clean(first.detailGrade) && num(first.netWeight || first.weight) <= 0 && !Parser.clean(first.sourcePackageNo)) editor[mode].rows = [];
     }
     setBusy(true, '문서 자동변환 시작', `${files.length}개 파일을 차례로 읽습니다.`, 4);
     let added = 0;
@@ -478,13 +503,13 @@
 
   function downloadEditor(mode) {
     if (!window.XLSX) return showEditorMessage(mode, 'Excel 모듈을 불러오지 못했습니다.', true);
-    const rows = editor[mode].rows.filter(row => Parser.clean(row.detailGrade) && num(row.weight) > 0);
+    const rows = editor[mode].rows.filter(row => Parser.clean(row.detailGrade) && num(mode === 'po' ? (row.netWeight || row.weight) : row.weight) > 0);
     if (!rows.length) return showEditorMessage(mode, '다운로드할 품목 행이 없습니다.', true);
     const workbook = XLSX.utils.book_new();
     let output;
     if (mode === 'po') {
       const poNo = E('docPoNo').value.trim(), company = E('docPoCompany').value.trim();
-      output = rows.flatMap(row => Array.from({ length: Math.max(1, Math.round(num(row.packageCount))) }, () => ({ 'P.O 넘버': poNo, '거래처명': company, '강종명': row.detailGrade, '중량(kg)': num(row.weight) })));
+      output = rows.flatMap(row => Array.from({ length: Math.max(1, Math.round(num(row.packageCount))) }, () => ({ 'P.O 넘버': poNo, '거래처명': company, '강종명': row.detailGrade, '중량(kg)': num(row.netWeight || row.weight) })));
     } else {
       const soNo = E('docSoNo').value.trim(), customer = E('docSoCustomer').value.trim(), shipDate = E('docSoDate').value;
       output = rows.map(row => ({ 'S.O 넘버': soNo, '판매처': customer, '품종': row.productType, '강종': row.mainGrade, '소강종': row.subGrade, '상세강종': row.detailGrade, '출하재고 강종': row.stockGrade, '중량(kg)': num(row.weight), '출하예정일': shipDate }));
@@ -503,9 +528,12 @@
 
   async function savePurchaseOrder() {
     const poNo = E('docPoNo').value.trim(), company = E('docPoCompany').value.trim(), poDate = E('docPoDate').value;
-    const validRows = editor.po.rows.filter(row => Parser.clean(row.detailGrade) && num(row.weight) > 0 && Math.round(num(row.packageCount)) > 0);
+    const exchangeRate = num(E('docPoExchangeRate').value), containerSpec = E('docPoContainerSpec').value.trim(), purchaseStatus = E('docPoPurchaseStatus').value, eta = E('docPoEta').value;
+    const validRows = editor.po.rows.filter(row => Parser.clean(row.detailGrade) && num(row.netWeight || row.weight) > 0 && Math.round(num(row.packageCount)) > 0);
     if (!poNo || !company || !poDate) return msg('docPoSaveMsg', 'P.O 넘버·거래처명·P.O 일자를 입력하세요.', true);
     if (!validRows.length || validRows.length !== editor.po.rows.length) return msg('docPoSaveMsg', '모든 품목 행의 상세강종·중량·패키지 수를 확인하세요.', true);
+    const invalidGross = validRows.find(row => num(row.grossWeight) > 0 && num(row.grossWeight) < num(row.netWeight || row.weight));
+    if (invalidGross) return msg('docPoSaveMsg', 'G/W는 N/W보다 작을 수 없습니다. 해당 품목의 중량을 확인하세요.', true);
     const duplicates = validRows.filter(row => poDuplicates(poNo, row));
     if (duplicates.length) return msg('docPoSaveMsg', `같은 P.O와 원문 패키지번호가 이미 등록된 행이 ${duplicates.length}개 있습니다. 중복 여부를 확인하세요.`, true);
     const backup = JSON.parse(JSON.stringify(state));
@@ -517,11 +545,11 @@
       for (let part = 0; part < count; part += 1) {
         const packageNo = nextPackage();
         const item = {
-          id: crypto.randomUUID(), poNo, poDate, company,
+          id: crypto.randomUUID(), poNo, poDate, company, exchangeRate, containerSpec, purchaseStatus, eta,
           grade: Parser.clean(row.detailGrade),
           productType: row.productType || '', mainGrade: row.mainGrade || '', subGrade: row.subGrade || '', detailGrade: Parser.clean(row.detailGrade),
           sourcePackageNo: row.sourcePackageNo || '', sourceDocument: row.sourceFile || '', sourceRow: row.sourceRow || '', sourcePart: count > 1 ? part + 1 : '',
-          packageNo, weight: num(row.weight), status: 'CONFIRMED', createdAt: new Date().toISOString()
+          packageNo, weight: num(row.netWeight || row.weight), netWeight: num(row.netWeight || row.weight), grossWeight: num(row.grossWeight), unitPriceUsd: num(row.unitPriceUsd), status: 'CONFIRMED', createdAt: new Date().toISOString()
         };
         state.pos.push(item); selected.add(item.id); created.push(item);
       }
