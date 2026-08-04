@@ -17,6 +17,7 @@
 
   function ensureArray() {
     if (!Array.isArray(state.shippingRequests)) state.shippingRequests = [];
+    if (!Array.isArray(state.auditLogs)) state.auditLogs = [];
   }
 
   function similar(a, b) {
