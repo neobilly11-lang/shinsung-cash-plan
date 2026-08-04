@@ -1,0 +1,2014 @@
+{
+  "version": "2026-08-04.2",
+  "generatedFrom": [
+    "CDM260201 PO (re2)signed.pdf",
+    "CDD260301 PO(re)signed.pdf",
+    "CDM260301 PO(re2)signed.pdf",
+    "CDM260301 INVOICE(re)-signed.pdf",
+    "CARR260401 PO(re)signed.pdf",
+    "CMM260401 PO.pdf",
+    "CPTC260501 PO(re2)-signed.pdf",
+    "CUSM260501 INVOICE(re4).pdf",
+    "CDM260501 PO(signed).pdf",
+    "CUSM260501 PO(re2-sigend).pdf",
+    "CPH260601 PO(re-signed).pdf",
+    "CDM260701 PO.xls",
+    "CMM260701 PO.pdf"
+  ],
+  "rawPairCount": 332,
+  "mappingCount": 270,
+  "sourceCounts": {
+    "CDM260201 PO (re2)signed.pdf": 19,
+    "CDD260301 PO(re)signed.pdf": 7,
+    "CDM260301 PO(re2)signed.pdf": 18,
+    "CDM260301 INVOICE(re)-signed.pdf": 18,
+    "CARR260401 PO(re)signed.pdf": 8,
+    "CMM260401 PO.pdf": 14,
+    "CPTC260501 PO(re2)-signed.pdf": 59,
+    "CUSM260501 INVOICE(re4).pdf": 36,
+    "CDM260501 PO(signed).pdf": 37,
+    "CUSM260501 PO(re2-sigend).pdf": 65,
+    "CPH260601 PO(re-signed).pdf": 9,
+    "CDM260701 PO.xls": 22,
+    "CMM260701 PO.pdf": 20
+  },
+  "conflicts": [
+    {
+      "marking": "30Co 20Ni PLASMA",
+      "selected": "Nickel Alloy Scrap",
+      "descriptions": [
+        "Cobalt Scrap",
+        "Nickel Alloy Scrap"
+      ],
+      "sources": [
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    }
+  ],
+  "mappings": [
+    {
+      "marking": "12Ni,16Cr,1Mo Dust",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "15Co 17Ni REF",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "188 Haynes Borings",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "20 CB3",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "20 Mo6",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "20% Ni, 3% Mo, 1.5 % Ti Balance Fe",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "20CB3",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "20Ni 20Co 19Cr 1Nb",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "2205",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "2207",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "254 SMO",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "기존 기본 매칭",
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "254 SMO Solid",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "25Co 10Ni REF",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "25Co 55Ni 20Cr PLASMA",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "25Co 55Ni PLASMA",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "276(70),Br(15),Fe(10),316(5) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "304(40),600(30),Ni200(30) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "304(55),HastX(45) Solids",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "304(60),625(40) Solids",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "304(70),625(30) Clips",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "30Co 20Ni 20Mo PLASMA",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "30Co 20Ni PLASMA",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "30Co 30Ni REF",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "30Co 60Ni PLASMA",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "316(55),718(30),783(15) Solids",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "316(60),C42(30),718(10) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "316(70),F75(30) Solids",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "316(85),F75(15) Solids",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "316(90),F75(6),HS25(2),410(2) Clips",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "35Co 15Ni",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "35Co 15Ni REF",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "35Co 35Ni PLASMA",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "40Co 40Ni PLASMA",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "42Ni,17Cr,5Nb,4Mo Dust",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "50Co 10Ni",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "50Co 10Ni REF",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "52Ni,18Cr,6Nb,4Mo Dust",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "54Ni,17Cr,6Nb,4Mo Dust",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "55Cu 42Ni",
+      "description": "Copper Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "6-4(50),625(40),316/Fe(10) Borings",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "6-4(75),625(25) Borings",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "6-4/Bar",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "6-4/Bar Ends",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "6-4/Flash",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "600(45),C42(45),718(10) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "601(80),HU(20) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "625(90),15-5(10) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "70/30 COPPER",
+      "description": "Copper Scrap",
+      "sources": [
+        "기존 기본 매칭",
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "70/30 CuNi",
+      "description": "Copper Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "718(40),316(45),C42(15) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "718(50),316(40),C42(10) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "718(55),316(45) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "718(55),X750(45) Clips",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "718/Bar",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "718Bor",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "783",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "90/10 COPPER",
+      "description": "Copper Scrap",
+      "sources": [
+        "기존 기본 매칭",
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "904",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CARR260401 PO(re)signed.pdf",
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "904L",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "907Bor",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "90Cu 10Ni",
+      "description": "Copper Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "A 286",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "A 286 Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "A 286 TURNINGS",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "A286",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "A286 Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "A286 turnings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Aer100",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Aer100 Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "Aer100Bor",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "AERMET 100",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "AISI 904L",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "AL 6XN",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "AL6XN",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "Alloy 2205 Skeleton",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "ALLOY 49",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "Alloy 52",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "ALLOY 792",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "B-1900 Hf",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "C276(30),Elg(30),Z100(30),316(10) Clips",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "C276(75), 316(25) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "C276(80),Zer100(20) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "C276(85),316(10),Elg(1),Ti(1),718(1),750(1),304(1) Clips",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "C276(90),Elg(10) Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "Carp20",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "Carp20Cb3",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "CD-4MCU",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "CD4MCU",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "CN7M",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "CO AL",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "Co-15 Ni-5Fe-1Ti",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Co35 Ni15",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Co50 Ni10",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Co70 AL30",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Colmonoy 6 without Boron",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "CP MOLY",
+      "description": "Molybdenium Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "CP NI",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "CP NICKEL",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "CP TI WITH IR",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "Cp(50),6-4(50) Clips",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Cp(96),6-4(4) Clips",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Dameron",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Elg",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F 75",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "F75",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "F75 Clips",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F75 Solids",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "F75(70),Ti(30) Solids",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F75(85),Plastic(15) Solids",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F75(85),Zr(15) Solids",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F75(90),Zr(10) Solids",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F75/Fired",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "F75Bor",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "FSX414",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Gmr 235",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "HAST B3",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "HAST G3 Turnings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "HastC(80),Cb3(15),Fe(5) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy B",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy C 276 Solid",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy C22",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy C276",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "기존 기본 매칭",
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy D",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy G30",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "Hastelloy X",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Haynes 214",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Haynes 230",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Hayness 230 clean",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "HS 1",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "HS 188",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "HS 19",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "HS 25",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "HS 25 TURNINGS",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "HS 3",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "HS 31",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "HS 31 - Stelite 31",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "HS 4",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "HS 6B",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "HS 6B - Stelite 6B",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "HS-31",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "HS25",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "HS25 / L605",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "HS25 L605 Borings",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "HS25Bor",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "HS3",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "HS6",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "HS6Bor",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "HY Mu-80",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "IN 100",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "IN 600",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "IN 601",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "IN 625",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "IN 718",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "IN 738 PT BLADES",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "IN 750",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "IN 750 TURNINGS",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "IN 800",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "IN 904",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "IN 904 TURNINGS",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "IN 925",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "IN 925 TURNINGS",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "IN100",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "INCO 718",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "INCO 825",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Incoloy 020 - 20 Cb3",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Incoloy 800",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Incoloy 825",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Incoloy 901",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Incoloy A 286",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Incoloy A 925",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 600",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 601",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 617",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 625",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 690",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 702",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 713",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 713 Solids",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 718",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 725",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 738",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 750",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 754",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 825 Pipe",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 939 Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Inconel 939 Contaminated W/2% AL. & Fe Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Kover",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Mar - M002",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Mar- M247",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Mar-M509",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "MarC300(75),D22(25) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "MarM247",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "MONEL",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "MONEL 400",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "기존 기본 매칭",
+        "CDM260201 PO (re2)signed.pdf",
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "Monel 400 Mesh Pads w/1% Contamination",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "MONEL 400 Turnings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "MONEL 500",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Monel K-500",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "MONEL TURNINGS",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "Monel(45),Fe(45),410(10) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Monel(90),Fe(10) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "MP 159",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "MP 35N",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "MP 35N Multiphase",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "MP 35N TURNINGS",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "MP35N",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "MP35N(60),316(40) Clips",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "MP35N(95),15-5(5) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "N 155",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CDM260501 PO(signed).pdf",
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "N155",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "NA 22H",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "NA22H",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "NAS22H",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "NI RESIST 2",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "NI RESIST 5",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260701 PO.xls"
+      ]
+    },
+    {
+      "marking": "Ni/Co10-20 (Ni & Co total ~ 15%)",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Ni/Co40-50 (Ni & Co total ~ 45%)",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Ni/Co50-60 (Ni & Co total ~ 55%)",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Ni/Co60-70 (Ni & Co total ~ 65%)",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Nichrome V",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "Nickel 200 screen",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf",
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "Nickel 200 solid",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Nim 80A W/1% Stainless steel 400 attachment",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "NimC263",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Nimonic 75",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "NIMONIC 80",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "Nimonic 80A",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Pure Mo",
+      "description": "Molybdenium Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "RA 330",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf",
+        "CDM260301 PO(re2)signed.pdf",
+        "CDM260301 INVOICE(re)-signed.pdf",
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Rene 125",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Rene 80",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "Rene41",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Rene77",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Rmonel(60),316(40) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "SMO 254",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CARR260401 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "SS 310",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "SS310",
+      "description": "Stainless Steel Scrap",
+      "sources": [
+        "CDM260201 PO (re2)signed.pdf"
+      ]
+    },
+    {
+      "marking": "SUPER NA22H",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "Ti 6-4",
+      "description": "Titanium Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "Ti 6.6.2",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Ti Alloy",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CDD260301 PO(re)signed.pdf"
+      ]
+    },
+    {
+      "marking": "Ti10-2-3",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Ti4.2.5 Solids",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Ti6-4",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "TiCp",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "TiCpBor",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "TiFe",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "TiFeBor",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf",
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Titanium 10-3-2 Borings",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Titanium 10-3-2 Solids",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Titanium 3-2-5 Borings",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Titanium 6-4 Borings Ferro",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Titanium CP Ferro",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Titanium CP Ferro Skeleton",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Titanium CP Solids",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CMM260401 PO.pdf"
+      ]
+    },
+    {
+      "marking": "Udimet 500",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CPTC260501 PO(re2)-signed.pdf"
+      ]
+    },
+    {
+      "marking": "W99",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CPH260601 PO(re-signed).pdf"
+      ]
+    },
+    {
+      "marking": "Wasp",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Wasp(75),316(25) Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "Waspaloy Borings",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 PO(re2-sigend).pdf"
+      ]
+    },
+    {
+      "marking": "WC Drills",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "기존 기본 매칭"
+      ]
+    },
+    {
+      "marking": "WC Drills W/ 35% WC & 65% Fe",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "WC Drills W/ 75% WC & 25% Fe",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "WC Drills W/15% WC & 85% Fe",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "WC Drills W/21% WC &79% Fe",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "WC Drills W/65% WC & 35% Fe",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "WC Swarf with 10% Fe Contamination",
+      "description": "Tungsten Scrap",
+      "sources": [
+        "CMM260701 PO.pdf"
+      ]
+    },
+    {
+      "marking": "WI 52",
+      "description": "Cobalt Scrap",
+      "sources": [
+        "CDM260501 PO(signed).pdf"
+      ]
+    },
+    {
+      "marking": "X750",
+      "description": "Nickel Alloy Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    },
+    {
+      "marking": "Zr",
+      "description": "Titanium Scrap",
+      "sources": [
+        "CUSM260501 INVOICE(re4).pdf"
+      ]
+    }
+  ]
+}
