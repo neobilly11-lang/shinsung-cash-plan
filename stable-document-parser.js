@@ -246,7 +246,7 @@
     if (/\bCO|COBALT|HS25|L605|STELLITE/.test(clean(`${detail} ${main}`).toUpperCase())) return 'CO';
     if (/MOLY|\bMO\b/.test(clean(`${detail} ${main}`).toUpperCase())) return 'MO';
     if (/COPPER|\bCU\b/.test(clean(`${detail} ${main}`).toUpperCase())) return 'CU';
-    if (/INCONEL|NICKEL|NICO|U720|UDIMET|WASPALOY|HASTELLOY|NIMONIC|NI/.test(clean(`${detail} ${main}`).toUpperCase())) return 'NI';
+    if (/I\d{3}|INCONEL|NICKEL|NICO|U720|UDIMET|WASPALOY|HASTELLOY|NIMONIC|NI/.test(text)) return 'NI';
     return 'OTHER';
   }
 
