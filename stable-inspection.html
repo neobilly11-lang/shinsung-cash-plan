@@ -294,7 +294,7 @@ window.addEventListener('error',e=>showFatal('화면 오류',e.error||e.message)
 const params=new URLSearchParams(location.search),requested=params.get('package'),requestedWork=params.get('work'),requestedCompletion=params.get('completion'),requestedPacking=params.get('packing'),initialView=location.hash.slice(1)&&E(location.hash.slice(1))?location.hash.slice(1):'home';loadState().then(async()=>{initializeAppHistory();currentShippingOrderId=sessionStorage.getItem('scrapShippingOrderId')||'';currentPackingListId=sessionStorage.getItem('scrapPackingListId')||'';if(requestedWork)openWorkWaitDetail(requestedWork);else if(requested)openInspection(requested);else if(requestedPacking){const list=state.packingLists.find(x=>x.id===requestedPacking&&x.status==='TEMP');if(list){currentPackingListId=list.id;currentShippingOrderId=list.salesOrderId;sessionStorage.setItem('scrapPackingListId',list.id);sessionStorage.setItem('scrapShippingOrderId',list.salesOrderId);show('shippingWork');msg('shippingWorkMsg',list.packingListNo+' 임시 PACKING LIST를 열었습니다. QR 확인 버튼을 눌러 출하완료 촬영을 시작하세요.')}else show('shippingWork')}else if(requestedCompletion){const purpose=sessionStorage.getItem('scrapShippingPurpose')||'shippingArea';if(currentShippingOrderId){scanPurpose=purpose;if(purpose==='shippingFinal'&&currentPackingListId)await handleShippingFinalBag(requestedCompletion);else await handleShippingAreaBag(requestedCompletion)}else{show('shippingWork');msg('shippingWorkMsg',requestedCompletion+' 완료재고 QR을 확인했습니다. 먼저 작업할 S.O를 검색해 선택하세요.')}}else show(initialView)});
 </script>
 <script src="stable-inspection-fixes.js?v=stable-fix-20260729-2"></script>
-<script src="stable-document-parser.js?v=document-flow-20260804-1"></script>
-<script src="stable-document-importer.js?v=document-flow-20260804-1"></script>
-<script src="stable-shipping-requests.js?v=document-flow-20260804-1"></script>\n</body>
+<script src="stable-document-parser.js?v=document-flow-20260804-2"></script>
+<script src="stable-document-importer.js?v=document-flow-20260804-2"></script>
+<script src="stable-shipping-requests.js?v=document-flow-20260804-2"></script>\n</body>
 </html>
