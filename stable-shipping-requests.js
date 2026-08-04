@@ -61,7 +61,7 @@
   }
 
   function selectedGrade() {
-    return String(E('shipReqGrade')?.value || '').trim();
+    return String(E('shipStockGrade')?.value || '').trim();
   }
 
   function packageDisplayGrade(p, grade) {
@@ -245,9 +245,9 @@
       <div class="card"><div class="form">
         <label>S.O 넘버<input id="shipReqSoNo" list="shipReqSoList" placeholder="S.O 번호 검색" oninput="fillShippingRequestFromSo()"></label><datalist id="shipReqSoList"></datalist>
         <label>출하대기 요청자<input id="shipReqRequester" placeholder="요청자 이름"></label>
-        <label>강종 검색<input id="shipReqGrade" list="shipReqGradeList" placeholder="비우면 전체 재고 · 입력하면 해당 강종" oninput="shippingGradeChanged()"></label><datalist id="shipReqGradeList"></datalist>
+        <label>강종 검색<input id="shipReqGrade" list="shipReqGradeList" placeholder="완료·포장·검수재고 강종" oninput="clearShippingPreview()"></label><datalist id="shipReqGradeList"></datalist>
         <label>요청 중량(kg)<input id="shipReqWeight" type="number" inputmode="decimal" step="0.001" oninput="clearShippingPreview()"></label>
-      </div><div id="shipReqAvailability"></div><div class="actions"><button class="btn warn" style="width:100%" onclick="previewShippingRequest()">출하예상 확인</button></div><div id="shipReqPreview"></div><button id="shipReqSave" class="btn primary" style="width:100%;margin-top:14px;min-height:66px;font-size:21px" onclick="confirmShippingRequest()" disabled>출하요청 확정</button><div id="shipReqMsg" class="msg"></div></div>`;
+      </div><div class="actions"><button class="btn warn" style="width:100%" onclick="previewShippingRequest()">출하예상 확인</button></div><div id="shipReqPreview"></div><button id="shipReqSave" class="btn primary" style="width:100%;margin-top:14px;min-height:66px;font-size:21px" onclick="confirmShippingRequest()" disabled>출하요청 확정</button><div id="shipReqMsg" class="msg"></div></div>`;
     return section;
   }
 
@@ -255,7 +255,7 @@
     const section = document.createElement('section');
     section.id = 'shippingRequestStatus';
     section.className = 'view';
-    section.innerHTML = '<p class="eyebrow">검수·작업·포장 상태 자동반영</p><h1>출하요청 진행현황</h1><div class="actions"><button class="btn" onclick="show(\'home\')">← 업무수행</button><button class="btn primary" onclick="show(\'shippingRequestWrite\')">+ 출하대기 요청</button></div><div class="card"><label>S.O·요청자·강종 검색<input id="shipReqSearch" placeholder="검색어 입력" oninput="renderShippingRequests()"></label></div><div id="shipReqList"></div>';
+    section.innerHTML = '<p class="eyebrow">검수·작업·포장 상태 자동반영</p><h1>출하요청 진행현황</h1><div class="actions"><button class="btn" onclick="show(\'home\')">← 업무수행</button><button class="btn primary" onclick="show(\'shippingRequestWrite\')">+ 출하대기 요청</button></div><div class="card"><label>준비재고 강종 검색<input id="shipStockGrade" list="shipReqGradeList" placeholder="비우면 전체 재고 · 입력하면 해당 강종" oninput="shippingAvailabilityGradeChanged()"></label></div><div id="shipReqAvailability"></div><div class="card"><label>S.O·요청자·강종 검색<input id="shipReqSearch" placeholder="검색어 입력" oninput="renderShippingRequests()"></label></div><div id="shipReqList"></div>';
     return section;
   }
 
@@ -324,8 +324,6 @@
     if (!order) return;
     E('shipReqGrade').value = order.grade || '';
     E('shipReqWeight').value = order.weight || '';
-    availabilitySelected.clear();
-    renderAvailabilityBrowser();
     preview = null;
     E('shipReqPreview').innerHTML = '';
     E('shipReqSave').disabled = true;
@@ -337,8 +335,7 @@
     if (E('shipReqSave')) E('shipReqSave').disabled = true;
   }
 
-  function shippingGradeChanged() {
-    clearShippingPreview();
+  function shippingAvailabilityGradeChanged() {
     availabilitySelected.clear();
     renderAvailabilityBrowser();
   }
@@ -409,7 +406,7 @@
 
   window.fillShippingRequestFromSo = fillShippingRequestFromSo;
   window.clearShippingPreview = clearShippingPreview;
-  window.shippingGradeChanged = shippingGradeChanged;
+  window.shippingAvailabilityGradeChanged = shippingAvailabilityGradeChanged;
   window.previewShippingRequest = previewShippingRequest;
   window.confirmShippingRequest = confirmShippingRequest;
   window.renderShippingRequests = renderShippingRequests;
