@@ -155,7 +155,7 @@
     const lines = String(text || '').replace(/\r/g, '\n').split(/\n+/).map(clean).filter(Boolean);
     const rows = [];
     for (let index = 0; index < lines.length; index += 1) {
-      let line = lines[index].replace(/[|]+/g, ' ');
+      let line = lines[index].replace(/[|]+/g, ' ').replace(/\ud314\s*[\ub81b\ub7ab\ud587]|\ud1a4\s*\ubc31/gi, ' PALLET ');
       if (!line || SKIP_LINE.test(line) || /COMMODITY.*(?:QUANTITY|WEIGHT)/i.test(line)) continue;
       const numbered = line.match(/^\s*(\d{1,4})[.)\-]?\s+(.+)$/);
       const sourcePackageNo = numbered ? numbered[1] : '';
