@@ -152,8 +152,10 @@
   }
 
   function masters() {
-    const mainGrades = typeof allMainGrades === 'function' ? allMainGrades() : (state.mainGrades || []);
-    const subGrades = typeof allSubGrades === 'function' ? allSubGrades() : (state.subGrades || []);
+    let mainGrades = Array.isArray(state.mainGrades) ? state.mainGrades : [];
+    let subGrades = Array.isArray(state.subGrades) ? state.subGrades : [];
+    if (typeof allMainGrades === 'function' && Array.isArray(state.mainGrades) && Array.isArray(state.gradeMasters) && Array.isArray(state.splits) && Array.isArray(state.bags)) mainGrades = allMainGrades();
+    if (typeof allSubGrades === 'function' && Array.isArray(state.subGrades) && Array.isArray(state.gradeMasters) && Array.isArray(state.splits) && Array.isArray(state.bags)) subGrades = allSubGrades();
     const stockGrades = typeof activeStockBags === 'function' ? [...new Set(activeStockBags().map(item => item.grade).filter(Boolean))] : [];
     return { mainGrades, subGrades, stockGrades, gradeTypes: state.gradeTypes || {} };
   }
@@ -410,7 +412,7 @@
       const fullParsed = Parser.parseText(rawText.replace(/===== TABLE OCR =====[\s\S]*/g, ''), file.name);
       const tableText = ocrPages.map(value => value.split('===== TABLE OCR =====')[1] || '').join('\n');
       const tableParsed = Parser.parseRuledTableText ? Parser.parseRuledTableText(tableText, file.name) : Parser.parseText(tableText, file.name);
-      parsed = tableParsed.rows.length > fullParsed.rows.length ? { ...tableParsed, meta: { ...fullParsed.meta, ...Object.fromEntries(Object.entries(tableParsed.meta || {}).filter(([, value]) => value)) } } : fullParsed;
+      parsed = tableParsed.rows.length > fullParsed.rows.length ? { ...tableParsed, meta: { ...tableParsed.meta, ...Object.fromEntries(Object.entries(fullParsed.meta || {}).filter(([, value]) => value)) } } : fullParsed;
     }
     return { ...parsed, rawText };
   }
