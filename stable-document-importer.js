@@ -308,7 +308,7 @@
     const image = context.getImageData(0, 0, canvas.width, canvas.height), data = image.data;
     const dark = (x, y) => {
       const index = (y * canvas.width + x) * 4;
-      return data[index] + data[index + 1] + data[index + 2] < 390;
+      return data[index] + data[index + 1] + data[index + 2] < 710;
     };
     const lineRows = [];
     for (let y = 0; y < canvas.height; y += 1) {
@@ -325,7 +325,7 @@
     const intervals = [];
     for (let index = 1; index < boundaries.length; index += 1) {
       const top = boundaries[index - 1] + 3, bottom = boundaries[index] - 3, height = bottom - top;
-      if (height >= 18 && height <= 150) intervals.push({ top, height });
+      if (height >= 10 && height <= 150) intervals.push({ top, height });
     }
     if (intervals.length < 5) return '';
     const worker = await Tesseract.createWorker('eng', 1, {
@@ -347,7 +347,7 @@
         let count = 0;
         for (let y = 0; y < row.height; y += 1) {
           const pixel = (y * row.width + x) * 4;
-          if (rowData[pixel] + rowData[pixel + 1] + rowData[pixel + 2] < 390) count += 1;
+          if (rowData[pixel] + rowData[pixel + 1] + rowData[pixel + 2] < 710) count += 1;
         }
         if (count > row.height * 0.55) vertical.push(x);
       }
