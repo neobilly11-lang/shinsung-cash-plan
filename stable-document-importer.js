@@ -409,7 +409,7 @@
       rawText = ocrPages.join('\n');
       const fullParsed = Parser.parseText(rawText.replace(/===== TABLE OCR =====[\s\S]*/g, ''), file.name);
       const tableText = ocrPages.map(value => value.split('===== TABLE OCR =====')[1] || '').join('\n');
-      const tableParsed = Parser.parseText(tableText, file.name);
+      const tableParsed = Parser.parseRuledTableText ? Parser.parseRuledTableText(tableText, file.name) : Parser.parseText(tableText, file.name);
       parsed = tableParsed.rows.length > fullParsed.rows.length ? { ...tableParsed, meta: { ...fullParsed.meta, ...Object.fromEntries(Object.entries(tableParsed.meta || {}).filter(([, value]) => value)) } } : fullParsed;
     }
     return { ...parsed, rawText };
