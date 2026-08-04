@@ -279,9 +279,9 @@
     return lines.sort((a, b) => b.y - a.y).map(line => line.words.sort((a, b) => a.x - b.x).map(word => word.text).join(' ')).join('\n');
   }
 
-  async function recognize(input, label, basePercent) {
+  async function recognize(input, label, basePercent, languages = 'eng+kor') {
     await loadScriptOnce('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js', 'Tesseract');
-    const result = await Tesseract.recognize(input, 'eng+kor', {
+    const result = await Tesseract.recognize(input, languages, {
       logger(info) {
         if (info.status === 'recognizing text') {
           const percent = basePercent + Math.round((info.progress || 0) * 18);
@@ -290,6 +290,23 @@
       }
     });
     return result?.data?.text || '';
+  }
+
+  function tableCrop(source) {
+    const canvas = document.createElement('canvas');
+    const x = Math.round(source.width * 0.045), y = Math.round(source.height * 0.25);
+    const width = Math.round(source.width * 0.91), height = Math.round(source.height * 0.42);
+    canvas.width = width; canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(source, x, y, width, height, 0, 0, width, height);
+    const image = context.getImageData(0, 0, width, height), data = image.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      const value = gray < 205 ? 0 : 255;
+      data[i] = value; data[i + 1] = value; data[i + 2] = value;
+    }
+    context.putImageData(image, 0, 0);
+    return canvas;
   }
 
   async function extractExcel(file) {
@@ -323,16 +340,23 @@
       const ocrPages = [];
       for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
         const page = await pdf.getPage(pageNo);
-        const viewport = page.getViewport({ scale: 1.65 });
+        const viewport = page.getViewport({ scale: 2.35 });
         const canvas = document.createElement('canvas');
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
         await page.render({ canvasContext: canvas.getContext('2d', { willReadFrequently: true }), viewport }).promise;
-        ocrPages.push(await recognize(canvas, `${file.name} ${pageNo}/${pdf.numPages}페이지`, 30 + pageNo / pdf.numPages * 45));
+        const fullText = await recognize(canvas, `${file.name} ${pageNo}/${pdf.numPages}페이지 전체`, 25 + pageNo / pdf.numPages * 30);
+        const crop = tableCrop(canvas);
+        const tableText = await recognize(crop, `${file.name} ${pageNo}/${pdf.numPages}페이지 표`, 58 + pageNo / pdf.numPages * 28, 'eng');
+        ocrPages.push(`${fullText}\n===== TABLE OCR =====\n${tableText}`);
+        crop.width = 1; crop.height = 1;
         canvas.width = 1; canvas.height = 1;
       }
       rawText = ocrPages.join('\n');
-      parsed = Parser.parseText(rawText, file.name);
+      const fullParsed = Parser.parseText(rawText.replace(/===== TABLE OCR =====[\s\S]*/g, ''), file.name);
+      const tableText = ocrPages.map(value => value.split('===== TABLE OCR =====')[1] || '').join('\n');
+      const tableParsed = Parser.parseText(tableText, file.name);
+      parsed = tableParsed.rows.length > fullParsed.rows.length ? { ...tableParsed, meta: { ...fullParsed.meta, ...Object.fromEntries(Object.entries(tableParsed.meta || {}).filter(([, value]) => value)) } } : fullParsed;
     }
     return { ...parsed, rawText };
   }
