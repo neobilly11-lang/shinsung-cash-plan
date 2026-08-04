@@ -314,7 +314,7 @@
     for (let y = 0; y < canvas.height; y += 1) {
       let count = 0;
       for (let x = 0; x < canvas.width; x += 2) if (dark(x, y)) count += 1;
-      if (count > canvas.width * 0.23) lineRows.push(y);
+      if (count > canvas.width * 0.12) lineRows.push(y);
     }
     const groups = [];
     lineRows.forEach(y => {
@@ -327,6 +327,7 @@
       const top = boundaries[index - 1] + 3, bottom = boundaries[index] - 3, height = bottom - top;
       if (height >= 10 && height <= 150) intervals.push({ top, height });
     }
+    window.ScrapDocumentOcrDebug = { boundaries: boundaries.length, intervals: intervals.length };
     if (intervals.length < 5) return '';
     const worker = await Tesseract.createWorker('eng', 1, {
       logger(info) {
