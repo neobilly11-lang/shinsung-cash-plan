@@ -3,6 +3,8 @@
 
   const Parser = window.ScrapDocParser;
   let preview = null;
+  let availabilityKind = 'completed';
+  const availabilitySelected = new Set();
 
   const style = document.createElement('style');
   style.textContent = `
@@ -11,7 +13,12 @@
     .ship-request-breakdown{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.ship-request-kind{border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px}.ship-request-kind small,.ship-request-kind b,.ship-request-kind span{display:block}.ship-request-kind b{font-size:23px;margin:5px 0}.ship-request-kind span{font-size:12px;color:var(--muted)}
     .ship-request-ready{border:2px solid var(--green);background:#eff8f4}.ship-request-wait{border:2px solid var(--amber);background:#fffaf0}.ship-request-card{border-left:8px solid var(--green)}.ship-request-card.low{border-left-color:var(--amber)}
     .ship-request-home{width:100%;margin-top:12px;text-align:left;border:3px solid #173f76;background:#eaf2ff;color:#173f76}.ship-request-home b{font-size:29px}
-    @media(max-width:820px){.ship-request-breakdown{grid-template-columns:1fr 1fr}}@media(max-width:470px){.ship-request-breakdown{grid-template-columns:1fr}}
+    .ship-stock-browser{margin-top:16px}.ship-stock-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}.ship-stock-title h2{margin:0}.ship-stock-title p{margin:0;color:var(--muted);font-weight:800}
+    .ship-stock-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.ship-stock-card{min-height:122px;border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px;text-align:left;color:var(--ink);cursor:pointer}.ship-stock-card small,.ship-stock-card b,.ship-stock-card span{display:block}.ship-stock-card small{font-size:15px;font-weight:900}.ship-stock-card b{font-size:clamp(25px,4vw,38px);margin:5px 0}.ship-stock-card span{color:var(--muted);font-weight:800}.ship-stock-card.active{border-color:var(--green);background:#eaf7f2;box-shadow:0 0 0 3px #0d725d22}.ship-stock-card.wait.active{border-color:#b77800;background:#fff7df;box-shadow:0 0 0 3px #f5b94244}
+    .ship-stock-panel{border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px}.ship-stock-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.ship-stock-toolbar .btn{min-height:48px}.ship-stock-toolbar .print-count{margin-left:auto;font-weight:900;color:var(--green)}
+    .ship-stock-list{display:grid;gap:10px}.ship-stock-row{display:grid;grid-template-columns:auto 88px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:12px;background:#f8fbf9}.ship-stock-row.selected{border:2px solid var(--green);background:#eef9f5}.ship-stock-row input{width:32px;height:32px;min-height:32px;accent-color:var(--green)}.ship-stock-qr{width:82px;height:82px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px;object-fit:contain}.ship-stock-main b,.ship-stock-main span,.ship-stock-main small{display:block}.ship-stock-main b{font-size:20px}.ship-stock-main span{font-weight:800;margin-top:3px}.ship-stock-main small{color:var(--muted);margin-top:3px}.ship-stock-weight{font-size:20px;font-weight:950;white-space:nowrap}.ship-stock-empty{padding:28px;text-align:center;color:var(--muted);font-weight:900}
+    @media(max-width:900px){.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-row{grid-template-columns:auto 70px minmax(0,1fr)}.ship-stock-qr{width:66px;height:66px}.ship-stock-weight{grid-column:2/4;text-align:right}}
+    @media(max-width:820px){.ship-request-breakdown{grid-template-columns:1fr 1fr}}@media(max-width:470px){.ship-request-breakdown{grid-template-columns:1fr}.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-card{min-height:104px;padding:11px}.ship-stock-card b{font-size:25px}.ship-stock-row{grid-template-columns:auto minmax(0,1fr)}.ship-stock-qr{display:none}.ship-stock-weight{grid-column:2}.ship-stock-toolbar .print-count{width:100%;margin-left:0}}
   `;
   document.head.appendChild(style);
 
@@ -43,9 +50,144 @@
   }
 
   function confirmedPackageWeight(p, grade) {
-    const confirmed = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && similar(split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType), grade)).reduce((sum, split) => sum + num(split.weight), 0);
-    const used = state.inputs.filter(input => input.packageNo === p.packageNo && input.status !== 'CANCELLED' && similar(input.grade, grade)).reduce((sum, input) => sum + num(input.weight), 0);
+    const matches = value => !grade || similar(value, grade);
+    const confirmed = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && matches(split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType))).reduce((sum, split) => sum + num(split.weight), 0);
+    const used = state.inputs.filter(input => input.packageNo === p.packageNo && input.status !== 'CANCELLED' && matches(input.grade)).reduce((sum, input) => sum + num(input.weight), 0);
     return Math.max(0, confirmed - used);
+  }
+
+  function gradeMatches(value, grade) {
+    return !grade || similar(value, grade);
+  }
+
+  function selectedGrade() {
+    return String(E('shipReqGrade')?.value || '').trim();
+  }
+
+  function packageDisplayGrade(p, grade) {
+    const rows = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && gradeMatches(split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType), grade));
+    const values = rows.map(split => split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType)).filter(Boolean);
+    return [...new Set(values)].join(', ') || p.grade || '-';
+  }
+
+  function packageGradeParts(p, grade) {
+    const split = state.splits.find(row => row.packageNo === p.packageNo && row.status !== 'CANCELLED' && gradeMatches(row.grade || gradeLabel(row.mainGrade, row.subGrade, row.detailGrade, row.productType), grade));
+    return {
+      mainGrade: split?.mainGrade || p.mainGrade || p.grade || '-',
+      subGrade: split?.subGrade || p.subGrade || '-',
+      detailGrade: split?.detailGrade || p.detailGrade || split?.grade || p.grade || '-'
+    };
+  }
+
+  function latestWaitingLocation(packageNo) {
+    return state.waitingMoves.filter(move => move.packageNo === packageNo && move.status !== 'CANCELLED').slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]?.to || '';
+  }
+
+  function availabilityItems(kind, grade = selectedGrade()) {
+    if (kind === 'completed') {
+      return activeStockBags().filter(bag => gradeMatches(bag.grade || gradeLabel(bag.mainGrade, bag.subGrade, bag.detailGrade, bag.productType), grade)).map(bag => {
+        const weight = Math.max(0, bagStockWeight(bag.id) - reservedBagWeight(bag.id));
+        const sources = typeof bagSourcePackageNos === 'function' ? bagSourcePackageNos(bag.id) : [];
+        const companies = [...new Set(sources.map(no => state.pos.find(p => p.packageNo === no)?.company).filter(Boolean))];
+        return { key: `completed:${bag.id}`, kind, code: bagCode(bag), company: companies.join(', ') || '완료재고', grade: bag.grade || '-', mainGrade: bag.mainGrade || bag.grade || '-', subGrade: bag.subGrade || '-', detailGrade: bag.detailGrade || bag.grade || '-', location: bag.location || '미지정', weight, qr: completionQrUrl(bag, 300) };
+      }).filter(item => item.weight > 0);
+    }
+
+    if (kind === 'packing') {
+      return state.pos.filter(p => !grade || packageMatches(p, grade)).map(p => {
+        const weight = confirmedPackageWeight(p, grade);
+        const parts = packageGradeParts(p, grade);
+        return { key: `packing:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: packageDisplayGrade(p, grade), ...parts, location: latestWaitingLocation(p.packageNo) || '검수완료·포장준비', weight, qr: qrUrl(p, 300) };
+      }).filter(item => item.weight > 0);
+    }
+
+    if (kind === 'work') {
+      return state.workWaits.filter(task => task.status === 'WAITING' && gradeMatches(task.originalGrade, grade)).map(task => {
+        const p = state.pos.find(row => row.packageNo === task.packageNo);
+        const parts = packageGradeParts(p || task, grade);
+        return { key: `work:${task.id}`, kind, code: task.packageNo, company: task.company || p?.company || '-', grade: task.originalGrade || p?.grade || '-', ...parts, location: `${task.type || '작업'} · ${task.location || '장소 미지정'}`, note: task.instruction || '', weight: num(task.weight), qr: workWaitQrUrl(task, 300) };
+      }).filter(item => item.weight > 0);
+    }
+
+    if (kind === 'inspection') {
+      return state.pos.filter(p => !grade || packageMatches(p, grade)).map(p => {
+        const waits = state.workWaits.filter(task => task.packageNo === p.packageNo && gradeMatches(task.originalGrade || p.grade, grade));
+        const workWaiting = waits.filter(task => task.status === 'WAITING').reduce((sum, task) => sum + num(task.weight), 0);
+        const workDone = waits.filter(task => task.status === 'DONE').reduce((sum, task) => sum + num(task.weight), 0);
+        const started = state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') || state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') || waits.length > 0;
+        const weight = started ? Math.max(0, packageRemain(p) - workWaiting - workDone) : 0;
+        const parts = packageGradeParts(p, grade);
+        return { key: `inspection:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: p.grade || '-', ...parts, location: state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') ? '검수 임시보관' : '검수 진행중', weight, qr: qrUrl(p, 300) };
+      }).filter(item => item.weight > 0);
+    }
+    return [];
+  }
+
+  const availabilityLabels = {
+    completed: ['완료재고', '즉시 출하 가능'],
+    packing: ['포장대기', '검수확정·미포장'],
+    work: ['작업대기', '작업 완료 필요'],
+    inspection: ['검수대기', '검수 진행 필요']
+  };
+
+  function allAvailabilityItems() {
+    return Object.keys(availabilityLabels).flatMap(kind => availabilityItems(kind));
+  }
+
+  function renderAvailabilityBrowser() {
+    const host = E('shipReqAvailability');
+    if (!host) return;
+    const grade = selectedGrade();
+    const buckets = Object.keys(availabilityLabels).map(kind => {
+      const items = availabilityItems(kind, grade);
+      return { kind, items, weight: items.reduce((sum, item) => sum + item.weight, 0) };
+    });
+    const current = buckets.find(bucket => bucket.kind === availabilityKind) || buckets[0];
+    const validKeys = new Set(buckets.flatMap(bucket => bucket.items.map(item => item.key)));
+    [...availabilitySelected].forEach(key => { if (!validKeys.has(key)) availabilitySelected.delete(key); });
+    host.innerHTML = `<div class="ship-stock-browser"><div class="ship-stock-title"><div><h2>${grade ? esc(grade) + ' ' : ''}출하 준비 재고</h2><p>항목을 누르면 상세목록과 QR을 확인할 수 있습니다.</p></div><span class="status-chip">공용 서버 현재자료</span></div><div class="ship-stock-cards">${buckets.map(bucket => {
+      const [label, note] = availabilityLabels[bucket.kind];
+      return `<button type="button" class="ship-stock-card ${bucket.kind === availabilityKind ? 'active' : ''} ${bucket.kind === 'work' || bucket.kind === 'inspection' ? 'wait' : ''}" onclick="openShippingAvailability('${bucket.kind}')" aria-pressed="${bucket.kind === availabilityKind}"><small>${label} · ${bucket.items.length}건</small><b>${kg(bucket.weight)}</b><span>${note} · 목록 보기</span></button>`;
+    }).join('')}</div><div class="ship-stock-panel"><div class="ship-stock-toolbar"><b>${availabilityLabels[current.kind][0]} 상세목록</b><button type="button" class="btn" onclick="selectShippingAvailability(true)">현재 목록 전체선택</button><button type="button" class="btn" onclick="selectShippingAvailability(false)">선택해제</button><button type="button" class="btn primary" onclick="printShippingAvailability()">선택 QR A4 일괄출력</button><span class="print-count">${availabilitySelected.size}개 선택</span></div><div class="ship-stock-list">${current.items.length ? current.items.map(item => `<label class="ship-stock-row ${availabilitySelected.has(item.key) ? 'selected' : ''}"><input type="checkbox" ${availabilitySelected.has(item.key) ? 'checked' : ''} onchange="toggleShippingAvailability('${item.key}',this.checked)"><img class="ship-stock-qr" src="${item.qr}" loading="lazy" alt="${esc(item.code)} QR"><span class="ship-stock-main"><b>${esc(item.code)} · ${esc(item.company)}</b><span>${esc(item.mainGrade)} · ${esc(item.subGrade)} · ${esc(item.detailGrade)}</span><small>${esc(item.location)}${item.note ? ' · ' + esc(item.note) : ''}</small></span><span class="ship-stock-weight">${kg(item.weight)}</span></label>`).join('') : '<div class="ship-stock-empty">해당 조건의 자료가 없습니다.</div>'}</div></div></div>`;
+  }
+
+  function openShippingAvailability(kind) {
+    if (!availabilityLabels[kind]) return;
+    availabilityKind = kind;
+    renderAvailabilityBrowser();
+    E('shipReqAvailability')?.querySelector('.ship-stock-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function toggleShippingAvailability(key, checked) {
+    checked ? availabilitySelected.add(key) : availabilitySelected.delete(key);
+    renderAvailabilityBrowser();
+  }
+
+  function selectShippingAvailability(checked) {
+    const keys = availabilityItems(availabilityKind).map(item => item.key);
+    keys.forEach(key => checked ? availabilitySelected.add(key) : availabilitySelected.delete(key));
+    renderAvailabilityBrowser();
+  }
+
+  function labelHtml(item) {
+    const label = availabilityLabels[item.kind]?.[0] || '출하 준비';
+    return `<article class="label"><img src="${item.qr}"><div><b class="co">${esc(label)} · ${esc(item.company)}</b><span class="gr">강종 ${esc(item.mainGrade || item.grade || '-')}</span><span class="detail">소강종 ${esc(item.subGrade || '-')}</span><span class="detail">상세강종 ${esc(item.detailGrade || item.grade || '-')}</span><b class="pkg">${esc(item.code)}</b><span>${esc(item.location)} · ${kg(item.weight)}</span></div></article>`;
+  }
+
+  async function printShippingAvailability() {
+    const items = allAvailabilityItems().filter(item => availabilitySelected.has(item.key));
+    if (!items.length) return alert('QR로 출력할 자료를 먼저 체크하세요.');
+    E('labels').innerHTML = items.map(labelHtml).join('');
+    const images = [...E('labels').querySelectorAll('img')];
+    try {
+      await Promise.race([
+        Promise.all(images.map(image => image.complete && image.naturalWidth ? Promise.resolve() : new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; }))),
+        new Promise((_, reject) => setTimeout(() => reject(Error('QR 생성 시간 초과')), 15000))
+      ]);
+      window.print();
+    } catch (error) {
+      alert(`QR 출력 준비 실패: ${error.message}`);
+    }
   }
 
   function requestForecast(grade, requestedWeight) {
@@ -103,9 +245,9 @@
       <div class="card"><div class="form">
         <label>S.O 넘버<input id="shipReqSoNo" list="shipReqSoList" placeholder="S.O 번호 검색" oninput="fillShippingRequestFromSo()"></label><datalist id="shipReqSoList"></datalist>
         <label>출하대기 요청자<input id="shipReqRequester" placeholder="요청자 이름"></label>
-        <label>강종 검색<input id="shipReqGrade" list="shipReqGradeList" placeholder="완료·포장·검수재고 강종" oninput="clearShippingPreview()"></label><datalist id="shipReqGradeList"></datalist>
+        <label>강종 검색<input id="shipReqGrade" list="shipReqGradeList" placeholder="비우면 전체 재고 · 입력하면 해당 강종" oninput="shippingGradeChanged()"></label><datalist id="shipReqGradeList"></datalist>
         <label>요청 중량(kg)<input id="shipReqWeight" type="number" inputmode="decimal" step="0.001" oninput="clearShippingPreview()"></label>
-      </div><div class="actions"><button class="btn warn" style="width:100%" onclick="previewShippingRequest()">출하예상 확인</button></div><div id="shipReqPreview"></div><button id="shipReqSave" class="btn primary" style="width:100%;margin-top:14px;min-height:66px;font-size:21px" onclick="confirmShippingRequest()" disabled>출하요청 확정</button><div id="shipReqMsg" class="msg"></div></div>`;
+      </div><div id="shipReqAvailability"></div><div class="actions"><button class="btn warn" style="width:100%" onclick="previewShippingRequest()">출하예상 확인</button></div><div id="shipReqPreview"></div><button id="shipReqSave" class="btn primary" style="width:100%;margin-top:14px;min-height:66px;font-size:21px" onclick="confirmShippingRequest()" disabled>출하요청 확정</button><div id="shipReqMsg" class="msg"></div></div>`;
     return section;
   }
 
@@ -182,6 +324,8 @@
     if (!order) return;
     E('shipReqGrade').value = order.grade || '';
     E('shipReqWeight').value = order.weight || '';
+    availabilitySelected.clear();
+    renderAvailabilityBrowser();
     preview = null;
     E('shipReqPreview').innerHTML = '';
     E('shipReqSave').disabled = true;
@@ -191,6 +335,12 @@
     preview = null;
     if (E('shipReqPreview')) E('shipReqPreview').innerHTML = '';
     if (E('shipReqSave')) E('shipReqSave').disabled = true;
+  }
+
+  function shippingGradeChanged() {
+    clearShippingPreview();
+    availabilitySelected.clear();
+    renderAvailabilityBrowser();
   }
 
   function previewShippingRequest() {
@@ -244,6 +394,7 @@
       document.querySelectorAll('.bottom button').forEach(button => button.classList.toggle('on', button.dataset.v === (id === 'shippingRequestWrite' ? 'management' : 'home')));
       renderRequestInputs();
       renderShippingRequests();
+      renderAvailabilityBrowser();
     }
   };
 
@@ -253,12 +404,18 @@
     priorRenderAll();
     renderRequestInputs();
     renderShippingRequests();
+    renderAvailabilityBrowser();
   };
 
   window.fillShippingRequestFromSo = fillShippingRequestFromSo;
   window.clearShippingPreview = clearShippingPreview;
+  window.shippingGradeChanged = shippingGradeChanged;
   window.previewShippingRequest = previewShippingRequest;
   window.confirmShippingRequest = confirmShippingRequest;
   window.renderShippingRequests = renderShippingRequests;
-  window.ShippingRequestForecast = { requestForecast, percent };
+  window.openShippingAvailability = openShippingAvailability;
+  window.toggleShippingAvailability = toggleShippingAvailability;
+  window.selectShippingAvailability = selectShippingAvailability;
+  window.printShippingAvailability = printShippingAvailability;
+  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems };
 })();
