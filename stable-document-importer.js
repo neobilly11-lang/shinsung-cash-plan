@@ -294,19 +294,72 @@
 
   function tableCrop(source) {
     const canvas = document.createElement('canvas');
-    const x = Math.round(source.width * 0.045), y = Math.round(source.height * 0.25);
-    const width = Math.round(source.width * 0.91), height = Math.round(source.height * 0.42);
+    const x = Math.round(source.width * 0.045), y = Math.round(source.height * 0.29);
+    const width = Math.round(source.width * 0.91), height = Math.round(source.height * 0.30);
     canvas.width = width; canvas.height = height;
     const context = canvas.getContext('2d', { willReadFrequently: true });
     context.drawImage(source, x, y, width, height, 0, 0, width, height);
-    const image = context.getImageData(0, 0, width, height), data = image.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      const value = gray < 205 ? 0 : 255;
-      data[i] = value; data[i + 1] = value; data[i + 2] = value;
-    }
-    context.putImageData(image, 0, 0);
     return canvas;
+  }
+
+  async function recognizeRuledRows(canvas, label, basePercent) {
+    await loadScriptOnce('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js', 'Tesseract');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    const image = context.getImageData(0, 0, canvas.width, canvas.height), data = image.data;
+    const dark = (x, y) => {
+      const index = (y * canvas.width + x) * 4;
+      return data[index] + data[index + 1] + data[index + 2] < 390;
+    };
+    const lineRows = [];
+    for (let y = 0; y < canvas.height; y += 1) {
+      let count = 0;
+      for (let x = 0; x < canvas.width; x += 2) if (dark(x, y)) count += 1;
+      if (count > canvas.width * 0.23) lineRows.push(y);
+    }
+    const groups = [];
+    lineRows.forEach(y => {
+      const last = groups[groups.length - 1];
+      if (last && y <= last[last.length - 1] + 2) last.push(y); else groups.push([y]);
+    });
+    const boundaries = groups.map(group => Math.round((group[0] + group[group.length - 1]) / 2));
+    const intervals = [];
+    for (let index = 1; index < boundaries.length; index += 1) {
+      const top = boundaries[index - 1] + 3, bottom = boundaries[index] - 3, height = bottom - top;
+      if (height >= 18 && height <= 150) intervals.push({ top, height });
+    }
+    if (intervals.length < 5) return '';
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger(info) {
+        if (info.status === 'recognizing text') setBusy(true, '표 행별 글자 인식 중', `${label} · ${Math.round((info.progress || 0) * 100)}%`, basePercent);
+      }
+    });
+    await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE, preserve_interword_spaces: '1', user_defined_dpi: '300' });
+    const texts = [];
+    for (let index = 0; index < intervals.length; index += 1) {
+      const part = intervals[index], row = document.createElement('canvas'), pad = 12;
+      row.width = canvas.width + pad * 2; row.height = part.height + pad * 2;
+      const rowContext = row.getContext('2d', { willReadFrequently: true });
+      rowContext.fillStyle = '#fff'; rowContext.fillRect(0, 0, row.width, row.height);
+      rowContext.drawImage(canvas, 0, part.top, canvas.width, part.height, pad, pad, canvas.width, part.height);
+      const rowImage = rowContext.getImageData(0, 0, row.width, row.height), rowData = rowImage.data;
+      const vertical = [];
+      for (let x = 0; x < row.width; x += 1) {
+        let count = 0;
+        for (let y = 0; y < row.height; y += 1) {
+          const pixel = (y * row.width + x) * 4;
+          if (rowData[pixel] + rowData[pixel + 1] + rowData[pixel + 2] < 390) count += 1;
+        }
+        if (count > row.height * 0.55) vertical.push(x);
+      }
+      vertical.forEach(x => { for (let dx = -2; dx <= 2; dx += 1) for (let y = 0; y < row.height; y += 1) { const pixel = (y * row.width + Math.max(0, Math.min(row.width - 1, x + dx))) * 4; rowData[pixel] = 255; rowData[pixel + 1] = 255; rowData[pixel + 2] = 255; } });
+      rowContext.putImageData(rowImage, 0, 0);
+      setBusy(true, '표 행별 글자 인식 중', `${label} · ${index + 1}/${intervals.length}행`, basePercent + index / intervals.length * 25);
+      const result = await worker.recognize(row);
+      if (result?.data?.text) texts.push(result.data.text.trim());
+      row.width = 1; row.height = 1;
+    }
+    await worker.terminate();
+    return texts.filter(Boolean).join('\n');
   }
 
   async function extractExcel(file) {
@@ -347,7 +400,7 @@
         await page.render({ canvasContext: canvas.getContext('2d', { willReadFrequently: true }), viewport }).promise;
         const fullText = await recognize(canvas, `${file.name} ${pageNo}/${pdf.numPages}페이지 전체`, 25 + pageNo / pdf.numPages * 30);
         const crop = tableCrop(canvas);
-        const tableText = await recognize(crop, `${file.name} ${pageNo}/${pdf.numPages}페이지 표`, 58 + pageNo / pdf.numPages * 28, 'eng');
+        const tableText = await recognizeRuledRows(crop, `${file.name} ${pageNo}/${pdf.numPages}페이지 표`, 58 + pageNo / pdf.numPages * 28);
         ocrPages.push(`${fullText}\n===== TABLE OCR =====\n${tableText}`);
         crop.width = 1; crop.height = 1;
         canvas.width = 1; canvas.height = 1;
