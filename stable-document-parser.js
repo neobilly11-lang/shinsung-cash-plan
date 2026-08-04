@@ -305,12 +305,28 @@
     return 'OTHER';
   }
 
+  function singularGradeTerm(value) {
+    const key = normalize(value);
+    return key.length > 4 && key.endsWith('S') ? key.slice(0, -1) : key;
+  }
+
+  function exactSubGradeMatch(source, candidates) {
+    const detailKey = normalize(source);
+    const sourceTerms = (clean(source).toUpperCase().match(/[A-Z0-9]+|[\u3131-\uD79D]+/g) || []).map(singularGradeTerm);
+    return [...new Set((candidates || []).map(clean).filter(Boolean))]
+      .filter(value => {
+        const candidateKey = normalize(value);
+        if (candidateKey.length < 2) return false;
+        if (detailKey.includes(candidateKey)) return true;
+        const candidateTerms = (clean(value).toUpperCase().match(/[A-Z0-9]+|[\u3131-\uD79D]+/g) || []).map(singularGradeTerm);
+        return candidateTerms.length > 0 && candidateTerms.every(term => sourceTerms.includes(term));
+      })
+      .sort((a, b) => normalize(b).length - normalize(a).length)[0] || '';
+  }
+
   function enrichRow(row, masters) {
     const main = bestMatch(row.detailGrade, masters.mainGrades || [], 0.36).value;
-    const detailKey = normalize(row.detailGrade);
-    const exactSub = [...new Set((masters.subGrades || []).map(clean).filter(Boolean))]
-      .filter(value => normalize(value).length >= 2 && detailKey.includes(normalize(value)))
-      .sort((a, b) => normalize(b).length - normalize(a).length)[0] || '';
+    const exactSub = exactSubGradeMatch(row.detailGrade, masters.subGrades || []);
     const sub = exactSub || bestMatch(row.detailGrade, masters.subGrades || [], 0.42).value;
     const stock = bestMatch(row.detailGrade, masters.stockGrades || [], 0.4).value;
     return {
@@ -322,5 +338,5 @@
     };
   }
 
-  return { clean, normalize, parseWeight, uniqueJoin, headerRole, findHeader, parseSheet, parseText, parseRuledTableText, ocrQuantity, inferDocumentNo, inferCompany, inferDate, levenshtein, similarity, bestMatch, inferType, enrichRow };
+  return { clean, normalize, parseWeight, uniqueJoin, headerRole, findHeader, parseSheet, parseText, parseRuledTableText, ocrQuantity, inferDocumentNo, inferCompany, inferDate, levenshtein, similarity, bestMatch, inferType, singularGradeTerm, exactSubGradeMatch, enrichRow };
 });
