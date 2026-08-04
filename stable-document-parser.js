@@ -201,6 +201,40 @@
     };
   }
 
+  function ocrQuantity(value) {
+    let digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return 0;
+    if (digits.length >= 4 && digits.endsWith('01')) digits = digits.slice(0, -1);
+    let number = Number(digits) || 0;
+    if (digits.length >= 4 && digits.endsWith('00')) number /= 100;
+    else if (digits.length >= 3 && digits.endsWith('0')) number /= 10;
+    return number;
+  }
+
+  function parseRuledTableText(text, fileName) {
+    const lines = String(text || '').split(/\r?\n/).map(line => line.trimEnd()).filter(Boolean);
+    const rows = [];
+    lines.forEach((line, index) => {
+      if (SKIP_LINE.test(line) || !/^\s*\d{1,3}\D/.test(line)) return;
+      const segments = line.trim().split(/\s{2,}/).map(clean).filter(Boolean);
+      if (segments.length < 3) return;
+      const rowToken = segments.shift();
+      const detailIndex = segments.findIndex(value => /[A-Z\u3131-\uD79D]{2,}/i.test(value) && !/^(?:H|I|L|PACKING|PALLET)$/i.test(value));
+      if (detailIndex < 0) return;
+      const detailGrade = segments[detailIndex].replace(/^[|:[\]{}%]+|[|:[\]{}%]+$/g, '').trim();
+      const tail = segments.slice(detailIndex + 1);
+      let quantityToken = '';
+      for (const value of tail) {
+        const match = value.match(/\d[\d.,]{1,5}/);
+        if (match) { quantityToken = match[0]; break; }
+      }
+      const weight = ocrQuantity(quantityToken);
+      if (!detailGrade || weight <= 0) return;
+      rows.push({ detailGrade, weight, sourcePackageNo: String(rowToken).replace(/\D/g, '').slice(-3), packageCount: 1, documentNo: '', company: '', date: '', sourceRow: index + 1 });
+    });
+    return { rows, meta: { documentNo: inferDocumentNo(text, fileName), company: inferCompany(text), date: inferDate(text) }, warning: rows.length ? '' : '\ud45c \ud589\uc758 \ud488\uba85\uacfc \uc218\ub7c9\uc744 \ubcf5\uc6d0\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.' };
+  }
+
   function levenshtein(a, b) {
     const x = normalize(a), y = normalize(b);
     if (!x) return y.length;
@@ -263,5 +297,5 @@
     };
   }
 
-  return { clean, normalize, parseWeight, uniqueJoin, headerRole, findHeader, parseSheet, parseText, inferDocumentNo, inferCompany, inferDate, levenshtein, similarity, bestMatch, inferType, enrichRow };
+  return { clean, normalize, parseWeight, uniqueJoin, headerRole, findHeader, parseSheet, parseText, parseRuledTableText, ocrQuantity, inferDocumentNo, inferCompany, inferDate, levenshtein, similarity, bestMatch, inferType, enrichRow };
 });
