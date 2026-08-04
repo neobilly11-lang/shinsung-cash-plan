@@ -41,7 +41,7 @@
     if (/^(PONUMBER|PONO|PURCHASEORDER|PURCHASEORDERNO|PO\ub118\ubc84|\uacc4\uc57d\ubc88\ud638|\ubc1c\uc8fc\ubc88\ud638)$/.test(key)) return 'po';
     if (/^(SONUMBER|SONO|SALESORDER|SALESORDERNO|SO\ub118\ubc84|\ucd9c\ud558\uc9c0\uc2dc\ubc88\ud638)$/.test(key)) return 'so';
     if (/^(VENDOR|SUPPLIER|SELLER|COMPANY|CUSTOMER|BUYER|SHIPTO|SOLDTO|\uac70\ub798\ucc98|\uac70\ub798\ucc98\uba85|\ub9e4\uc785\ucc98|\ud310\ub9e4\ucc98|\ucd9c\ud558\ucc98)$/.test(key)) return 'company';
-    if (/^(COMMODITY|GRADE|DESCRIPTION|ITEMDESCRIPTION|PRODUCTDESCRIPTION|MATERIAL|MATERIALGRADE|ITEM|PRODUCT|\uac15\uc885|\uac15\uc885\uba85|\uc0c1\ud488\uba85|\ud488\uba85|\ud488\uc885|\uc0c1\uc138\uac15\uc885)$/.test(key)) return 'detail';
+    if (/^(COMMODITY|GRADE|DESCRIPTION|ITEMDESCRIPTION|PRODUCTDESCRIPTION|MATERIAL|MATERIALGRADE|ITEM|PRODUCT|FORM|SHAPE|MATERIALFORM|PRODUCTFORM|CONDITION|\uac15\uc885|\uac15\uc885\uba85|\uc0c1\ud488\uba85|\ud488\uba85|\ud488\uc885|\ud615\uc0c1|\uc0c1\uc138\uac15\uc885)$/.test(key)) return 'detail';
     if (/^(NW|NETWEIGHT|NETWT|QUANTITYKG|QTYKG|WEIGHTKG|WEIGHT|QUANTITY|QTY|\uc911\ub7c9|\uc911\ub7c9KG|\uc21c\uc911\ub7c9|\uc218\ub7c9KG)$/.test(key)) return 'weight';
     if (/^(GW|GROSSWEIGHT|GROSSWT)$/.test(key)) return 'gross';
     if (/^(UNITPRICE|PRICE|USDPRICE|UNITPRICEUSD|PRICEUSD|\ub2e8\uac00|\ub9e4\uc785\ub2e8\uac00|USD\ub2e8\uac00)$/.test(key)) return 'unitPrice';
