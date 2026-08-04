@@ -44,6 +44,11 @@
     if (/^(COMMODITY|GRADE|DESCRIPTION|ITEMDESCRIPTION|PRODUCTDESCRIPTION|MATERIAL|MATERIALGRADE|ITEM|PRODUCT|\uac15\uc885|\uac15\uc885\uba85|\uc0c1\ud488\uba85|\ud488\uba85|\ud488\uc885|\uc0c1\uc138\uac15\uc885)$/.test(key)) return 'detail';
     if (/^(NW|NETWEIGHT|NETWT|QUANTITYKG|QTYKG|WEIGHTKG|WEIGHT|QUANTITY|QTY|\uc911\ub7c9|\uc911\ub7c9KG|\uc21c\uc911\ub7c9|\uc218\ub7c9KG)$/.test(key)) return 'weight';
     if (/^(GW|GROSSWEIGHT|GROSSWT)$/.test(key)) return 'gross';
+    if (/^(UNITPRICE|PRICE|USDPRICE|UNITPRICEUSD|PRICEUSD|\ub2e8\uac00|\ub9e4\uc785\ub2e8\uac00|USD\ub2e8\uac00)$/.test(key)) return 'unitPrice';
+    if (/^(EXCHANGERATE|FXRATE|USDKRW|\ud658\uc728|\ub9e4\uc785\ud658\uc728)$/.test(key)) return 'exchangeRate';
+    if (/^(CONTAINER|CONTAINERSPEC|CONTAINERTYPE|\ucee8\ud14c\uc774\ub108|\ucee8\ud14c\uc774\ub108\uaddc\uaca9)$/.test(key)) return 'containerSpec';
+    if (/^(PURCHASESTATUS|PURCHASEYN|\uad6c\ub9e4\uc5ec\ubd80|\ub9e4\uc785\uc5ec\ubd80)$/.test(key)) return 'purchaseStatus';
+    if (/^(ETA|ARRIVALDATE|EXPECTEDARRIVAL|\uc785\ud56d\uc608\uc815\uc77c|\uc785\uace0\uc608\uc815\uc77c)$/.test(key)) return 'eta';
     if (/^(NO|NUMBER|PACKAGENO|PACKINGNO|BAGNO|PALLETNO|PKGNO|\ud328\ud0a4\uc9c0\ubc88\ud638|\ub9c8\ub300\ubc88\ud638|\ubc88\ud638)$/.test(key)) return 'sourceNo';
     if (/^(PACKAGES|PACKAGECOUNT|PACKINGQTY|BAGS|COUNT|\ud328\ud0a4\uc9c0\uc218|\ub9c8\ub300\uc218|\uac1c\uc218)$/.test(key)) return 'count';
     if (/^(DATE|ORDERDATE|PODATE|SODATE|\uacc4\uc57d\uc77c|\ubc1c\uc8fc\uc77c|\ucd9c\ud558\uc77c|\uc608\uc815\uc77c)$/.test(key)) return 'date';
@@ -74,7 +79,7 @@
   function parseSheet(matrix, fileName) {
     const header = findHeader(matrix);
     if (!header) return { rows: [], meta: { documentNo: inferDocumentNo('', fileName), company: '', date: '' }, warning: '\ud45c \uba38\ub9ac\uae00(COMMODITY/GRADE/DESCRIPTION\uacfc \uc911\ub7c9)\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.' };
-    const indices = { detail: [], po: -1, so: -1, company: -1, weight: -1, gross: -1, sourceNo: -1, count: -1, date: -1 };
+    const indices = { detail: [], po: -1, so: -1, company: -1, weight: -1, gross: -1, unitPrice: -1, exchangeRate: -1, containerSpec: -1, purchaseStatus: -1, eta: -1, sourceNo: -1, count: -1, date: -1 };
     header.roles.forEach((role, index) => {
       if (role === 'detail') indices.detail.push(index);
       else if (role && Object.prototype.hasOwnProperty.call(indices, role) && indices[role] < 0) indices[role] = index;
@@ -82,26 +87,38 @@
     const above = matrix.slice(Math.max(0, header.rowIndex - 4), header.rowIndex + 1).flat().map(clean).filter(Boolean).join(' ');
     const unitLb = /\b(?:LB|LBS|POUND)\b/i.test(above);
     const rows = [];
-    let carriedPo = '', carriedSo = '', carriedCompany = '', carriedDate = '';
+    let carriedPo = '', carriedSo = '', carriedCompany = '', carriedDate = '', carriedExchangeRate = '', carriedContainerSpec = '', carriedPurchaseStatus = '', carriedEta = '';
     for (let rowIndex = header.rowIndex + 1; rowIndex < matrix.length; rowIndex += 1) {
       const source = Array.isArray(matrix[rowIndex]) ? matrix[rowIndex] : [];
       const detail = uniqueJoin(indices.detail.map(index => source[index]));
-      const rawWeight = indices.weight >= 0 ? source[indices.weight] : source[indices.gross];
-      let weight = parseWeight(rawWeight);
-      if (unitLb) weight *= 0.45359237;
+      let netWeight = parseWeight(indices.weight >= 0 ? source[indices.weight] : source[indices.gross]);
+      let grossWeight = parseWeight(indices.gross >= 0 ? source[indices.gross] : '');
+      if (unitLb) { netWeight *= 0.45359237; grossWeight *= 0.45359237; }
+      const weight = netWeight || grossWeight;
       if (!detail || !weight || /^(TOTAL|PAGE TOTAL|SUBTOTAL)$/i.test(detail)) continue;
       if (indices.po >= 0 && clean(source[indices.po])) carriedPo = clean(source[indices.po]);
       if (indices.so >= 0 && clean(source[indices.so])) carriedSo = clean(source[indices.so]);
       if (indices.company >= 0 && clean(source[indices.company])) carriedCompany = clean(source[indices.company]);
       if (indices.date >= 0 && clean(source[indices.date])) carriedDate = cellDate(source[indices.date]);
+      if (indices.exchangeRate >= 0 && clean(source[indices.exchangeRate])) carriedExchangeRate = parseWeight(source[indices.exchangeRate]);
+      if (indices.containerSpec >= 0 && clean(source[indices.containerSpec])) carriedContainerSpec = clean(source[indices.containerSpec]);
+      if (indices.purchaseStatus >= 0 && clean(source[indices.purchaseStatus])) carriedPurchaseStatus = clean(source[indices.purchaseStatus]);
+      if (indices.eta >= 0 && clean(source[indices.eta])) carriedEta = cellDate(source[indices.eta]);
       rows.push({
         detailGrade: detail,
         weight: Math.round(weight * 1000) / 1000,
+        netWeight: Math.round(weight * 1000) / 1000,
+        grossWeight: Math.round(grossWeight * 1000) / 1000 || '',
+        unitPriceUsd: indices.unitPrice >= 0 ? parseWeight(source[indices.unitPrice]) || '' : '',
         sourcePackageNo: indices.sourceNo >= 0 ? clean(source[indices.sourceNo]) : '',
         packageCount: Math.max(1, Math.round(parseWeight(indices.count >= 0 ? source[indices.count] : 1))),
         documentNo: carriedPo || carriedSo || '',
         company: carriedCompany,
         date: carriedDate,
+        exchangeRate: carriedExchangeRate,
+        containerSpec: carriedContainerSpec,
+        purchaseStatus: carriedPurchaseStatus,
+        eta: carriedEta,
         sourceRow: rowIndex + 1
       });
     }
@@ -111,7 +128,11 @@
       meta: {
         documentNo: first.documentNo || inferDocumentNo('', fileName),
         company: first.company || '',
-        date: first.date || ''
+        date: first.date || '',
+        exchangeRate: first.exchangeRate || '',
+        containerSpec: first.containerSpec || '',
+        purchaseStatus: first.purchaseStatus || '',
+        eta: first.eta || ''
       },
       warning: ''
     };
@@ -187,7 +208,7 @@
       }
       description = description.replace(/\s+(?:QTY|QUANTITY|WEIGHT)$/i, '').trim();
       if (!description || !weight || SKIP_LINE.test(description)) continue;
-      rows.push({ detailGrade: description, weight, sourcePackageNo, packageCount: 1, documentNo: '', company: '', date: '', sourceRow: index + 1 });
+      rows.push({ detailGrade: description, weight, netWeight: weight, grossWeight: '', unitPriceUsd: '', sourcePackageNo, packageCount: 1, documentNo: '', company: '', date: '', sourceRow: index + 1 });
     }
     const deduped = [];
     rows.forEach(row => {
@@ -230,7 +251,7 @@
       }
       const weight = ocrQuantity(quantityToken);
       if (!detailGrade || weight <= 0) return;
-      rows.push({ detailGrade, weight, sourcePackageNo: String(rowToken).replace(/\D/g, '').slice(-3), packageCount: 1, documentNo: '', company: '', date: '', sourceRow: index + 1 });
+      rows.push({ detailGrade, weight, netWeight: weight, grossWeight: '', unitPriceUsd: '', sourcePackageNo: String(rowToken).replace(/\D/g, '').slice(-3), packageCount: 1, documentNo: '', company: '', date: '', sourceRow: index + 1 });
     });
     return { rows, meta: { documentNo: inferDocumentNo(text, fileName), company: inferCompany(text), date: inferDate(text) }, warning: rows.length ? '' : '\ud45c \ud589\uc758 \ud488\uba85\uacfc \uc218\ub7c9\uc744 \ubcf5\uc6d0\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.' };
   }
@@ -286,7 +307,11 @@
 
   function enrichRow(row, masters) {
     const main = bestMatch(row.detailGrade, masters.mainGrades || [], 0.36).value;
-    const sub = bestMatch(row.detailGrade, masters.subGrades || [], 0.48).value;
+    const detailKey = normalize(row.detailGrade);
+    const exactSub = [...new Set((masters.subGrades || []).map(clean).filter(Boolean))]
+      .filter(value => normalize(value).length >= 2 && detailKey.includes(normalize(value)))
+      .sort((a, b) => normalize(b).length - normalize(a).length)[0] || '';
+    const sub = exactSub || bestMatch(row.detailGrade, masters.subGrades || [], 0.42).value;
     const stock = bestMatch(row.detailGrade, masters.stockGrades || [], 0.4).value;
     return {
       ...row,
