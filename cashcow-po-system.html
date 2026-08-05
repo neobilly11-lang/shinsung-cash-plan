@@ -208,7 +208,7 @@ function parseScannedContractRow(line,defaultUnit){
 function parseColumnarOcrItems(lines,defaultUnit){
   const markingHeader=lines.findIndex(line=>/^MARKING\W*$/i.test(line)),totalIndex=lines.findIndex((line,index)=>index>markingHeader&&/^TOTAL\W*$/i.test(line));if(markingHeader<0||totalIndex<0)return[];
   const excluded=/ALLOY\s+SCRAP|COBALT\s+SCRAP|TITANIUM\s+SCRAP|STAINLESS|DESCRIPTION|PRICE|AMOUNT|Q.?TY/i,candidates=[];
-  for(let index=markingHeader+1;index<totalIndex;index++){const raw=lines[index];if(!/[A-Z]/i.test(raw)||excluded.test(raw))continue;const best=ocrBestMapping(raw);if(!best||best.score<.57)continue;candidates.push({index,raw,best})}
+  for(let index=markingHeader+1;index<totalIndex;index++){const raw=lines[index],generic=compactMarking(raw);if(!/[A-Z]/i.test(raw)||excluded.test(raw)||/^(?:NICKEL|NICKELI|NICKS|COBALT|TITANIUM|ALLOY|SCRAP|HICKEL)$/.test(generic))continue;const best=ocrBestMapping(raw);if(!best||best.score<.57)continue;candidates.push({index,raw,best})}
   const out=[];
   for(let position=0;position<candidates.length;position++){
     const current=candidates[position],end=candidates[position+1]?.index||totalIndex,groups=[];
