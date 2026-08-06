@@ -238,7 +238,14 @@
   }
 
   function addBlankRow(mode) {
-    editor[mode].rows.push(blankRow());
+    const previous = editor[mode].rows[editor[mode].rows.length - 1];
+    const row = blankRow();
+    if (mode === 'po' && previous) {
+      row.productType = previous.productType || '';
+      row.mainGrade = previous.mainGrade || '';
+      row.subGrade = previous.subGrade || '';
+    }
+    editor[mode].rows.push(row);
     renderRows(mode);
   }
 
