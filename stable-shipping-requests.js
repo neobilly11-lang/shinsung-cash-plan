@@ -49,7 +49,7 @@
     if (!candidate || !requested) return false;
     const candidateNumbers = shippingGradeNumbers(candidate), requestedNumbers = shippingGradeNumbers(requested);
     if (requestedNumbers.length && candidateNumbers.join('|') !== requestedNumbers.join('|')) return false;
-    if (candidate === requested || candidate.includes(requested)) return true;
+    if (candidate === requested || candidate.includes(requested) || requested.includes(candidate)) return true;
     const lengthRatio = Math.min(candidate.length, requested.length) / Math.max(candidate.length, requested.length);
     return lengthRatio >= 0.8 && (Parser ? Parser.similarity(candidate, requested) >= 0.84 : false);
   }
@@ -74,7 +74,7 @@
   function workTaskMatches(task, p, grade) {
     if (!grade) return true;
     const taskValues = recordGradeValues(task);
-    return taskValues.length ? taskValues.some(value => similar(value, grade)) : !!p && packageMatches(p, grade);
+    return taskValues.some(value => similar(value, grade)) || (!!p && packageMatches(p, grade));
   }
 
   function packageGradeValues(p) {
