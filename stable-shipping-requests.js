@@ -6,6 +6,7 @@
   let availabilityKind = 'completed';
   let availabilityRequestId = '';
   const availabilitySelected = new Set();
+  const inboundSaving = new Set();
 
   const style = document.createElement('style');
   style.textContent = `
@@ -15,17 +16,34 @@
     .ship-request-ready{border:2px solid var(--green);background:#eff8f4}.ship-request-wait{border:2px solid var(--amber);background:#fffaf0}.ship-request-card{border-left:8px solid var(--green)}.ship-request-card.low{border-left-color:var(--amber)}
     .ship-request-home{width:100%;margin-top:12px;text-align:left;border:3px solid #173f76;background:#eaf2ff;color:#173f76}.ship-request-home b{font-size:29px}
     .ship-stock-browser{margin-top:16px}.ship-stock-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}.ship-stock-title h2{margin:0}.ship-stock-title p{margin:0;color:var(--muted);font-weight:800}
-    .ship-stock-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.ship-stock-card{min-height:122px;border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px;text-align:left;color:var(--ink);cursor:pointer}.ship-stock-card small,.ship-stock-card b,.ship-stock-card span{display:block}.ship-stock-card small{font-size:15px;font-weight:900}.ship-stock-card b{font-size:clamp(25px,4vw,38px);margin:5px 0}.ship-stock-card span{color:var(--muted);font-weight:800}.ship-stock-card.active{border-color:var(--green);background:#eaf7f2;box-shadow:0 0 0 3px #0d725d22}.ship-stock-card.wait.active{border-color:#b77800;background:#fff7df;box-shadow:0 0 0 3px #f5b94244}
+    .ship-stock-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}.ship-stock-card{min-height:122px;border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px;text-align:left;color:var(--ink);cursor:pointer}.ship-stock-card small,.ship-stock-card b,.ship-stock-card span{display:block}.ship-stock-card small{font-size:15px;font-weight:900}.ship-stock-card b{font-size:clamp(25px,4vw,38px);margin:5px 0}.ship-stock-card span{color:var(--muted);font-weight:800}.ship-stock-card.active{border-color:var(--green);background:#eaf7f2;box-shadow:0 0 0 3px #0d725d22}.ship-stock-card.wait.active{border-color:#b77800;background:#fff7df;box-shadow:0 0 0 3px #f5b94244}
     .ship-stock-panel{border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px}.ship-stock-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.ship-stock-toolbar .btn{min-height:48px}.ship-stock-toolbar .print-count{margin-left:auto;font-weight:900;color:var(--green)}
-    .ship-stock-list{display:grid;gap:10px}.ship-stock-row{display:grid;grid-template-columns:auto 88px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:12px;background:#f8fbf9}.ship-stock-row.selected{border:2px solid var(--green);background:#eef9f5}.ship-stock-row input{width:32px;height:32px;min-height:32px;accent-color:var(--green)}.ship-stock-qr{width:82px;height:82px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px;object-fit:contain}.ship-stock-main b,.ship-stock-main span,.ship-stock-main small{display:block}.ship-stock-main b{font-size:20px}.ship-stock-main span{font-weight:800;margin-top:3px}.ship-stock-main small{color:var(--muted);margin-top:3px}.ship-stock-weight{font-size:20px;font-weight:950;white-space:nowrap}.ship-stock-empty{padding:28px;text-align:center;color:var(--muted);font-weight:900}
-    @media(max-width:900px){.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-row{grid-template-columns:auto 70px minmax(0,1fr)}.ship-stock-qr{width:66px;height:66px}.ship-stock-weight{grid-column:2/4;text-align:right}}
-    @media(max-width:820px){.ship-request-breakdown{grid-template-columns:1fr 1fr}}@media(max-width:470px){.ship-request-breakdown{grid-template-columns:1fr}.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-card{min-height:104px;padding:11px}.ship-stock-card b{font-size:25px}.ship-stock-row{grid-template-columns:auto minmax(0,1fr)}.ship-stock-qr{display:none}.ship-stock-weight{grid-column:2}.ship-stock-toolbar .print-count{width:100%;margin-left:0}}
+    .ship-stock-list{display:grid;gap:10px}.ship-stock-row{display:grid;grid-template-columns:auto 88px minmax(0,1fr) minmax(118px,auto);gap:12px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:12px;background:#f8fbf9}.ship-stock-row.selected{border:2px solid var(--green);background:#eef9f5}.ship-stock-row input{width:32px;height:32px;min-height:32px;accent-color:var(--green)}.ship-stock-qr{width:82px;height:82px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px;object-fit:contain}.ship-stock-main b,.ship-stock-main span,.ship-stock-main small{display:block}.ship-stock-main b{font-size:20px}.ship-stock-main span{font-weight:800;margin-top:3px}.ship-stock-main small{color:var(--muted);margin-top:3px}.ship-stock-side{display:grid;gap:8px;justify-items:end}.ship-stock-weight{font-size:20px;font-weight:950;white-space:nowrap}.ship-inbound-complete{min-height:48px;min-width:116px;font-size:17px}.ship-stock-empty{padding:28px;text-align:center;color:var(--muted);font-weight:900}
+    @media(max-width:1100px){.ship-stock-cards{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:900px){.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-row{grid-template-columns:auto 70px minmax(0,1fr)}.ship-stock-qr{width:66px;height:66px}.ship-stock-side{grid-column:2/4;width:100%;grid-template-columns:1fr auto;align-items:center}.ship-stock-weight{text-align:right}}
+    @media(max-width:820px){.ship-request-breakdown{grid-template-columns:1fr 1fr}}@media(max-width:470px){.ship-request-breakdown{grid-template-columns:1fr}.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-card{min-height:104px;padding:11px}.ship-stock-card b{font-size:25px}.ship-stock-row{grid-template-columns:auto minmax(0,1fr)}.ship-stock-qr{display:none}.ship-stock-side{grid-column:2;width:100%;grid-template-columns:1fr}.ship-stock-weight{text-align:right}.ship-inbound-complete{width:100%}.ship-stock-toolbar .print-count{width:100%;margin-left:0}}
   `;
   document.head.appendChild(style);
 
   function ensureArray() {
     if (!Array.isArray(state.shippingRequests)) state.shippingRequests = [];
     if (!Array.isArray(state.auditLogs)) state.auditLogs = [];
+  }
+
+  function packageInspectionStarted(p) {
+    if (!p) return false;
+    return p.status === 'RECEIVED' || !!p.receivedAt ||
+      state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') ||
+      state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') ||
+      state.workWaits.some(task => task.packageNo === p.packageNo && task.status !== 'CANCELLED');
+  }
+
+  function markInboundComplete(p, completedAt = new Date().toISOString()) {
+    if (!p || packageInspectionStarted(p)) return false;
+    p.status = 'RECEIVED';
+    p.receivedAt = completedAt;
+    state.auditLogs.push({ id: crypto.randomUUID(), action: 'INBOUND_COMPLETE', target: p.id, packageNo: p.packageNo, poNo: p.poNo || '', weight: num(p.weight), createdAt: completedAt });
+    return true;
   }
 
   function normalizeShippingGrade(value) {
@@ -184,10 +202,17 @@
         const waits = state.workWaits.filter(task => task.packageNo === p.packageNo && workTaskMatches(task, p, grade));
         const workWaiting = waits.filter(task => task.status === 'WAITING').reduce((sum, task) => sum + num(task.weight), 0);
         const workDone = waits.filter(task => task.status === 'DONE').reduce((sum, task) => sum + num(task.weight), 0);
-        const started = state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') || state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') || waits.length > 0;
+        const started = packageInspectionStarted(p);
         const weight = started ? Math.max(0, packageRemain(p) - workWaiting - workDone) : 0;
         const parts = packageGradeParts(p, grade);
         return { key: `inspection:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: p.grade || '-', ...parts, location: state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') ? '검수 임시보관' : '검수 진행중', weight, qr: qrUrl(p, 300) };
+      }).filter(item => item.weight > 0);
+    }
+
+    if (kind === 'inbound') {
+      return state.pos.filter(p => recordMatches(p, grade) && !packageInspectionStarted(p)).map(p => {
+        const parts = packageGradeParts(p, grade);
+        return { key: `inbound:${p.id}`, id: p.id, kind, code: p.packageNo, company: p.company || '-', grade: p.grade || '-', ...parts, location: `입고대기 · P.O ${p.poNo || '-'}`, weight: packageRemain(p), qr: qrUrl(p, 300) };
       }).filter(item => item.weight > 0);
     }
     return [];
@@ -197,7 +222,8 @@
     completed: ['완료재고', '즉시 출하 가능'],
     packing: ['포장대기', '검수확정·미포장'],
     work: ['작업대기', '작업 완료 필요'],
-    inspection: ['검수대기', '검수 진행 필요']
+    inspection: ['검수대기', '검수 진행 필요'],
+    inbound: ['입고대기', '입고완료 처리 필요']
   };
 
   function allAvailabilityItems() {
@@ -217,8 +243,8 @@
     [...availabilitySelected].forEach(key => { if (!validKeys.has(key)) availabilitySelected.delete(key); });
     host.innerHTML = `<div class="ship-stock-browser"><div class="ship-stock-title"><div><h2>${grade ? esc(grade) + ' ' : ''}출하 준비 재고</h2><p>항목을 누르면 상세목록과 QR을 확인할 수 있습니다.</p></div><span class="status-chip">공용 서버 현재자료</span></div><div class="ship-stock-cards">${buckets.map(bucket => {
       const [label, note] = availabilityLabels[bucket.kind];
-      return `<button type="button" class="ship-stock-card ${bucket.kind === availabilityKind ? 'active' : ''} ${bucket.kind === 'work' || bucket.kind === 'inspection' ? 'wait' : ''}" onclick="openShippingAvailability('${bucket.kind}')" aria-pressed="${bucket.kind === availabilityKind}"><small>${label} · ${bucket.items.length}건</small><b>${kg(bucket.weight)}</b><span>${note} · 목록 보기</span></button>`;
-    }).join('')}</div><div class="ship-stock-panel"><div class="ship-stock-toolbar"><b>${availabilityLabels[current.kind][0]} 상세목록</b><button type="button" class="btn" onclick="selectShippingAvailability(true)">현재 목록 전체선택</button><button type="button" class="btn" onclick="selectShippingAvailability(false)">선택해제</button><button type="button" class="btn primary" onclick="printShippingAvailability()">선택 QR A4 일괄출력</button><span class="print-count">${availabilitySelected.size}개 선택</span></div><div class="ship-stock-list">${current.items.length ? current.items.map(item => `<label class="ship-stock-row ${availabilitySelected.has(item.key) ? 'selected' : ''}"><input type="checkbox" ${availabilitySelected.has(item.key) ? 'checked' : ''} onchange="toggleShippingAvailability('${item.key}',this.checked)"><img class="ship-stock-qr" src="${item.qr}" loading="lazy" alt="${esc(item.code)} QR"><span class="ship-stock-main"><b>${esc(item.code)} · ${esc(item.company)}</b><span>${esc(item.mainGrade)} · ${esc(item.subGrade)} · ${esc(item.detailGrade)}</span><small>${esc(item.location)}${item.note ? ' · ' + esc(item.note) : ''}</small></span><span class="ship-stock-weight">${kg(item.weight)}</span></label>`).join('') : '<div class="ship-stock-empty">해당 조건의 자료가 없습니다.</div>'}</div></div></div>`;
+      return `<button type="button" class="ship-stock-card ${bucket.kind === availabilityKind ? 'active' : ''} ${['work','inspection','inbound'].includes(bucket.kind) ? 'wait' : ''}" onclick="openShippingAvailability('${bucket.kind}')" aria-pressed="${bucket.kind === availabilityKind}"><small>${label} · ${bucket.items.length}건</small><b>${kg(bucket.weight)}</b><span>${note} · 목록 보기</span></button>`;
+    }).join('')}</div><div class="ship-stock-panel"><div class="ship-stock-toolbar"><b>${availabilityLabels[current.kind][0]} 상세목록</b><button type="button" class="btn" onclick="selectShippingAvailability(true)">현재 목록 전체선택</button><button type="button" class="btn" onclick="selectShippingAvailability(false)">선택해제</button><button type="button" class="btn primary" onclick="printShippingAvailability()">선택 QR A4 일괄출력</button><span class="print-count">${availabilitySelected.size}개 선택</span></div><div class="ship-stock-list">${current.items.length ? current.items.map(item => `<div class="ship-stock-row ${availabilitySelected.has(item.key) ? 'selected' : ''}"><input type="checkbox" aria-label="${esc(item.code)} QR 출력 선택" ${availabilitySelected.has(item.key) ? 'checked' : ''} onchange="toggleShippingAvailability('${item.key}',this.checked)"><img class="ship-stock-qr" src="${item.qr}" loading="lazy" alt="${esc(item.code)} QR"><span class="ship-stock-main"><b>${esc(item.code)} · ${esc(item.company)}</b><span>${esc(item.mainGrade)} · ${esc(item.subGrade)} · ${esc(item.detailGrade)}</span><small>${esc(item.location)}${item.note ? ' · ' + esc(item.note) : ''}</small></span><span class="ship-stock-side"><b class="ship-stock-weight">${kg(item.weight)}</b>${item.kind === 'inbound' ? `<button type="button" class="btn primary ship-inbound-complete" ${inboundSaving.has(item.id) ? 'disabled' : ''} onclick="completeInbound('${esc(item.id)}')">${inboundSaving.has(item.id) ? '저장 중…' : '입고완료'}</button>` : ''}</span></div>`).join('') : '<div class="ship-stock-empty">해당 조건의 자료가 없습니다.</div>'}</div></div></div>`;
   }
 
   function openShippingAvailability(kind) {
@@ -260,6 +286,34 @@
     }
   }
 
+  async function completeInbound(id) {
+    if (inboundSaving.has(id)) return;
+    const p = state.pos.find(item => item.id === id);
+    if (!p) return msg('shipReqStatusMsg', '입고대기 자료를 찾을 수 없습니다. 공용 서버를 다시 불러와 주세요.', true);
+    if (packageInspectionStarted(p)) return msg('shipReqStatusMsg', `${p.packageNo}는 이미 입고완료 또는 검수 진행 중입니다.`, true);
+    const backup = JSON.parse(JSON.stringify(state));
+    inboundSaving.add(id);
+    renderAvailabilityBrowser();
+    if (typeof window.beginSaveProgress === 'function') window.beginSaveProgress('입고완료 저장 중', `${p.packageNo}를 검수대기로 이동하고 있습니다.`);
+    try {
+      if (!markInboundComplete(p)) throw Error('이미 입고완료 또는 검수 진행 중인 자료입니다.');
+      await saveState();
+      availabilitySelected.delete(`inbound:${id}`);
+      availabilityKind = 'inspection';
+      renderShippingRequests();
+      renderAvailabilityBrowser();
+      msg('shipReqStatusMsg', `${p.packageNo} 입고완료 · 입고대기에서 제외하고 검수대기로 이동했습니다.`);
+    } catch (error) {
+      state = defaults(backup);
+      renderAll();
+      msg('shipReqStatusMsg', `입고완료 저장 실패: ${error.message}`, true);
+    } finally {
+      inboundSaving.delete(id);
+      if (typeof window.endSaveProgress === 'function') window.endSaveProgress();
+      renderAvailabilityBrowser();
+    }
+  }
+
   function requestForecast(grade, requestedWeight, currentSoNo = '') {
     const requested = Math.max(0, num(requestedWeight));
     const result = { completed: completedWeight(grade, currentSoNo), packing: 0, work: 0, inspection: 0, inbound: 0, requested };
@@ -273,7 +327,7 @@
       result.work += workWaiting;
       result.packing += workDone;
       const unassigned = Math.max(0, remain - workWaiting - workDone);
-      const started = state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') || state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') || waits.length > 0;
+      const started = packageInspectionStarted(p);
       if (recordMatches(p, grade)) {
         if (started) result.inspection += unassigned;
         else result.inbound += unassigned;
@@ -327,7 +381,7 @@
     const section = document.createElement('section');
     section.id = 'shippingRequestStatus';
     section.className = 'view';
-    section.innerHTML = '<p class="eyebrow">검수·작업·포장 상태 자동반영</p><h1>출하요청 진행현황</h1><div class="actions"><button class="btn" onclick="show(\'home\')">← 업무수행</button><button class="btn primary" onclick="show(\'shippingRequestWrite\')">+ 출하대기 요청</button></div><div class="card"><label>준비재고 강종 검색<input id="shipStockGrade" list="shipReqGradeList" placeholder="비우면 전체 재고 · 입력하면 해당 강종" oninput="shippingAvailabilityGradeChanged()"></label></div><div id="shipReqAvailability"></div><div class="card"><label>S.O·요청자·강종 검색<input id="shipReqSearch" placeholder="검색어 입력" oninput="renderShippingRequests()"></label></div><div id="shipReqList"></div>';
+    section.innerHTML = '<p class="eyebrow">검수·작업·포장 상태 자동반영</p><h1>출하요청 진행현황</h1><div class="actions"><button class="btn" onclick="show(\'home\')">← 업무수행</button><button class="btn primary" onclick="show(\'shippingRequestWrite\')">+ 출하대기 요청</button></div><div class="card"><label>준비재고 강종 검색<input id="shipStockGrade" list="shipReqGradeList" placeholder="비우면 전체 재고 · 입력하면 해당 강종" oninput="shippingAvailabilityGradeChanged()"></label></div><div id="shipReqStatusMsg" class="msg"></div><div id="shipReqAvailability"></div><div class="card"><label>S.O·요청자·강종 검색<input id="shipReqSearch" placeholder="검색어 입력" oninput="renderShippingRequests()"></label></div><div id="shipReqList"></div>';
     return section;
   }
 
@@ -498,5 +552,6 @@
   window.toggleShippingAvailability = toggleShippingAvailability;
   window.selectShippingAvailability = selectShippingAvailability;
   window.printShippingAvailability = printShippingAvailability;
-  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems, similar, normalizeShippingGrade, packageMatches, recordMatches, workTaskMatches, reservedBagWeight, completedWeight };
+  window.completeInbound = completeInbound;
+  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems, similar, normalizeShippingGrade, packageMatches, recordMatches, workTaskMatches, reservedBagWeight, completedWeight, packageInspectionStarted, markInboundComplete };
 })();
