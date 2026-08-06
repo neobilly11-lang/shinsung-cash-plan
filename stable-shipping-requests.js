@@ -33,8 +33,8 @@
       .replace(/\b(?:NICKEL|COBALT|TITANIUM|STAINLESS(?:\s+STEEL)?|COPPER|MOLYBDENUM|TUNGSTEN)\s+(?:ALLOY\s+)?SCRAP\b/g, ' ')
       .replace(/INCONEL(?=\s*\d)|INCO(?=\s*\d)/g, 'IN')
       .replace(/\bHASTELLOY\b/g, 'HS')
-      .replace(/^\s*(?:NI|TI|STS|CO|MO|CU|OTHER)\s*[쨌/_-]+\s*/, '')
-      .replace(/[^A-Z0-9媛-??+/g, '');
+      .replace(/^\s*(?:NI|TI|STS|CO|MO|CU|OTHER)\s*[·/_-]+\s*/, '')
+      .replace(/[^A-Z0-9가-힣]+/g, '');
     compact = compact.replace(/^CO(\d+)NI(\d+)$/, '$1CO$2NI').replace(/^NI(\d+)CO(\d+)$/, '$2CO$1NI');
     if (compact === 'HS68') compact = 'HS6B';
     return compact;
@@ -155,7 +155,7 @@
         const weight = Math.max(0, bagStockWeight(bag.id) - reservedBagWeight(bag.id, availabilityRequestSoNo()));
         const sources = typeof bagSourcePackageNos === 'function' ? bagSourcePackageNos(bag.id) : [];
         const companies = [...new Set(sources.map(no => state.pos.find(p => p.packageNo === no)?.company).filter(Boolean))];
-        return { key: `completed:${bag.id}`, kind, code: bagCode(bag), company: companies.join(', ') || '?꾨즺?ш퀬', grade: bag.grade || '-', mainGrade: bag.mainGrade || bag.grade || '-', subGrade: bag.subGrade || '-', detailGrade: bag.detailGrade || bag.grade || '-', location: bag.location || '誘몄???, weight, qr: completionQrUrl(bag, 300) };
+        return { key: `completed:${bag.id}`, kind, code: bagCode(bag), company: companies.join(', ') || '완료재고', grade: bag.grade || '-', mainGrade: bag.mainGrade || bag.grade || '-', subGrade: bag.subGrade || '-', detailGrade: bag.detailGrade || bag.grade || '-', location: bag.location || '미지정', weight, qr: completionQrUrl(bag, 300) };
       }).filter(item => item.weight > 0);
     }
 
@@ -163,7 +163,7 @@
       return state.pos.filter(p => !grade || packageMatches(p, grade)).map(p => {
         const weight = confirmedPackageWeight(p, grade);
         const parts = packageGradeParts(p, grade);
-        return { key: `packing:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: packageDisplayGrade(p, grade), ...parts, location: latestWaitingLocation(p.packageNo) || '寃?섏셿猷뙿룻룷?μ?鍮?, weight, qr: qrUrl(p, 300) };
+        return { key: `packing:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: packageDisplayGrade(p, grade), ...parts, location: latestWaitingLocation(p.packageNo) || '검수완료·포장준비', weight, qr: qrUrl(p, 300) };
       }).filter(item => item.weight > 0);
     }
 
@@ -175,7 +175,7 @@
       }).map(task => {
         const p = state.pos.find(row => row.packageNo === task.packageNo);
         const parts = packageGradeParts(p || task, grade);
-        return { key: `work:${task.id}`, kind, code: task.packageNo, company: task.company || p?.company || '-', grade: task.originalGrade || p?.grade || '-', ...parts, location: `${task.type || '?묒뾽'} 쨌 ${task.location || '?μ냼 誘몄???}`, note: task.instruction || '', weight: num(task.weight), qr: workWaitQrUrl(task, 300) };
+        return { key: `work:${task.id}`, kind, code: task.packageNo, company: task.company || p?.company || '-', grade: task.originalGrade || p?.grade || '-', ...parts, location: `${task.type || '작업'} · ${task.location || '장소 미지정'}`, note: task.instruction || '', weight: num(task.weight), qr: workWaitQrUrl(task, 300) };
       }).filter(item => item.weight > 0);
     }
 
@@ -187,17 +187,17 @@
         const started = state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') || state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') || waits.length > 0;
         const weight = started ? Math.max(0, packageRemain(p) - workWaiting - workDone) : 0;
         const parts = packageGradeParts(p, grade);
-        return { key: `inspection:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: p.grade || '-', ...parts, location: state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') ? '寃???꾩떆蹂닿?' : '寃??吏꾪뻾以?, weight, qr: qrUrl(p, 300) };
+        return { key: `inspection:${p.id}`, kind, code: p.packageNo, company: p.company || '-', grade: p.grade || '-', ...parts, location: state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') ? '검수 임시보관' : '검수 진행중', weight, qr: qrUrl(p, 300) };
       }).filter(item => item.weight > 0);
     }
     return [];
   }
 
   const availabilityLabels = {
-    completed: ['?꾨즺?ш퀬', '利됱떆 異쒗븯 媛??],
-    packing: ['?ъ옣?湲?, '寃?섑솗?빧룸??ъ옣'],
-    work: ['?묒뾽?湲?, '?묒뾽 ?꾨즺 ?꾩슂'],
-    inspection: ['寃?섎?湲?, '寃??吏꾪뻾 ?꾩슂']
+    completed: ['완료재고', '즉시 출하 가능'],
+    packing: ['포장대기', '검수확정·미포장'],
+    work: ['작업대기', '작업 완료 필요'],
+    inspection: ['검수대기', '검수 진행 필요']
   };
 
   function allAvailabilityItems() {
@@ -215,10 +215,10 @@
     const current = buckets.find(bucket => bucket.kind === availabilityKind) || buckets[0];
     const validKeys = new Set(buckets.flatMap(bucket => bucket.items.map(item => item.key)));
     [...availabilitySelected].forEach(key => { if (!validKeys.has(key)) availabilitySelected.delete(key); });
-    host.innerHTML = `<div class="ship-stock-browser"><div class="ship-stock-title"><div><h2>${grade ? esc(grade) + ' ' : ''}異쒗븯 以鍮??ш퀬</h2><p>??ぉ???꾨Ⅴ硫??곸꽭紐⑸줉怨?QR???뺤씤?????덉뒿?덈떎.</p></div><span class="status-chip">怨듭슜 ?쒕쾭 ?꾩옱?먮즺</span></div><div class="ship-stock-cards">${buckets.map(bucket => {
+    host.innerHTML = `<div class="ship-stock-browser"><div class="ship-stock-title"><div><h2>${grade ? esc(grade) + ' ' : ''}출하 준비 재고</h2><p>항목을 누르면 상세목록과 QR을 확인할 수 있습니다.</p></div><span class="status-chip">공용 서버 현재자료</span></div><div class="ship-stock-cards">${buckets.map(bucket => {
       const [label, note] = availabilityLabels[bucket.kind];
-      return `<button type="button" class="ship-stock-card ${bucket.kind === availabilityKind ? 'active' : ''} ${bucket.kind === 'work' || bucket.kind === 'inspection' ? 'wait' : ''}" onclick="openShippingAvailability('${bucket.kind}')" aria-pressed="${bucket.kind === availabilityKind}"><small>${label} 쨌 ${bucket.items.length}嫄?/small><b>${kg(bucket.weight)}</b><span>${note} 쨌 紐⑸줉 蹂닿린</span></button>`;
-    }).join('')}</div><div class="ship-stock-panel"><div class="ship-stock-toolbar"><b>${availabilityLabels[current.kind][0]} ?곸꽭紐⑸줉</b><button type="button" class="btn" onclick="selectShippingAvailability(true)">?꾩옱 紐⑸줉 ?꾩껜?좏깮</button><button type="button" class="btn" onclick="selectShippingAvailability(false)">?좏깮?댁젣</button><button type="button" class="btn primary" onclick="printShippingAvailability()">?좏깮 QR A4 ?쇨큵異쒕젰</button><span class="print-count">${availabilitySelected.size}媛??좏깮</span></div><div class="ship-stock-list">${current.items.length ? current.items.map(item => `<label class="ship-stock-row ${availabilitySelected.has(item.key) ? 'selected' : ''}"><input type="checkbox" ${availabilitySelected.has(item.key) ? 'checked' : ''} onchange="toggleShippingAvailability('${item.key}',this.checked)"><img class="ship-stock-qr" src="${item.qr}" loading="lazy" alt="${esc(item.code)} QR"><span class="ship-stock-main"><b>${esc(item.code)} 쨌 ${esc(item.company)}</b><span>${esc(item.mainGrade)} 쨌 ${esc(item.subGrade)} 쨌 ${esc(item.detailGrade)}</span><small>${esc(item.location)}${item.note ? ' 쨌 ' + esc(item.note) : ''}</small></span><span class="ship-stock-weight">${kg(item.weight)}</span></label>`).join('') : '<div class="ship-stock-empty">?대떦 議곌굔???먮즺媛 ?놁뒿?덈떎.</div>'}</div></div></div>`;
+      return `<button type="button" class="ship-stock-card ${bucket.kind === availabilityKind ? 'active' : ''} ${bucket.kind === 'work' || bucket.kind === 'inspection' ? 'wait' : ''}" onclick="openShippingAvailability('${bucket.kind}')" aria-pressed="${bucket.kind === availabilityKind}"><small>${label} · ${bucket.items.length}건</small><b>${kg(bucket.weight)}</b><span>${note} · 목록 보기</span></button>`;
+    }).join('')}</div><div class="ship-stock-panel"><div class="ship-stock-toolbar"><b>${availabilityLabels[current.kind][0]} 상세목록</b><button type="button" class="btn" onclick="selectShippingAvailability(true)">현재 목록 전체선택</button><button type="button" class="btn" onclick="selectShippingAvailability(false)">선택해제</button><button type="button" class="btn primary" onclick="printShippingAvailability()">선택 QR A4 일괄출력</button><span class="print-count">${availabilitySelected.size}개 선택</span></div><div class="ship-stock-list">${current.items.length ? current.items.map(item => `<label class="ship-stock-row ${availabilitySelected.has(item.key) ? 'selected' : ''}"><input type="checkbox" ${availabilitySelected.has(item.key) ? 'checked' : ''} onchange="toggleShippingAvailability('${item.key}',this.checked)"><img class="ship-stock-qr" src="${item.qr}" loading="lazy" alt="${esc(item.code)} QR"><span class="ship-stock-main"><b>${esc(item.code)} · ${esc(item.company)}</b><span>${esc(item.mainGrade)} · ${esc(item.subGrade)} · ${esc(item.detailGrade)}</span><small>${esc(item.location)}${item.note ? ' · ' + esc(item.note) : ''}</small></span><span class="ship-stock-weight">${kg(item.weight)}</span></label>`).join('') : '<div class="ship-stock-empty">해당 조건의 자료가 없습니다.</div>'}</div></div></div>`;
   }
 
   function openShippingAvailability(kind) {
@@ -240,23 +240,23 @@
   }
 
   function labelHtml(item) {
-    const label = availabilityLabels[item.kind]?.[0] || '異쒗븯 以鍮?;
-    return `<article class="label"><img src="${item.qr}"><div><b class="co">${esc(label)} 쨌 ${esc(item.company)}</b><span class="gr">媛뺤쥌 ${esc(item.mainGrade || item.grade || '-')}</span><span class="detail">?뚭컯醫?${esc(item.subGrade || '-')}</span><span class="detail">?곸꽭媛뺤쥌 ${esc(item.detailGrade || item.grade || '-')}</span><b class="pkg">${esc(item.code)}</b><span>${esc(item.location)} 쨌 ${kg(item.weight)}</span></div></article>`;
+    const label = availabilityLabels[item.kind]?.[0] || '출하 준비';
+    return `<article class="label"><img src="${item.qr}"><div><b class="co">${esc(label)} · ${esc(item.company)}</b><span class="gr">강종 ${esc(item.mainGrade || item.grade || '-')}</span><span class="detail">소강종 ${esc(item.subGrade || '-')}</span><span class="detail">상세강종 ${esc(item.detailGrade || item.grade || '-')}</span><b class="pkg">${esc(item.code)}</b><span>${esc(item.location)} · ${kg(item.weight)}</span></div></article>`;
   }
 
   async function printShippingAvailability() {
     const items = allAvailabilityItems().filter(item => availabilitySelected.has(item.key));
-    if (!items.length) return alert('QR濡?異쒕젰???먮즺瑜?癒쇱? 泥댄겕?섏꽭??');
+    if (!items.length) return alert('QR로 출력할 자료를 먼저 체크하세요.');
     E('labels').innerHTML = items.map(labelHtml).join('');
     const images = [...E('labels').querySelectorAll('img')];
     try {
       await Promise.race([
         Promise.all(images.map(image => image.complete && image.naturalWidth ? Promise.resolve() : new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; }))),
-        new Promise((_, reject) => setTimeout(() => reject(Error('QR ?앹꽦 ?쒓컙 珥덇낵')), 15000))
+        new Promise((_, reject) => setTimeout(() => reject(Error('QR 생성 시간 초과')), 15000))
       ]);
       window.print();
     } catch (error) {
-      alert(`QR 異쒕젰 以鍮??ㅽ뙣: ${error.message}`);
+      alert(`QR 출력 준비 실패: ${error.message}`);
     }
   }
 
@@ -294,17 +294,17 @@
 
   function breakdownHtml(data) {
     const cells = [
-      ['?꾨즺?ш퀬', data.completed, 'ship-request-ready'],
-      ['?ъ옣?湲?, data.packing, 'ship-request-ready'],
-      ['?묒뾽?湲?, data.work, 'ship-request-wait'],
-      ['寃?섎?湲?, data.inspection, 'ship-request-wait'],
-      ['?낃퀬?湲?, data.inbound, 'ship-request-wait']
+      ['완료재고', data.completed, 'ship-request-ready'],
+      ['포장대기', data.packing, 'ship-request-ready'],
+      ['작업대기', data.work, 'ship-request-wait'],
+      ['검수대기', data.inspection, 'ship-request-wait'],
+      ['입고대기', data.inbound, 'ship-request-wait']
     ];
     return `<div class="ship-request-breakdown">${cells.map(([label, weight, className]) => `<div class="ship-request-kind ${className}"><small>${label}</small><b>${pct(percent(weight, data.requested))}</b><span>${kg(weight)}</span></div>`).join('')}</div>`;
   }
 
   function forecastHtml(data, title) {
-    return `<div class="ship-request-hero"><small>${esc(title || '?꾩옱 異쒗븯媛?μ쑉')}</small><b>${pct(data.progress)}</b><div class="ship-request-bar"><span style="width:${data.progress}%"></span></div><span>利됱떆 媛??${kg(data.ready)} / ?붿껌 ${kg(data.requested)}</span></div>${breakdownHtml(data)}`;
+    return `<div class="ship-request-hero"><small>${esc(title || '현재 출하가능율')}</small><b>${pct(data.progress)}</b><div class="ship-request-bar"><span style="width:${data.progress}%"></span></div><span>즉시 가능 ${kg(data.ready)} / 요청 ${kg(data.requested)}</span></div>${breakdownHtml(data)}`;
   }
 
   function buildWriteSection() {
@@ -312,14 +312,14 @@
     section.id = 'shippingRequestWrite';
     section.className = 'view';
     section.innerHTML = `
-      <p class="eyebrow">異쒗븯 ???ш퀬 以鍮??붿껌</p><h1>異쒗븯?湲??붿껌</h1>
-      <div class="actions"><button class="btn" onclick="show('management')">???낅Т愿由?/button><button class="btn" onclick="show('shippingRequestStatus')">?붿껌 吏꾪뻾?꾪솴</button></div>
+      <p class="eyebrow">출하 전 재고 준비 요청</p><h1>출하대기 요청</h1>
+      <div class="actions"><button class="btn" onclick="show('management')">← 업무관리</button><button class="btn" onclick="show('shippingRequestStatus')">요청 진행현황</button></div>
       <div class="card"><div class="form">
-        <label>S.O ?섎쾭<input id="shipReqSoNo" list="shipReqSoList" placeholder="S.O 踰덊샇 寃?? oninput="fillShippingRequestFromSo()"></label><datalist id="shipReqSoList"></datalist>
-        <label>異쒗븯?湲??붿껌??input id="shipReqRequester" placeholder="?붿껌???대쫫"></label>
-        <label>媛뺤쥌 寃??input id="shipReqGrade" list="shipReqGradeList" placeholder="?꾨즺쨌?ъ옣쨌寃?섏옱怨?媛뺤쥌" oninput="clearShippingPreview()"></label><datalist id="shipReqGradeList"></datalist>
-        <label>?붿껌 以묐웾(kg)<input id="shipReqWeight" type="number" inputmode="decimal" step="0.001" oninput="clearShippingPreview()"></label>
-      </div><div class="actions"><button class="btn warn" style="width:100%" onclick="previewShippingRequest()">異쒗븯?덉긽 ?뺤씤</button></div><div id="shipReqPreview"></div><button id="shipReqSave" class="btn primary" style="width:100%;margin-top:14px;min-height:66px;font-size:21px" onclick="confirmShippingRequest()" disabled>異쒗븯?붿껌 ?뺤젙</button><div id="shipReqMsg" class="msg"></div></div>`;
+        <label>S.O 넘버<input id="shipReqSoNo" list="shipReqSoList" placeholder="S.O 번호 검색" oninput="fillShippingRequestFromSo()"></label><datalist id="shipReqSoList"></datalist>
+        <label>출하대기 요청자<input id="shipReqRequester" placeholder="요청자 이름"></label>
+        <label>강종 검색<input id="shipReqGrade" list="shipReqGradeList" placeholder="완료·포장·검수재고 강종" oninput="clearShippingPreview()"></label><datalist id="shipReqGradeList"></datalist>
+        <label>요청 중량(kg)<input id="shipReqWeight" type="number" inputmode="decimal" step="0.001" oninput="clearShippingPreview()"></label>
+      </div><div class="actions"><button class="btn warn" style="width:100%" onclick="previewShippingRequest()">출하예상 확인</button></div><div id="shipReqPreview"></div><button id="shipReqSave" class="btn primary" style="width:100%;margin-top:14px;min-height:66px;font-size:21px" onclick="confirmShippingRequest()" disabled>출하요청 확정</button><div id="shipReqMsg" class="msg"></div></div>`;
     return section;
   }
 
@@ -327,7 +327,7 @@
     const section = document.createElement('section');
     section.id = 'shippingRequestStatus';
     section.className = 'view';
-    section.innerHTML = '<p class="eyebrow">寃?샕룹옉?끒룻룷???곹깭 ?먮룞諛섏쁺</p><h1>異쒗븯?붿껌 吏꾪뻾?꾪솴</h1><div class="actions"><button class="btn" onclick="show(\'home\')">???낅Т?섑뻾</button><button class="btn primary" onclick="show(\'shippingRequestWrite\')">+ 異쒗븯?湲??붿껌</button></div><div class="card"><label>以鍮꾩옱怨?媛뺤쥌 寃??input id="shipStockGrade" list="shipReqGradeList" placeholder="鍮꾩슦硫??꾩껜 ?ш퀬 쨌 ?낅젰?섎㈃ ?대떦 媛뺤쥌" oninput="shippingAvailabilityGradeChanged()"></label></div><div id="shipReqAvailability"></div><div class="card"><label>S.O쨌?붿껌?먃룰컯醫?寃??input id="shipReqSearch" placeholder="寃?됱뼱 ?낅젰" oninput="renderShippingRequests()"></label></div><div id="shipReqList"></div>';
+    section.innerHTML = '<p class="eyebrow">검수·작업·포장 상태 자동반영</p><h1>출하요청 진행현황</h1><div class="actions"><button class="btn" onclick="show(\'home\')">← 업무수행</button><button class="btn primary" onclick="show(\'shippingRequestWrite\')">+ 출하대기 요청</button></div><div class="card"><label>준비재고 강종 검색<input id="shipStockGrade" list="shipReqGradeList" placeholder="비우면 전체 재고 · 입력하면 해당 강종" oninput="shippingAvailabilityGradeChanged()"></label></div><div id="shipReqAvailability"></div><div class="card"><label>S.O·요청자·강종 검색<input id="shipReqSearch" placeholder="검색어 입력" oninput="renderShippingRequests()"></label></div><div id="shipReqList"></div>';
     return section;
   }
 
@@ -342,7 +342,7 @@
       button.id = 'shippingRequestManagementButton';
       button.className = 'homebtn blue';
       button.setAttribute('onclick', "show('shippingRequestWrite')");
-      button.innerHTML = '<span>異쒗븯 以鍮?/span><strong>異쒗븯?湲??붿껌</strong>';
+      button.innerHTML = '<span>출하 준비</span><strong>출하대기 요청</strong>';
       E('management').querySelector('.grid').appendChild(button);
     }
 
@@ -351,7 +351,7 @@
       button.id = 'shippingRequestHomeButton';
       button.className = 'dash-card ship-request-home';
       button.setAttribute('onclick', "show('shippingRequestStatus')");
-      button.innerHTML = '<small>異쒗븯?붿껌 吏꾪뻾?꾪솴 쨌 ?대┃?섏뿬 S.O蹂??뺤씤</small><b id="shippingRequestHomeCount">0嫄?/b>';
+      button.innerHTML = '<small>출하요청 진행현황 · 클릭하여 S.O별 확인</small><b id="shippingRequestHomeCount">0건</b>';
       const stock = E('homeStockTotal')?.closest('button');
       if (stock) stock.insertAdjacentElement('afterend', button);
       else E('home').appendChild(button);
@@ -361,7 +361,7 @@
       const button = document.createElement('button');
       button.id = 'openShippingRequestFromSo';
       button.className = 'btn warn';
-      button.textContent = '異쒗븯?湲??붿껌 ?묒꽦';
+      button.textContent = '출하대기 요청 작성';
       button.setAttribute('onclick', "show('shippingRequestWrite')");
       E('so')?.querySelector('h1')?.insertAdjacentElement('afterend', button);
     }
@@ -369,7 +369,7 @@
       const button = document.createElement('button');
       button.id = 'openShippingRequestFromSoWrite';
       button.className = 'btn warn';
-      button.textContent = '異쒗븯?湲??붿껌 ?묒꽦';
+      button.textContent = '출하대기 요청 작성';
       button.setAttribute('onclick', "show('shippingRequestWrite')");
       E('soWrite').querySelector('.actions')?.appendChild(button);
     }
@@ -425,45 +425,45 @@
 
   function previewShippingRequest() {
     const soNo = E('shipReqSoNo').value.trim(), requester = E('shipReqRequester').value.trim(), grade = E('shipReqGrade').value.trim(), weight = num(E('shipReqWeight').value);
-    if (!soNo || !requester || !grade || weight <= 0) return msg('shipReqMsg', 'S.O ?섎쾭쨌?붿껌?먃룰컯醫끒룹슂泥?以묐웾??紐⑤몢 ?낅젰?섏꽭??', true);
+    if (!soNo || !requester || !grade || weight <= 0) return msg('shipReqMsg', 'S.O 넘버·요청자·강종·요청 중량을 모두 입력하세요.', true);
     preview = { soNo, requester, grade, weight, forecast: requestForecast(grade, weight, soNo) };
-    E('shipReqPreview').innerHTML = forecastHtml(preview.forecast, `${grade} 異쒗븯媛?μ쑉`);
+    E('shipReqPreview').innerHTML = forecastHtml(preview.forecast, `${grade} 출하가능율`);
     E('shipReqSave').disabled = false;
-    msg('shipReqMsg', '?꾩옱 怨듭슜?먮즺瑜?湲곗??쇰줈 怨꾩궛?덉뒿?덈떎. 異쒗븯?붿껌 ?뺤젙???꾨Ⅴ硫??낅Т?섑뻾???쒖떆?⑸땲??');
+    msg('shipReqMsg', '현재 공용자료를 기준으로 계산했습니다. 출하요청 확정을 누르면 업무수행에 표시됩니다.');
   }
 
   async function confirmShippingRequest() {
-    if (!preview) return msg('shipReqMsg', '癒쇱? 異쒗븯?덉긽 ?뺤씤???뚮윭 二쇱꽭??', true);
-    if (state.shippingRequests.some(item => item.status !== 'CANCELLED' && item.soNo === preview.soNo && item.grade === preview.grade)) return msg('shipReqMsg', '媛숈? S.O? 媛뺤쥌??異쒗븯?붿껌???대? ?덉뒿?덈떎.', true);
+    if (!preview) return msg('shipReqMsg', '먼저 출하예상 확인을 눌러 주세요.', true);
+    if (state.shippingRequests.some(item => item.status !== 'CANCELLED' && item.soNo === preview.soNo && item.grade === preview.grade)) return msg('shipReqMsg', '같은 S.O와 강종의 출하요청이 이미 있습니다.', true);
     const backup = JSON.parse(JSON.stringify(state));
     const item = { id: crypto.randomUUID(), soNo: preview.soNo, requester: preview.requester, grade: preview.grade, weight: preview.weight, status: 'REQUESTED', createdAt: new Date().toISOString() };
     state.shippingRequests.push(item);
     state.auditLogs.push({ id: crypto.randomUUID(), action: 'SHIPPING_REQUEST_CREATE', target: item.id, soNo: item.soNo, requester: item.requester, at: item.createdAt });
-    msg('shipReqMsg', '??異쒗븯?붿껌??怨듭슜 ?쒕쾭?????以묒엯?덈떎.');
+    msg('shipReqMsg', '⏳ 출하요청을 공용 서버에 저장 중입니다.');
     E('shipReqSave').disabled = true;
     try {
       await saveState();
-      msg('shipReqMsg', `${item.soNo} 異쒗븯?붿껌 ?뺤젙 ?꾨즺 쨌 ?낅Т?섑뻾??異쒗븯?붿껌 嫄댁닔??諛섏쁺?섏뿀?듬땲??`);
+      msg('shipReqMsg', `${item.soNo} 출하요청 확정 완료 · 업무수행의 출하요청 건수에 반영되었습니다.`);
       preview = null;
       renderShippingRequests();
     } catch (error) {
       state = defaults(backup); renderAll();
       E('shipReqSave').disabled = false;
-      msg('shipReqMsg', `異쒗븯?붿껌 ????ㅽ뙣: ${error.message}`, true);
+      msg('shipReqMsg', `출하요청 저장 실패: ${error.message}`, true);
     }
   }
 
   function renderShippingRequests() {
     ensureArray();
     const active = state.shippingRequests.filter(item => item.status !== 'CANCELLED');
-    if (E('shippingRequestHomeCount')) E('shippingRequestHomeCount').textContent = `${active.length}嫄?;
+    if (E('shippingRequestHomeCount')) E('shippingRequestHomeCount').textContent = `${active.length}건`;
     if (!E('shipReqList')) return;
     const query = String(E('shipReqSearch')?.value || '').trim().toLowerCase();
     const list = active.filter(item => !query || [item.soNo, item.requester, item.grade].some(value => String(value || '').toLowerCase().includes(query))).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     E('shipReqList').innerHTML = list.length ? list.map(item => {
       const data = requestForecast(item.grade, item.weight, item.soNo);
-      return `<article class="donecard ship-request-card ${data.progress < 100 ? 'low' : ''}" role="button" tabindex="0" title="??異쒗븯?붿껌 媛뺤쥌??以鍮꾩옱怨?蹂닿린" onclick="filterShippingAvailabilityByRequest('${esc(item.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();filterShippingAvailabilityByRequest('${esc(item.id)}')}"><div class="actions" style="justify-content:space-between"><span class="status-chip ${data.progress < 100 ? 'warn' : ''}">${data.progress >= 100 ? '異쒗븯以鍮?100%' : `以鍮?吏꾪뻾 ${pct(data.progress)}`}</span><span>?붿껌??${esc(item.requester)}</span></div><h2>${esc(item.soNo)} 쨌 ${esc(item.grade)}</h2><p><b>?붿껌 ${kg(item.weight)} 쨌 利됱떆 媛??${kg(data.ready)}</b></p>${forecastHtml(data, `${item.soNo} 吏꾪뻾??)}</article>`;
-    }).join('') : '<div class="card">?깅줉??異쒗븯?湲??붿껌???놁뒿?덈떎.</div>';
+      return `<article class="donecard ship-request-card ${data.progress < 100 ? 'low' : ''}" role="button" tabindex="0" title="이 출하요청 강종의 준비재고 보기" onclick="filterShippingAvailabilityByRequest('${esc(item.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();filterShippingAvailabilityByRequest('${esc(item.id)}')}"><div class="actions" style="justify-content:space-between"><span class="status-chip ${data.progress < 100 ? 'warn' : ''}">${data.progress >= 100 ? '출하준비 100%' : `준비 진행 ${pct(data.progress)}`}</span><span>요청자 ${esc(item.requester)}</span></div><h2>${esc(item.soNo)} · ${esc(item.grade)}</h2><p><b>요청 ${kg(item.weight)} · 즉시 가능 ${kg(data.ready)}</b></p>${forecastHtml(data, `${item.soNo} 진행율`)}</article>`;
+    }).join('') : '<div class="card">등록된 출하대기 요청이 없습니다.</div>';
   }
 
   ensureUi();
@@ -500,4 +500,3 @@
   window.printShippingAvailability = printShippingAvailability;
   window.ShippingRequestForecast = { requestForecast, percent, availabilityItems, similar, normalizeShippingGrade, packageMatches, recordMatches, workTaskMatches, reservedBagWeight, completedWeight };
 })();
-
