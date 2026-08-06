@@ -104,7 +104,16 @@
   }
 
   function selectedGrade() {
-    return String(E('shipStockGrade')?.value || '').trim();
+    const input = E('shipStockGrade');
+    if (!input) return '';
+    let value = String(input.value || '').trim();
+    if (value) return value;
+    const latest = state.shippingRequests.filter(item => item.status !== 'CANCELLED' && item.grade).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+    if (latest?.grade) {
+      input.value = latest.grade;
+      value = latest.grade;
+    }
+    return value;
   }
 
   function packageDisplayGrade(p, grade) {
@@ -389,6 +398,15 @@
     renderAvailabilityBrowser();
   }
 
+  function filterShippingAvailabilityByRequest(id) {
+    const request = state.shippingRequests.find(item => item.id === id && item.status !== 'CANCELLED');
+    if (!request || !E('shipStockGrade')) return;
+    E('shipStockGrade').value = request.grade || '';
+    availabilitySelected.clear();
+    renderAvailabilityBrowser();
+    E('shipReqAvailability')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function previewShippingRequest() {
     const soNo = E('shipReqSoNo').value.trim(), requester = E('shipReqRequester').value.trim(), grade = E('shipReqGrade').value.trim(), weight = num(E('shipReqWeight').value);
     if (!soNo || !requester || !grade || weight <= 0) return msg('shipReqMsg', 'S.O 넘버·요청자·강종·요청 중량을 모두 입력하세요.', true);
@@ -428,7 +446,7 @@
     const list = active.filter(item => !query || [item.soNo, item.requester, item.grade].some(value => String(value || '').toLowerCase().includes(query))).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     E('shipReqList').innerHTML = list.length ? list.map(item => {
       const data = requestForecast(item.grade, item.weight);
-      return `<article class="donecard ship-request-card ${data.progress < 100 ? 'low' : ''}"><div class="actions" style="justify-content:space-between"><span class="status-chip ${data.progress < 100 ? 'warn' : ''}">${data.progress >= 100 ? '출하준비 100%' : `준비 진행 ${pct(data.progress)}`}</span><span>요청자 ${esc(item.requester)}</span></div><h2>${esc(item.soNo)} · ${esc(item.grade)}</h2><p><b>요청 ${kg(item.weight)} · 즉시 가능 ${kg(data.ready)}</b></p>${forecastHtml(data, `${item.soNo} 진행율`)}</article>`;
+      return `<article class="donecard ship-request-card ${data.progress < 100 ? 'low' : ''}" role="button" tabindex="0" title="이 출하요청 강종의 준비재고 보기" onclick="filterShippingAvailabilityByRequest('${esc(item.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();filterShippingAvailabilityByRequest('${esc(item.id)}')}"><div class="actions" style="justify-content:space-between"><span class="status-chip ${data.progress < 100 ? 'warn' : ''}">${data.progress >= 100 ? '출하준비 100%' : `준비 진행 ${pct(data.progress)}`}</span><span>요청자 ${esc(item.requester)}</span></div><h2>${esc(item.soNo)} · ${esc(item.grade)}</h2><p><b>요청 ${kg(item.weight)} · 즉시 가능 ${kg(data.ready)}</b></p>${forecastHtml(data, `${item.soNo} 진행율`)}</article>`;
     }).join('') : '<div class="card">등록된 출하대기 요청이 없습니다.</div>';
   }
 
@@ -456,6 +474,7 @@
   window.fillShippingRequestFromSo = fillShippingRequestFromSo;
   window.clearShippingPreview = clearShippingPreview;
   window.shippingAvailabilityGradeChanged = shippingAvailabilityGradeChanged;
+  window.filterShippingAvailabilityByRequest = filterShippingAvailabilityByRequest;
   window.previewShippingRequest = previewShippingRequest;
   window.confirmShippingRequest = confirmShippingRequest;
   window.renderShippingRequests = renderShippingRequests;
