@@ -73,7 +73,7 @@
         <button class="btn" data-doc-action="download">${po ? '변환결과를 P.O 양식 Excel로 다운로드' : '변환결과를 S.O Excel로 다운로드'}</button>
       </div>
       <div class="tablewrap"><table class="document-table ${po ? 'po-table' : ''}"><thead><tr>
-        <th>삭제</th><th>품종</th><th>강종(유사검색)</th><th>소강종<br><small>자동입력·수정</small></th><th>강종명·상세강종<br><small>양식 직접입력 / 원문 자동합침</small></th>${po ? '<th>원문 패키지번호</th><th>G/W(kg)</th><th>N/W·중량(kg)</th><th>매입단가<br>(USD/kg)</th><th>패키지 수</th>' : '<th>출하재고 강종</th><th>중량(kg)</th><th>행</th>'}
+        <th>삭제</th><th>품종</th><th>강종(유사검색)</th><th>소강종<br><small>자동입력·수정</small></th><th>강종명·상세강종<br><small>${po ? '선택 입력 · 비워도 등록 가능' : '양식 직접입력 / 원문 자동합침'}</small></th>${po ? '<th>원문 패키지번호</th><th>G/W(kg)</th><th>N/W·중량(kg)</th><th>매입단가<br>(USD/kg)</th><th>패키지 수</th>' : '<th>출하재고 강종</th><th>중량(kg)</th><th>행</th>'}
       </tr></thead><tbody id="${po ? 'docPoRows' : 'docSoRows'}"></tbody></table></div>
       <div class="actions"><button class="btn primary" style="width:100%;min-height:68px;font-size:22px" data-doc-action="save">${po ? 'P.O 확정등록 · 사내입고번호 자동생성' : 'S.O 품목 전체 확정등록'}</button></div>
       <div id="${po ? 'docPoSaveMsg' : 'docSoSaveMsg'}" class="msg"></div>
@@ -192,7 +192,7 @@
         <td><select data-field="productType">${rowOptions(row.productType || '')}</select></td>
         <td><input data-field="mainGrade" list="docMainGradeList" value="${esc(row.mainGrade || '')}" placeholder="저장 강종 검색"><button class="btn" style="min-height:36px;padding:4px 8px;margin-top:4px" data-doc-action="match-row" data-index="${index}">다시 찾기</button></td>
         <td><input data-field="subGrade" list="docSubGradeList" value="${esc(row.subGrade || '')}" placeholder="소강종 선택·입력"></td>
-        <td><textarea data-field="detailGrade" placeholder="COMMODITY / GRADE / DESCRIPTION">${esc(row.detailGrade || '')}</textarea><div class="document-source">${row.sourceFile ? `${esc(row.sourceFile)}${row.sourceRow ? ` · ${esc(row.sourceRow)}행` : ''}` : '직접 입력'}</div></td>
+        <td><textarea data-field="detailGrade" placeholder="${po ? '선택 입력 · 비워도 등록 가능' : 'COMMODITY / GRADE / DESCRIPTION'}">${esc(row.detailGrade || '')}</textarea><div class="document-source">${row.sourceFile ? `${esc(row.sourceFile)}${row.sourceRow ? ` · ${esc(row.sourceRow)}행` : ''}` : '직접 입력'}</div></td>
         ${po
           ? `<td><input data-field="sourcePackageNo" value="${esc(row.sourcePackageNo || '')}" placeholder="원문 No"></td><td><input data-field="grossWeight" type="number" inputmode="decimal" min="0" step="0.001" value="${esc(row.grossWeight || '')}" placeholder="G/W"></td><td><input data-field="netWeight" type="number" inputmode="decimal" min="0" step="0.001" value="${esc(row.netWeight || row.weight || '')}" placeholder="N/W"></td><td><input data-field="unitPriceUsd" type="number" inputmode="decimal" min="0" step="0.0001" value="${esc(row.unitPriceUsd || '')}" placeholder="USD/kg"></td><td><input data-field="packageCount" type="number" min="1" step="1" value="${esc(row.packageCount || 1)}"></td>`
           : `<td><input data-field="stockGrade" list="docStockGradeList" value="${esc(row.stockGrade || '')}" placeholder="완료재고 강종 검색"></td><td><input data-field="weight" type="number" inputmode="decimal" step="0.001" value="${esc(row.weight || '')}"></td><td>${index + 1}</td>`}
@@ -501,15 +501,19 @@
     }
   }
 
+  function purchaseRowGrade(row) {
+    return Parser.clean(row.detailGrade) || Parser.clean(row.subGrade) || Parser.clean(row.mainGrade);
+  }
+
   function downloadEditor(mode) {
     if (!window.XLSX) return showEditorMessage(mode, 'Excel 모듈을 불러오지 못했습니다.', true);
-    const rows = editor[mode].rows.filter(row => Parser.clean(row.detailGrade) && num(mode === 'po' ? (row.netWeight || row.weight) : row.weight) > 0);
+    const rows = editor[mode].rows.filter(row => (mode === 'po' ? purchaseRowGrade(row) : Parser.clean(row.detailGrade)) && num(mode === 'po' ? (row.netWeight || row.weight) : row.weight) > 0);
     if (!rows.length) return showEditorMessage(mode, '다운로드할 품목 행이 없습니다.', true);
     const workbook = XLSX.utils.book_new();
     let output;
     if (mode === 'po') {
       const poNo = E('docPoNo').value.trim(), company = E('docPoCompany').value.trim();
-      output = rows.flatMap(row => Array.from({ length: Math.max(1, Math.round(num(row.packageCount))) }, () => ({ 'P.O 넘버': poNo, '거래처명': company, '강종명': row.detailGrade, '중량(kg)': num(row.netWeight || row.weight) })));
+      output = rows.flatMap(row => Array.from({ length: Math.max(1, Math.round(num(row.packageCount))) }, () => ({ 'P.O 넘버': poNo, '거래처명': company, '강종명': purchaseRowGrade(row), '중량(kg)': num(row.netWeight || row.weight) })));
     } else {
       const soNo = E('docSoNo').value.trim(), customer = E('docSoCustomer').value.trim(), shipDate = E('docSoDate').value;
       output = rows.map(row => ({ 'S.O 넘버': soNo, '판매처': customer, '품종': row.productType, '강종': row.mainGrade, '소강종': row.subGrade, '상세강종': row.detailGrade, '출하재고 강종': row.stockGrade, '중량(kg)': num(row.weight), '출하예정일': shipDate }));
@@ -523,15 +527,16 @@
 
   function poDuplicates(poNo, row) {
     if (!row.sourcePackageNo) return false;
-    return state.pos.some(item => item.poNo === poNo && String(item.sourcePackageNo || '') === String(row.sourcePackageNo) && Parser.normalize(item.detailGrade || item.grade) === Parser.normalize(row.detailGrade));
+    const rowGrade = purchaseRowGrade(row);
+    return state.pos.some(item => item.poNo === poNo && String(item.sourcePackageNo || '') === String(row.sourcePackageNo) && Parser.normalize(item.detailGrade || item.subGrade || item.mainGrade || item.grade) === Parser.normalize(rowGrade));
   }
 
   async function savePurchaseOrder() {
     const poNo = E('docPoNo').value.trim(), company = E('docPoCompany').value.trim(), poDate = E('docPoDate').value;
     const exchangeRate = num(E('docPoExchangeRate').value), containerSpec = E('docPoContainerSpec').value.trim(), purchaseStatus = E('docPoPurchaseStatus').value, eta = E('docPoEta').value;
-    const validRows = editor.po.rows.filter(row => Parser.clean(row.detailGrade) && num(row.netWeight || row.weight) > 0 && Math.round(num(row.packageCount)) > 0);
+    const validRows = editor.po.rows.filter(row => purchaseRowGrade(row) && num(row.netWeight || row.weight) > 0 && Math.round(num(row.packageCount)) > 0);
     if (!poNo || !company || !poDate) return msg('docPoSaveMsg', 'P.O 넘버·거래처명·P.O 일자를 입력하세요.', true);
-    if (!validRows.length || validRows.length !== editor.po.rows.length) return msg('docPoSaveMsg', '모든 품목 행의 상세강종·중량·패키지 수를 확인하세요.', true);
+    if (!validRows.length || validRows.length !== editor.po.rows.length) return msg('docPoSaveMsg', '모든 품목 행의 강종·중량·패키지 수를 확인하세요. 상세강종은 비워도 등록할 수 있습니다.', true);
     const invalidGross = validRows.find(row => num(row.grossWeight) > 0 && num(row.grossWeight) < num(row.netWeight || row.weight));
     if (invalidGross) return msg('docPoSaveMsg', 'G/W는 N/W보다 작을 수 없습니다. 해당 품목의 중량을 확인하세요.', true);
     const duplicates = validRows.filter(row => poDuplicates(poNo, row));
@@ -546,7 +551,7 @@
         const packageNo = nextPackage();
         const item = {
           id: crypto.randomUUID(), poNo, poDate, company, exchangeRate, containerSpec, purchaseStatus, eta,
-          grade: Parser.clean(row.detailGrade),
+          grade: purchaseRowGrade(row),
           productType: row.productType || '', mainGrade: row.mainGrade || '', subGrade: row.subGrade || '', detailGrade: Parser.clean(row.detailGrade),
           sourcePackageNo: row.sourcePackageNo || '', sourceDocument: row.sourceFile || '', sourceRow: row.sourceRow || '', sourcePart: count > 1 ? part + 1 : '',
           packageNo, weight: num(row.netWeight || row.weight), netWeight: num(row.netWeight || row.weight), grossWeight: num(row.grossWeight), unitPriceUsd: num(row.unitPriceUsd), status: 'CONFIRMED', createdAt: new Date().toISOString()
