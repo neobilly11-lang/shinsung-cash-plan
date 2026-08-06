@@ -502,7 +502,9 @@
   }
 
   function purchaseRowGrade(row) {
-    return Parser.clean(row.detailGrade) || Parser.clean(row.subGrade) || Parser.clean(row.mainGrade);
+    const detail = Parser.clean(row.detailGrade);
+    if (detail) return detail;
+    return [Parser.clean(row.mainGrade), Parser.clean(row.subGrade)].filter(Boolean).join(' · ');
   }
 
   function downloadEditor(mode) {
@@ -528,7 +530,7 @@
   function poDuplicates(poNo, row) {
     if (!row.sourcePackageNo) return false;
     const rowGrade = purchaseRowGrade(row);
-    return state.pos.some(item => item.poNo === poNo && String(item.sourcePackageNo || '') === String(row.sourcePackageNo) && Parser.normalize(item.detailGrade || item.subGrade || item.mainGrade || item.grade) === Parser.normalize(rowGrade));
+    return state.pos.some(item => item.poNo === poNo && String(item.sourcePackageNo || '') === String(row.sourcePackageNo) && Parser.normalize(purchaseRowGrade(item) || item.grade) === Parser.normalize(rowGrade));
   }
 
   async function savePurchaseOrder() {
