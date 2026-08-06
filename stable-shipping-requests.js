@@ -17,7 +17,7 @@
     .ship-request-home{width:100%;margin-top:12px;text-align:left;border:3px solid #173f76;background:#eaf2ff;color:#173f76}.ship-request-home b{font-size:29px}
     .ship-stock-browser{margin-top:16px}.ship-stock-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}.ship-stock-title h2{margin:0}.ship-stock-title p{margin:0;color:var(--muted);font-weight:800}
     .ship-stock-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}.ship-stock-card{min-height:122px;border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px;text-align:left;color:var(--ink);cursor:pointer}.ship-stock-card small,.ship-stock-card b,.ship-stock-card span{display:block}.ship-stock-card small{font-size:15px;font-weight:900}.ship-stock-card b{font-size:clamp(25px,4vw,38px);margin:5px 0}.ship-stock-card span{color:var(--muted);font-weight:800}.ship-stock-card.active{border-color:var(--green);background:#eaf7f2;box-shadow:0 0 0 3px #0d725d22}.ship-stock-card.wait.active{border-color:#b77800;background:#fff7df;box-shadow:0 0 0 3px #f5b94244}
-    .ship-stock-panel{border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px}.ship-stock-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.ship-stock-toolbar .btn{min-height:48px}.ship-stock-toolbar .print-count{margin-left:auto;font-weight:900;color:var(--green)}
+    .ship-stock-panel{border:2px solid var(--line);border-radius:18px;background:#fff;padding:14px}.ship-stock-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.ship-stock-toolbar .btn{min-height:48px}.ship-stock-toolbar .print-count{margin-left:auto;font-weight:900;color:var(--green)}.ship-inbound-complete{display:none!important}
     .ship-stock-list{display:grid;gap:10px}.ship-stock-row{display:grid;grid-template-columns:auto 88px minmax(0,1fr) minmax(118px,auto);gap:12px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:12px;background:#f8fbf9}.ship-stock-row.selected{border:2px solid var(--green);background:#eef9f5}.ship-stock-row input{width:32px;height:32px;min-height:32px;accent-color:var(--green)}.ship-stock-qr{width:82px;height:82px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px;object-fit:contain}.ship-stock-main b,.ship-stock-main span,.ship-stock-main small{display:block}.ship-stock-main b{font-size:20px}.ship-stock-main span{font-weight:800;margin-top:3px}.ship-stock-main small{color:var(--muted);margin-top:3px}.ship-stock-side{display:grid;gap:8px;justify-items:end}.ship-stock-weight{font-size:20px;font-weight:950;white-space:nowrap}.ship-inbound-complete{min-height:48px;min-width:116px;font-size:17px}.ship-stock-empty{padding:28px;text-align:center;color:var(--muted);font-weight:900}
     @media(max-width:1100px){.ship-stock-cards{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:900px){.ship-stock-cards{grid-template-columns:1fr 1fr}.ship-stock-row{grid-template-columns:auto 70px minmax(0,1fr)}.ship-stock-qr{width:66px;height:66px}.ship-stock-side{grid-column:2/4;width:100%;grid-template-columns:1fr auto;align-items:center}.ship-stock-weight{text-align:right}}
@@ -36,14 +36,6 @@
       state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') ||
       state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') ||
       state.workWaits.some(task => task.packageNo === p.packageNo && task.status !== 'CANCELLED');
-  }
-
-  function markInboundComplete(p, completedAt = new Date().toISOString()) {
-    if (!p || packageInspectionStarted(p)) return false;
-    p.status = 'RECEIVED';
-    p.receivedAt = completedAt;
-    state.auditLogs.push({ id: crypto.randomUUID(), action: 'INBOUND_COMPLETE', target: p.id, packageNo: p.packageNo, poNo: p.poNo || '', weight: num(p.weight), createdAt: completedAt });
-    return true;
   }
 
   function normalizeShippingGrade(value) {
@@ -286,34 +278,6 @@
     }
   }
 
-  async function completeInbound(id) {
-    if (inboundSaving.has(id)) return;
-    const p = state.pos.find(item => item.id === id);
-    if (!p) return msg('shipReqStatusMsg', '입고대기 자료를 찾을 수 없습니다. 공용 서버를 다시 불러와 주세요.', true);
-    if (packageInspectionStarted(p)) return msg('shipReqStatusMsg', `${p.packageNo}는 이미 입고완료 또는 검수 진행 중입니다.`, true);
-    const backup = JSON.parse(JSON.stringify(state));
-    inboundSaving.add(id);
-    renderAvailabilityBrowser();
-    if (typeof window.beginSaveProgress === 'function') window.beginSaveProgress('입고완료 저장 중', `${p.packageNo}를 검수대기로 이동하고 있습니다.`);
-    try {
-      if (!markInboundComplete(p)) throw Error('이미 입고완료 또는 검수 진행 중인 자료입니다.');
-      await saveState();
-      availabilitySelected.delete(`inbound:${id}`);
-      availabilityKind = 'inspection';
-      renderShippingRequests();
-      renderAvailabilityBrowser();
-      msg('shipReqStatusMsg', `${p.packageNo} 입고완료 · 입고대기에서 제외하고 검수대기로 이동했습니다.`);
-    } catch (error) {
-      state = defaults(backup);
-      renderAll();
-      msg('shipReqStatusMsg', `입고완료 저장 실패: ${error.message}`, true);
-    } finally {
-      inboundSaving.delete(id);
-      if (typeof window.endSaveProgress === 'function') window.endSaveProgress();
-      renderAvailabilityBrowser();
-    }
-  }
-
   function requestForecast(grade, requestedWeight, currentSoNo = '') {
     const requested = Math.max(0, num(requestedWeight));
     const result = { completed: completedWeight(grade, currentSoNo), packing: 0, work: 0, inspection: 0, inbound: 0, requested };
@@ -552,6 +516,5 @@
   window.toggleShippingAvailability = toggleShippingAvailability;
   window.selectShippingAvailability = selectShippingAvailability;
   window.printShippingAvailability = printShippingAvailability;
-  window.completeInbound = completeInbound;
-  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems, similar, normalizeShippingGrade, packageMatches, recordMatches, workTaskMatches, reservedBagWeight, completedWeight, packageInspectionStarted, markInboundComplete };
+  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems, similar, normalizeShippingGrade, packageMatches, recordMatches, workTaskMatches, reservedBagWeight, completedWeight, packageInspectionStarted };
 })();
