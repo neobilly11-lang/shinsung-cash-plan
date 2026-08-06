@@ -27,14 +27,58 @@
     if (!Array.isArray(state.auditLogs)) state.auditLogs = [];
   }
 
+  function normalizeShippingGrade(value) {
+    let compact = String(value || '').normalize('NFKC').toUpperCase()
+      .replace(/\b(?:NICKEL|COBALT|TITANIUM|STAINLESS(?:\s+STEEL)?|COPPER|MOLYBDENUM|TUNGSTEN)\s+(?:ALLOY\s+)?SCRAP\b/g, ' ')
+      .replace(/INCONEL(?=\s*\d)|INCO(?=\s*\d)/g, 'IN')
+      .replace(/\bHASTELLOY\b/g, 'HS')
+      .replace(/^\s*(?:NI|TI|STS|CO|MO|CU|OTHER)\s*[·/_-]+\s*/, '')
+      .replace(/[^A-Z0-9가-힣]+/g, '');
+    compact = compact.replace(/^CO(\d+)NI(\d+)$/, '$1CO$2NI').replace(/^NI(\d+)CO(\d+)$/, '$2CO$1NI');
+    if (compact === 'HS68') compact = 'HS6B';
+    return compact;
+  }
+
+  function shippingGradeNumbers(value) {
+    return normalizeShippingGrade(value).match(/\d+/g) || [];
+  }
+
   function similar(a, b) {
-    if (!a || !b) return false;
-    if (typeof gradesSimilar === 'function' && gradesSimilar(a, b)) return true;
-    return Parser ? Parser.similarity(a, b) >= 0.42 : String(a).toLowerCase() === String(b).toLowerCase();
+    const candidate = normalizeShippingGrade(a), requested = normalizeShippingGrade(b);
+    if (!candidate || !requested) return false;
+    const candidateNumbers = shippingGradeNumbers(candidate), requestedNumbers = shippingGradeNumbers(requested);
+    if (requestedNumbers.length && candidateNumbers.join('|') !== requestedNumbers.join('|')) return false;
+    if (candidate === requested || candidate.includes(requested)) return true;
+    const lengthRatio = Math.min(candidate.length, requested.length) / Math.max(candidate.length, requested.length);
+    return lengthRatio >= 0.8 && (Parser ? Parser.similarity(candidate, requested) >= 0.84 : false);
+  }
+
+  function recordGradeValues(record) {
+    if (!record) return [];
+    return [
+      record.grade,
+      record.originalGrade,
+      gradeLabel(record.mainGrade, record.subGrade, record.detailGrade, record.productType),
+      [record.mainGrade, record.subGrade, record.detailGrade].filter(Boolean).join(' '),
+      record.mainGrade,
+      record.detailGrade,
+      record.subGrade
+    ].filter(Boolean);
+  }
+
+  function recordMatches(record, grade) {
+    return !grade || recordGradeValues(record).some(value => similar(value, grade));
+  }
+
+  function workTaskMatches(task, p, grade) {
+    if (!grade) return true;
+    const taskValues = recordGradeValues(task);
+    return taskValues.length ? taskValues.some(value => similar(value, grade)) : !!p && packageMatches(p, grade);
   }
 
   function packageGradeValues(p) {
-    return [p.grade, p.mainGrade, p.subGrade, p.detailGrade, ...state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED').flatMap(split => [split.grade, split.mainGrade, split.subGrade, split.detailGrade])].filter(Boolean);
+    const splits = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED');
+    return [...recordGradeValues(p), ...splits.flatMap(recordGradeValues)].filter(Boolean);
   }
 
   function packageMatches(p, grade) {
@@ -46,13 +90,12 @@
   }
 
   function completedWeight(grade) {
-    return activeStockBags().filter(bag => similar(bag.grade, grade)).reduce((sum, bag) => sum + Math.max(0, bagStockWeight(bag.id) - reservedBagWeight(bag.id)), 0);
+    return activeStockBags().filter(bag => recordMatches(bag, grade)).reduce((sum, bag) => sum + Math.max(0, bagStockWeight(bag.id) - reservedBagWeight(bag.id)), 0);
   }
 
   function confirmedPackageWeight(p, grade) {
-    const matches = value => !grade || similar(value, grade);
-    const confirmed = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && matches(split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType))).reduce((sum, split) => sum + num(split.weight), 0);
-    const used = state.inputs.filter(input => input.packageNo === p.packageNo && input.status !== 'CANCELLED' && matches(input.grade)).reduce((sum, input) => sum + num(input.weight), 0);
+    const confirmed = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && recordMatches(split, grade)).reduce((sum, split) => sum + num(split.weight), 0);
+    const used = state.inputs.filter(input => input.packageNo === p.packageNo && input.status !== 'CANCELLED' && gradeMatches(input.grade, grade)).reduce((sum, input) => sum + num(input.weight), 0);
     return Math.max(0, confirmed - used);
   }
 
@@ -65,13 +108,13 @@
   }
 
   function packageDisplayGrade(p, grade) {
-    const rows = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && gradeMatches(split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType), grade));
+    const rows = state.splits.filter(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED' && recordMatches(split, grade));
     const values = rows.map(split => split.grade || gradeLabel(split.mainGrade, split.subGrade, split.detailGrade, split.productType)).filter(Boolean);
     return [...new Set(values)].join(', ') || p.grade || '-';
   }
 
   function packageGradeParts(p, grade) {
-    const split = state.splits.find(row => row.packageNo === p.packageNo && row.status !== 'CANCELLED' && gradeMatches(row.grade || gradeLabel(row.mainGrade, row.subGrade, row.detailGrade, row.productType), grade));
+    const split = state.splits.find(row => row.packageNo === p.packageNo && row.status !== 'CANCELLED' && recordMatches(row, grade));
     return {
       mainGrade: split?.mainGrade || p.mainGrade || p.grade || '-',
       subGrade: split?.subGrade || p.subGrade || '-',
@@ -85,7 +128,7 @@
 
   function availabilityItems(kind, grade = selectedGrade()) {
     if (kind === 'completed') {
-      return activeStockBags().filter(bag => gradeMatches(bag.grade || gradeLabel(bag.mainGrade, bag.subGrade, bag.detailGrade, bag.productType), grade)).map(bag => {
+      return activeStockBags().filter(bag => recordMatches(bag, grade)).map(bag => {
         const weight = Math.max(0, bagStockWeight(bag.id) - reservedBagWeight(bag.id));
         const sources = typeof bagSourcePackageNos === 'function' ? bagSourcePackageNos(bag.id) : [];
         const companies = [...new Set(sources.map(no => state.pos.find(p => p.packageNo === no)?.company).filter(Boolean))];
@@ -102,7 +145,11 @@
     }
 
     if (kind === 'work') {
-      return state.workWaits.filter(task => task.status === 'WAITING' && gradeMatches(task.originalGrade, grade)).map(task => {
+      return state.workWaits.filter(task => {
+        if (task.status !== 'WAITING') return false;
+        const p = state.pos.find(row => row.packageNo === task.packageNo);
+        return workTaskMatches(task, p, grade);
+      }).map(task => {
         const p = state.pos.find(row => row.packageNo === task.packageNo);
         const parts = packageGradeParts(p || task, grade);
         return { key: `work:${task.id}`, kind, code: task.packageNo, company: task.company || p?.company || '-', grade: task.originalGrade || p?.grade || '-', ...parts, location: `${task.type || '작업'} · ${task.location || '장소 미지정'}`, note: task.instruction || '', weight: num(task.weight), qr: workWaitQrUrl(task, 300) };
@@ -110,8 +157,8 @@
     }
 
     if (kind === 'inspection') {
-      return state.pos.filter(p => !grade || packageMatches(p, grade)).map(p => {
-        const waits = state.workWaits.filter(task => task.packageNo === p.packageNo && gradeMatches(task.originalGrade || p.grade, grade));
+      return state.pos.filter(p => recordMatches(p, grade)).map(p => {
+        const waits = state.workWaits.filter(task => task.packageNo === p.packageNo && workTaskMatches(task, p, grade));
         const workWaiting = waits.filter(task => task.status === 'WAITING').reduce((sum, task) => sum + num(task.weight), 0);
         const workDone = waits.filter(task => task.status === 'DONE').reduce((sum, task) => sum + num(task.weight), 0);
         const started = state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') || state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') || waits.length > 0;
@@ -193,10 +240,10 @@
   function requestForecast(grade, requestedWeight) {
     const requested = Math.max(0, num(requestedWeight));
     const result = { completed: completedWeight(grade), packing: 0, work: 0, inspection: 0, inbound: 0, requested };
-    state.pos.filter(p => packageMatches(p, grade)).forEach(p => {
+    state.pos.filter(p => packageMatches(p, grade) || recordMatches(p, grade)).forEach(p => {
       const remain = packageRemain(p);
       result.packing += confirmedPackageWeight(p, grade);
-      const waits = state.workWaits.filter(task => task.packageNo === p.packageNo && similar(task.originalGrade || p.grade, grade));
+      const waits = state.workWaits.filter(task => task.packageNo === p.packageNo && workTaskMatches(task, p, grade));
       const workWaiting = Math.min(remain, waits.filter(task => task.status === 'WAITING').reduce((sum, task) => sum + num(task.weight), 0));
       const roomAfterWait = Math.max(0, remain - workWaiting);
       const workDone = Math.min(roomAfterWait, waits.filter(task => task.status === 'DONE').reduce((sum, task) => sum + num(task.weight), 0));
@@ -204,8 +251,10 @@
       result.packing += workDone;
       const unassigned = Math.max(0, remain - workWaiting - workDone);
       const started = state.splits.some(split => split.packageNo === p.packageNo && split.status !== 'CANCELLED') || state.inspectionDrafts.some(draft => draft.packageNo === p.packageNo && draft.status === 'TEMP') || waits.length > 0;
-      if (started) result.inspection += unassigned;
-      else result.inbound += unassigned;
+      if (recordMatches(p, grade)) {
+        if (started) result.inspection += unassigned;
+        else result.inbound += unassigned;
+      }
     });
     result.ready = result.completed + result.packing;
     result.progress = requested > 0 ? Math.min(100, result.ready / requested * 100) : 0;
@@ -414,5 +463,5 @@
   window.toggleShippingAvailability = toggleShippingAvailability;
   window.selectShippingAvailability = selectShippingAvailability;
   window.printShippingAvailability = printShippingAvailability;
-  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems };
+  window.ShippingRequestForecast = { requestForecast, percent, availabilityItems, similar, normalizeShippingGrade, packageMatches, recordMatches, workTaskMatches };
 })();
