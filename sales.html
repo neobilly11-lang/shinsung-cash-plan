@@ -88,7 +88,7 @@
 <div class="modal" id="extraModal"><div class="modal-card"><div class="section-title"><div><h2>계약별 추가정보</h2><p>품목 등록이 확정된 계약만 송금·클레임·메모를 추가할 수 있습니다.</p></div><button id="closeExtraModal">닫기</button></div><div id="extraContractTitle" class="modal-contract"></div><div class="grid"><div class="field"><label>최근 송금일</label><input id="extraRemittanceDate" type="date"></div><div class="field"><label>누적 송금액(USD)</label><input id="extraRemittedUsd" type="number" min="0" step="any"></div><div class="field wide"><label>송금 메모</label><input id="extraRemittanceMemo" placeholder="예: 1차 송금"></div><div class="field"><label>클레임비(수익·원)</label><input id="extraClaim" type="number" step="1"></div><div class="field wide"><label>계약 메모</label><input id="extraMemo" placeholder="작업·판매·클레임 관련 메모"></div></div><div class="actions"><button class="primary" id="saveExtraBtn">계약 추가정보 저장</button><button id="cancelExtraBtn">취소</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="sales-app-v3.js?v=auto-connect-20260729-2"></script>
+<script src="sales-app-v3.js?v=bulk-sell-fx-20260809-1"></script>
 <script>
 (()=>{'use strict';if(window.SALES_APP_V3)return;
 const SUPABASE_URL='https://orpeybiqikrdydkhsjjs.supabase.co',SUPABASE_KEY='sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q',HEAD={apikey:SUPABASE_KEY},TABLE='sales_state';
