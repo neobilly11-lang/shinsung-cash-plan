@@ -63,11 +63,16 @@ export default async function handler(req, res) {
       }
       let payload = req.body?.payload || emptyState;
       if (req.method === 'PATCH') {
-        const allowed = ['gradeMasters', 'gradeTypes', 'mainGrades', 'subGrades', 'locations', 'waitingLocations'];
+        const allowed = ['companies', 'gradeMasters', 'gradeTypes', 'mainGrades', 'subGrades', 'locations', 'waitingLocations', 'workWaitLocations', 'selectionGuides'];
         const changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
         payload = { ...current.payload };
         for (const key of allowed) {
           if (Object.prototype.hasOwnProperty.call(changes, key)) payload[key] = changes[key];
+        }
+        const guide = req.body?.selectionGuide;
+        if (guide && typeof guide === 'object' && String(guide.id || '').trim()) {
+          const currentGuides = Array.isArray(payload.selectionGuides) ? payload.selectionGuides : [];
+          payload.selectionGuides = [...currentGuides.filter(item => item?.id !== guide.id), guide];
         }
       }
       const nextRevision = await writeRow(current, payload, baseRevision);
