@@ -182,6 +182,85 @@
     setTimeout(() => $('toast').classList.remove('show'), 2200);
   }
 
+  function ensureBulkSellFxUi() {
+    if ($('bulkSellFx') || !$('list')) return;
+    const panel = $('list').querySelector('.panel');
+    const filters = panel?.querySelector('.filters');
+    if (!panel || !filters) return;
+
+    const style = document.createElement('style');
+    style.id = 'bulkSellFxStyle';
+    style.textContent = `
+      .bulk-sell-fx{display:grid;grid-template-columns:minmax(190px,260px) auto minmax(180px,1fr);gap:10px;align-items:end;margin:12px 0 14px;padding:14px;border:1px solid #b8d9cf;border-radius:14px;background:#f1faf7}
+      .bulk-sell-fx label{display:block;margin:0 0 6px;font-weight:900;color:#114d40}
+      .bulk-sell-fx input{width:100%;min-height:46px}
+      .bulk-sell-fx button{min-height:46px;white-space:nowrap}
+      .bulk-sell-fx-status{align-self:center;color:#42645c;font-size:13px;line-height:1.45}
+      @media(max-width:720px){.bulk-sell-fx{grid-template-columns:1fr}.bulk-sell-fx button{width:100%}.bulk-sell-fx-status{min-height:20px}}
+    `;
+    document.head.appendChild(style);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'bulk-sell-fx';
+    wrapper.innerHTML = `
+      <div>
+        <label for="bulkSellFx">전체 판매 예상환율</label>
+        <input id="bulkSellFx" type="number" min="0.01" step="any" inputmode="decimal" placeholder="예: 1,450">
+      </div>
+      <button class="primary" id="bulkSellFxBtn" type="button">판매 환율 일괄변경</button>
+      <div class="bulk-sell-fx-status" id="bulkSellFxStatus">모든 영업 내역의 판매 예상환율을 한 번에 변경합니다.</div>
+    `;
+    filters.insertAdjacentElement('beforebegin', wrapper);
+  }
+
+  async function bulkUpdateSellFx() {
+    const input = $('bulkSellFx');
+    const button = $('bulkSellFxBtn');
+    const status = $('bulkSellFxStatus');
+    const rate = Number(input?.value);
+    const rows = businessItems();
+    if (!Number.isFinite(rate) || rate <= 0) {
+      toast('변경할 판매 예상환율을 올바르게 입력해 주세요.');
+      input?.focus();
+      return;
+    }
+    if (!rows.length) {
+      toast('변경할 영업 내역이 없습니다.');
+      return;
+    }
+    const rateText = rate.toLocaleString('ko-KR', { maximumFractionDigits: 4 });
+    if (!confirm(`전체 영업 내역 ${rows.length}건의 판매 예상환율을 ${rateText}원으로 변경할까요?`)) return;
+
+    const originalItems = JSON.parse(JSON.stringify(state.items));
+    const changedItemsReference = state.items;
+    const previousButtonText = button.textContent;
+    button.disabled = true;
+    button.textContent = '판매 환율 저장 중…';
+    status.textContent = `⏳ ${rows.length}건의 판매 예상환율을 변경하고 있습니다.`;
+    rows.forEach(item => {
+      item.sellFx = rate;
+      item.updatedAt = new Date().toISOString();
+    });
+    render();
+
+    try {
+      await persist();
+      input.value = '';
+      status.textContent = `최근 일괄변경: ${rows.length}건 · ${rateText}원`;
+      toast(`${rows.length}건의 판매 예상환율을 ${rateText}원으로 변경했습니다.`);
+    } catch (error) {
+      // A revision conflict replaces state.items with the newly loaded server data.
+      // Restore only when persist() did not already replace it with newer shared data.
+      if (state.items === changedItemsReference) state.items = originalItems;
+      render();
+      status.textContent = '일괄변경을 저장하지 못했습니다. 서버 자료를 확인한 뒤 다시 시도해 주세요.';
+      toast(error.message || '판매 예상환율 일괄변경에 실패했습니다.');
+    } finally {
+      button.disabled = false;
+      button.textContent = previousButtonText;
+    }
+  }
+
   async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -1033,6 +1112,12 @@
     render();
     toast('엑셀 영업 내역을 등록했습니다.');
   }
+
+  ensureBulkSellFxUi();
+  $('bulkSellFxBtn').onclick = bulkUpdateSellFx;
+  $('bulkSellFx').addEventListener('keydown', event => {
+    if (event.key === 'Enter') bulkUpdateSellFx();
+  });
 
   document.querySelectorAll('.tab').forEach(button => {
     button.onclick = () => showView(button.dataset.view);
