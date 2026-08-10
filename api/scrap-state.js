@@ -24,6 +24,18 @@ async function readRow() {
   return { payload: system?.scrapPayload || emptyState, revision: rows[0].revision || 0, items };
 }
 
+async function readRevision() {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${ROW_ID}&select=revision`, {
+    headers,
+    cache: 'no-store'
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Supabase revision HTTP ${response.status}: ${text}`);
+  const rows = JSON.parse(text || '[]');
+  if (!rows.length) throw new Error('sales_state main row is missing');
+  return Number(rows[0].revision) || 0;
+}
+
 async function writeRow(current, payload, baseRevision) {
   const nextRevision = baseRevision + 1;
   const nextItems = current.items.filter(item => item?.id !== SYSTEM_ID);
@@ -52,6 +64,9 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   try {
     if (req.method === 'GET') {
+      if (String(req.query?.revision || '') === '1') {
+        return res.status(200).json({ revision: await readRevision() });
+      }
       const row = await readRow();
       return res.status(200).json(row);
     }
