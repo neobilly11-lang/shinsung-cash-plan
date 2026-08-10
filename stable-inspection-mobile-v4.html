@@ -884,6 +884,64 @@ enhanceGradePickerFlow('renderBagMainGradeChoices','chooseBagMainGrade','bagMain
 enhanceGradePickerFlow('renderDomesticGradeChoices','chooseDomesticGrade','domesticPackageGrade','domesticGradePicker','domesticPackageGW');
 enhanceGradePickerFlow('renderEditMainGradeChoices','chooseEditMainGrade','editFinalMain','editMainGradePicker','editFinalSub');
 
+function domesticSupplierValues(){
+  return[...new Set([
+    ...safeArray(state.companies),
+    ...safeArray(state.pos).map(row=>row.company),
+    ...safeArray(state.domesticReceipts).map(row=>row.supplier)
+  ].map(value=>String(value||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'))
+}
+function domesticSupplierMatches(query=''){
+  const q=String(query||'').trim().toLocaleLowerCase(),values=domesticSupplierValues();
+  if(!q)return values.slice(0,16);
+  return values.filter(value=>value.toLocaleLowerCase().includes(q)).sort((a,b)=>Number(b.toLocaleLowerCase()===q)-Number(a.toLocaleLowerCase()===q)||a.localeCompare(b,'ko')).slice(0,16)
+}
+function ensureDomesticSupplierPickerUi(){
+  const input=E('domesticSupplier'),form=input?.closest('.form');
+  if(!input||!form)return;
+  input.removeAttribute('list');
+  input.autocomplete='off';
+  installGradeClearButton('domesticSupplier','clearDomesticSupplier','거래처 지우기 · 다시 입력');
+  if(!E('domesticSupplierPicker'))form.insertAdjacentHTML('afterend',`<div id="domesticSupplierPicker" class="guide-choice-group mobile-choice-picker"><span class="guide-choice-title">거래처 검색결과 · 아래 거래처를 눌러 선택</span><div id="domesticSupplierChoices" class="guide-choice-list grade-choice-list"></div><div class="grade-picker-footer"><button type="button" class="grade-clear" onpointerdown="event.preventDefault()" onclick="clearDomesticSupplier()">× 거래처 지우기 · 다시 입력</button><button type="button" class="grade-picker-close" onpointerdown="event.preventDefault()" onclick="closeGradePicker('domesticSupplierPicker','domesticSupplier')">검색창 닫기</button></div></div>`);
+  if(input.dataset.supplierPicker==='1')return;
+  input.dataset.supplierPicker='1';
+  input.addEventListener('input',renderDomesticSupplierChoices);
+  input.addEventListener('focus',renderDomesticSupplierChoices);
+  input.addEventListener('blur',()=>hideGradePickerLater('domesticSupplierPicker','domesticSupplier'));
+  input.addEventListener('keydown',event=>{if(event.key==='Enter'){const match=domesticSupplierMatches(input.value)[0];if(match){event.preventDefault();chooseDomesticSupplier(match)}}})
+}
+function renderDomesticSupplierChoices(){
+  ensureDomesticSupplierPickerUi();
+  const input=E('domesticSupplier'),picker=E('domesticSupplierPicker'),target=E('domesticSupplierChoices');
+  if(!input||!picker||!target)return;
+  const matches=domesticSupplierMatches(input.value),selected=String(input.value||'').trim().toLocaleLowerCase();
+  picker.classList.toggle('on',document.activeElement===input);
+  target.innerHTML=matches.length?matches.map(value=>`<button type="button" class="${value.toLocaleLowerCase()===selected?'recommended':''}" data-domestic-supplier="${esc(value)}" onpointerdown="event.preventDefault()" onclick="chooseDomesticSupplier(this.dataset.domesticSupplier)">${esc(value)}</button>`).join(''):'<span class="guide-choice-empty">일치하는 저장 거래처가 없습니다. 새 거래처명은 입력한 그대로 사용할 수 있습니다.</span>';
+  revealGradeSearchResults('domesticSupplier','domesticSupplierPicker')
+}
+function chooseDomesticSupplier(value){
+  const input=E('domesticSupplier');
+  if(!input||!value)return;
+  input.value=value;
+  queueDomesticAutoSave();
+  E('domesticSupplierPicker')?.classList.remove('on');
+  restoreGradeSearchCursor('domesticSupplier','domesticVehicleNo')
+}
+function clearDomesticSupplier(){
+  const input=E('domesticSupplier');
+  if(!input)return;
+  input.value='';
+  queueDomesticAutoSave();
+  refocusGradeInput('domesticSupplier',renderDomesticSupplierChoices)
+}
+const renderDomesticReceiptEditorBeforeSupplierPicker=renderDomesticReceiptEditor;
+renderDomesticReceiptEditor=function renderDomesticReceiptEditorWithSupplierPicker(){
+  const result=renderDomesticReceiptEditorBeforeSupplierPicker.apply(this,arguments);
+  ensureDomesticSupplierPickerUi();
+  renderDomesticSupplierChoices();
+  return result
+};
+
 function inspectorMatches(query=''){
   const q=String(query||'').trim().toLocaleLowerCase();
   return knownInspectors().filter(name=>!q||name.toLocaleLowerCase().includes(q)).slice(0,20)
