@@ -942,6 +942,116 @@ renderDomesticReceiptEditor=function renderDomesticReceiptEditorWithSupplierPick
   return result
 };
 
+function mergeRetryArray(latest=[],pending=[],base=[]){
+  const combined=[...latest,...pending,...base].filter(value=>value!=null),recordRows=combined.length===0||combined.every(value=>typeof value==='object'&&!Array.isArray(value)&&value.id!=null);
+  if(recordRows){
+    const baseById=new Map(base.map(value=>[String(value.id),value])),pendingById=new Map(pending.map(value=>[String(value.id),value])),result=latest.filter(value=>!baseById.has(String(value.id))||pendingById.has(String(value.id))),indexById=new Map(result.map((value,index)=>[String(value.id),index]));
+    for(const value of pending){const id=String(value.id),before=baseById.get(id);if(before&&JSON.stringify(before)===JSON.stringify(value))continue;const index=indexById.get(id);if(index==null){indexById.set(id,result.length);result.push(stateClone(value))}else result[index]=stateClone(value)}
+    return result
+  }
+  const key=value=>JSON.stringify(value),baseSet=new Set(base.map(key)),pendingSet=new Set(pending.map(key)),result=latest.filter(value=>!baseSet.has(key(value))||pendingSet.has(key(value))),resultSet=new Set(result.map(key));
+  for(const value of pending)if(!baseSet.has(key(value))&&!resultSet.has(key(value))){result.push(stateClone(value));resultSet.add(key(value))}
+  return result
+}
+function mergePendingStateAfterConflict(latest,pending,base){
+  const merged=stateClone(latest);
+  for(const key of Object.keys(pending||{})){
+    const pendingValue=pending[key],baseValue=base?.[key];
+    if(JSON.stringify(pendingValue)===JSON.stringify(baseValue))continue;
+    if(Array.isArray(pendingValue)){merged[key]=mergeRetryArray(safeArray(latest?.[key]),pendingValue,safeArray(baseValue));continue}
+    if(pendingValue&&typeof pendingValue==='object'&&!Array.isArray(pendingValue)){
+      const target={...(latest?.[key]||{})};
+      for(const property of new Set([...Object.keys(baseValue||{}),...Object.keys(pendingValue)])){
+        if(JSON.stringify(pendingValue[property])===JSON.stringify(baseValue?.[property]))continue;
+        if(Object.prototype.hasOwnProperty.call(pendingValue,property))target[property]=stateClone(pendingValue[property]);else delete target[property]
+      }
+      merged[key]=target;continue
+    }
+    merged[key]=pendingValue
+  }
+  return defaults(merged)
+}
+const saveStateBeforeFirstClickRetry=saveState;
+let saveStateSerial=Promise.resolve();
+async function saveStateWithConflictRetry(options={},attempt=0){
+  const pending=stateClone(state),base=stateClone(lastSyncedState||defaults({}));
+  try{return await saveStateBeforeFirstClickRetry(options)}catch(error){
+    if(!String(error?.message||'').includes('다른 사용자가')||attempt>=2)throw error;
+    state=mergePendingStateAfterConflict(stateClone(state),pending,base);
+    renderAll();
+    E('server').textContent='⏳ 최신자료와 합쳐 자동 재저장 중';
+    return saveStateWithConflictRetry(options,attempt+1)
+  }
+}
+saveState=function saveStateSerializedWithRetry(options={}){
+  const run=()=>saveStateWithConflictRetry(options),task=saveStateSerial.then(run,run);
+  saveStateSerial=task.catch(()=>{});
+  return task
+};
+let domesticConfirmRequested=false;
+function waitForDomesticSaveIdle(timeout=20000){return new Promise((resolve,reject)=>{const started=Date.now(),check=()=>{if(!domesticSaving)return resolve();if(Date.now()-started>=timeout)return reject(Error('자동저장 완료를 기다리는 중 시간이 초과되었습니다. 다시 눌러 주세요.'));setTimeout(check,50)};check()})}
+const confirmDomesticReceiptBeforeFirstClickFix=confirmDomesticReceipt;
+confirmDomesticReceipt=async function confirmDomesticReceiptOnFirstClick(){
+  if(domesticConfirmRequested)return;
+  domesticConfirmRequested=true;
+  clearTimeout(domesticAutoSaveTimer);
+  try{
+    if(domesticSaving){if(E('domesticMsg'))msg('domesticMsg','자동저장 완료 후 바로 입고 확정을 진행합니다.');await waitForDomesticSaveIdle()}
+    domesticSaveQueued=false;
+    clearTimeout(domesticAutoSaveTimer);
+    return await confirmDomesticReceiptBeforeFirstClickFix.apply(this,arguments)
+  }catch(error){if(E('domesticMsg'))msg('domesticMsg','국내입고 확정 실패: '+error.message,true)}finally{domesticConfirmRequested=false}
+};
+
+function inventorySearchChoiceRows(query=''){
+  const q=String(query||'').trim().toLocaleLowerCase();
+  return activeStockBags().filter(bag=>{const parts=inventoryBagGradeParts(bag),values=[bagCode(bag),bag.grade,parts.main,parts.sub,bag.detailGrade,bag.location||'미지정',...bagSourcePackageNos(bag.id)];return!q||values.some(value=>String(value||'').toLocaleLowerCase().includes(q))}).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,20)
+}
+function ensureInventorySearchPickerUi(){
+  const input=E('stockSearch'),form=input?.closest('.form');
+  if(!input||!form)return;
+  input.removeAttribute('list');
+  input.autocomplete='off';
+  installGradeClearButton('stockSearch','clearInventoryStockSearch','검색 지우기 · 다른 완료재고 검색');
+  if(!E('stockSearchPicker'))form.insertAdjacentHTML('afterend',`<div id="stockSearchPicker" class="guide-choice-group mobile-choice-picker"><span class="guide-choice-title">완료재고 검색결과 · 아래 재고를 눌러 선택</span><div id="stockSearchChoices" class="guide-choice-list grade-choice-list"></div><div class="grade-picker-footer"><button type="button" class="grade-clear" onpointerdown="event.preventDefault()" onclick="clearInventoryStockSearch()">× 검색 지우기 · 다른 완료재고 검색</button><button type="button" class="grade-picker-close" onpointerdown="event.preventDefault()" onclick="closeGradePicker('stockSearchPicker','stockSearch')">검색창 닫기</button></div></div>`);
+  if(input.dataset.stockPicker==='1')return;
+  input.dataset.stockPicker='1';
+  input.addEventListener('input',renderInventorySearchChoices);
+  input.addEventListener('focus',renderInventorySearchChoices);
+  input.addEventListener('blur',()=>hideGradePickerLater('stockSearchPicker','stockSearch'));
+  input.addEventListener('keydown',event=>{if(event.key==='Enter'){const bag=inventorySearchChoiceRows(input.value)[0];if(bag){event.preventDefault();chooseInventoryStock(bag.id)}}})
+}
+function renderInventorySearchChoices(){
+  ensureInventorySearchPickerUi();
+  const input=E('stockSearch'),picker=E('stockSearchPicker'),target=E('stockSearchChoices');
+  if(!input||!picker||!target)return;
+  const rows=inventorySearchChoiceRows(input.value),selected=String(input.value||'').trim().toLocaleLowerCase();
+  picker.classList.toggle('on',document.activeElement===input);
+  target.innerHTML=rows.length?rows.map(bag=>{const parts=inventoryBagGradeParts(bag),code=bagCode(bag);return`<button type="button" class="${code.toLocaleLowerCase()===selected?'recommended':''}" data-stock-bag-id="${esc(bag.id)}" onpointerdown="event.preventDefault()" onclick="chooseInventoryStock(this.dataset.stockBagId)"><b>${esc(code)}</b><small>${esc(parts.main)} · ${esc(parts.sub)} · ${esc(bag.location||'미지정')} · ${kg(bagStockWeight(bag.id))}</small></button>`}).join(''):'<span class="guide-choice-empty">검색 조건에 맞는 완료재고가 없습니다.</span>';
+  revealGradeSearchResults('stockSearch','stockSearchPicker')
+}
+function chooseInventoryStock(id){
+  const bag=activeStockBags().find(value=>value.id===id),input=E('stockSearch');
+  if(!bag||!input)return;
+  input.value=bagCode(bag);
+  E('stockSearchPicker')?.classList.remove('on');
+  renderInventory();
+  restoreGradeSearchCursor('stockSearch','stockAgeFilter')
+}
+function clearInventoryStockSearch(){
+  const input=E('stockSearch');
+  if(!input)return;
+  input.value='';
+  renderInventory();
+  refocusGradeInput('stockSearch',renderInventorySearchChoices)
+}
+const renderInventoryBeforeSearchPicker=renderInventory;
+renderInventory=function renderInventoryWithSearchPicker(){
+  const result=renderInventoryBeforeSearchPicker.apply(this,arguments);
+  ensureInventorySearchPickerUi();
+  return result
+};
+
 function inspectorMatches(query=''){
   const q=String(query||'').trim().toLocaleLowerCase();
   return knownInspectors().filter(name=>!q||name.toLocaleLowerCase().includes(q)).slice(0,20)
