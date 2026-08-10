@@ -91,7 +91,7 @@
 <nav class="bottom"><button data-v="home" class="on" onclick="show('home')">①<br>업무수행</button><button data-v="management" onclick="show('management')">②<br>업무관리</button><button data-v="dashboard" onclick="show('dashboard')">③<br>현황판</button></nav>
 <section id="labels" class="labels"></section>
 <div id="photoModal" class="photo-modal" onclick="if(event.target===this)closePhoto()"><div class="photo-modal-inner"><div id="photoModalTitle" class="photo-modal-title"></div><img id="photoModalImage" alt="확대 검수 사진"><button class="photo-modal-close" onclick="closePhoto()">사진 닫기</button></div></div>
-<div id="completionQrModal" class="photo-modal" onclick="if(event.target===this)closeCompletionQr()"><div class="qr-modal-card"><p class="eyebrow">완료재고 QR</p><h2 id="completionQrTitle">완료번호 QR</h2><img id="completionQrImage" alt="완료번호 QR"><div id="completionQrInfo"></div><div class="actions"><button class="btn primary" onclick="printCompletionQr()">QR 프린터하기</button><button class="btn" onclick="closeCompletionQr()">QR 닫기</button></div></div></div>
+<div id="completionQrModal" class="photo-modal" onclick="if(event.target===this)closeCompletionQr()"><div class="qr-modal-card"><p class="eyebrow">완료재고 QR</p><h2 id="completionQrTitle">완료번호 QR</h2><img id="completionQrImage" alt="완료번호 QR"><div id="completionQrInfo"></div><div class="actions"><button class="btn primary" onclick="printCompletionQr()">QR 프린터하기</button><button id="completionQrContinue" class="btn warn" onclick="closeCompletionQr()">QR 닫기 · 다음 입력칸으로</button></div></div></div>
 <script>
 'use strict';
 const API='https://orpeybiqikrdydkhsjjs.supabase.co',KEY='sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
@@ -173,6 +173,7 @@ async function saveWorkLocationMaster(){const name=E('masterWorkLocation').value
 function ensureInspectorMasterUi(){state.inspectors=safeArray(state.inspectors);const grid=E('masterWorkLocation')?.closest('.master-create-grid');if(grid&&!E('masterInspector'))grid.insertAdjacentHTML('beforeend','<div class="master-create-item"><label>검수 작업자<input id="masterInspector" list="inspectorList" placeholder="예: 김성민"></label><button class="btn primary" onclick="saveInspectorMaster()">작업자 저장</button></div>');if(!E('inspectorList'))document.body.insertAdjacentHTML('beforeend','<datalist id="inspectorList"></datalist>');const inspector=E('inspector');if(inspector){inspector.setAttribute('list','inspectorList');inspector.placeholder='저장된 작업자 검색·선택 또는 직접 입력'}}
 async function saveInspectorMaster(){ensureInspectorMasterUi();const name=String(E('masterInspector')?.value||'').trim();if(!name)return msg('masterInfo','저장할 검수 작업자 이름을 입력하세요.',true);const backup=stateClone(state);if(!state.inspectors.includes(name))state.inspectors.push(name);E('masterInspector').value='';renderMasters();msg('masterInfo',name+' 작업자 화면 반영 완료 · 서버 저장 중');try{await saveSettings();msg('masterInfo',name+' 검수 작업자 저장 완료')}catch(e){state=defaults(backup);renderMasters();msg('masterInfo','검수 작업자 저장 실패: '+e.message,true)}}
 function safeArray(value){return Array.isArray(value)?value:[]}
+function knownInspectors(){return[...new Set([...safeArray(state.inspectors),...safeArray(state.splits).map(x=>x?.inspector),...safeArray(state.inspectionDrafts).map(x=>x?.inspector),...safeArray(state.inspectionHandovers).flatMap(x=>[x?.worker1,x?.worker2])].map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'))}
 function allMainGrades(){return[...new Set([...safeArray(state.mainGrades),...safeArray(state.gradeMasters).map(x=>x?.main),...safeArray(state.splits).map(x=>x?.mainGrade),...safeArray(state.bags).map(x=>x?.mainGrade)].filter(Boolean))]}
 function allSubGrades(){return[...new Set([...safeArray(state.subGrades),...safeArray(state.gradeMasters).map(x=>x?.sub),...safeArray(state.splits).map(x=>x?.subGrade),...safeArray(state.bags).map(x=>x?.subGrade)].filter(Boolean))]}
 function normalizedGradeChoice(value){return String(value||'').trim().toLocaleLowerCase().replace(/[\s._\-/]+/g,' ')}
@@ -875,6 +876,71 @@ enhanceGradePickerFlow('renderInspectionExtraGradeChoices','chooseInspectionExtr
 enhanceGradePickerFlow('renderBagMainGradeChoices','chooseBagMainGrade','bagMain','bagMainGradePicker','bagSub');
 enhanceGradePickerFlow('renderDomesticGradeChoices','chooseDomesticGrade','domesticPackageGrade','domesticGradePicker','domesticPackageNo');
 enhanceGradePickerFlow('renderEditMainGradeChoices','chooseEditMainGrade','editFinalMain','editMainGradePicker','editFinalSub');
+
+function inspectorMatches(query=''){
+  const q=String(query||'').trim().toLocaleLowerCase();
+  return knownInspectors().filter(name=>!q||name.toLocaleLowerCase().includes(q)).slice(0,20)
+}
+function ensureInspectorPickerUi(){
+  const input=E('inspector'),label=input?.closest('label');
+  if(!input||!label)return;
+  input.removeAttribute('list');
+  input.autocomplete='off';
+  if(!E('inspectionWorkerPicker'))label.insertAdjacentHTML('afterend',`<div id="inspectionWorkerPicker" class="guide-choice-group mobile-choice-picker"><span class="guide-choice-title">저장된 검수 작업자 · 눌러서 선택</span><div id="inspectionWorkerChoices" class="guide-choice-list grade-choice-list"></div><div class="grade-picker-footer"><button type="button" class="grade-clear" onpointerdown="event.preventDefault()" onclick="clearInspectionWorker()">× 선택 지우기 · 다른 작업자 입력</button><button type="button" class="grade-picker-close" onpointerdown="event.preventDefault()" onclick="closeGradePicker('inspectionWorkerPicker','inspector')">검색창 닫기</button></div></div>`);
+  if(input.dataset.inspectorPicker==='1')return;
+  input.dataset.inspectorPicker='1';
+  input.addEventListener('input',renderInspectorChoices);
+  input.addEventListener('focus',renderInspectorChoices);
+  input.addEventListener('blur',()=>hideGradePickerLater('inspectionWorkerPicker','inspector'));
+  input.addEventListener('keydown',event=>{if(event.key==='Enter'){const match=inspectorMatches(input.value)[0];if(match){event.preventDefault();chooseInspectionWorker(match)}}})
+}
+function renderInspectorChoices(){
+  ensureInspectorPickerUi();
+  const input=E('inspector'),picker=E('inspectionWorkerPicker'),target=E('inspectionWorkerChoices');
+  if(!input||!picker||!target)return;
+  const matches=inspectorMatches(input.value),selected=String(input.value||'').trim();
+  picker.classList.toggle('on',document.activeElement===input);
+  target.innerHTML=matches.length?matches.map(name=>`<button type="button" class="${name===selected?'recommended':''}" data-inspector-name="${esc(name)}" onpointerdown="event.preventDefault()" onclick="chooseInspectionWorker(this.dataset.inspectorName)">${esc(name)}</button>`).join(''):'<span class="guide-choice-empty">저장된 작업자가 없습니다. 업무관리에서 작업자 이름을 먼저 저장하거나 직접 입력하세요.</span>'
+}
+function chooseInspectionWorker(name){
+  if(!E('inspector')||!name)return;
+  E('inspector').value=name;
+  E('inspectionWorkerPicker')?.classList.remove('on');
+  setTimeout(()=>{E('finalMain')?.scrollIntoView({behavior:'smooth',block:'center'});E('finalMain')?.focus()},0)
+}
+function clearInspectionWorker(){
+  if(!E('inspector'))return;
+  E('inspector').value='';
+  setTimeout(()=>{E('inspector')?.focus();renderInspectorChoices()},0)
+}
+const openInspectionBeforeWorkerPicker=openInspection;
+openInspection=function openInspectionWithWorkerPicker(){
+  ensureInspectorPickerUi();
+  const result=openInspectionBeforeWorkerPicker.apply(this,arguments);
+  renderInspectorChoices();
+  return result
+};
+const renderAllBeforeKnownInspectors=renderAll;
+renderAll=function renderAllWithKnownInspectors(){
+  state.inspectors=knownInspectors();
+  const result=renderAllBeforeKnownInspectors.apply(this,arguments);
+  ensureInspectorPickerUi();
+  return result
+};
+const showCompletionQrBeforeNextFocus=showCompletionQr;
+showCompletionQr=function showCompletionQrWithNextFocus(bag){
+  const result=showCompletionQrBeforeNextFocus.apply(this,arguments);
+  const button=E('completionQrContinue');
+  if(button&&pendingPackingFocusId){button.textContent='QR 닫기 · 사내입고번호 입력 계속';setTimeout(()=>button.focus(),0)}
+  return result
+};
+const overseasPackingSheetBeforeEveryItem=overseasPackingSheet;
+overseasPackingSheet=function overseasPackingSheetWithEveryItem(list,order,rows){
+  const sheet=overseasPackingSheetBeforeEveryItem.apply(this,arguments);
+  if(sheet.A11)sheet.A11.v='ITEM / GRADE · SUB GRADE';
+  rows.forEach((row,index)=>{const address=XLSX.utils.encode_cell({r:11+index,c:0}),value=[row.mainGrade,row.subGrade].filter(Boolean).join(' · ')||row.grade||'미지정';if(sheet[address])sheet[address].v=value;else sheet[address]={t:'s',v:value}});
+  return sheet
+};
 ensureSelectionGuideUi();
 ensureInspectionHandoverUi();
 ensureInspectionGradePickerUi();
@@ -889,7 +955,7 @@ ensureMoveLocationClearButton();
 identifyBatchStockMoveButton();
 ensureBatchStockMoveUi();
 const unassignedDashboardLabel=E('dashUnassignedStock')?.closest('button')?.querySelector('small');
-if(unassignedDashboardLabel)unassignedDashboardLabel.textContent='이동장소 미지정 재고';
+if(unassignedDashboardLabel)unassignedDashboardLabel.textContent='이동장소 미지정 재고 · 눌러서 목록보기';
 ensureGuideGradeInputTools();
 ensureFullGradePickers();
 enableMobilePhotoUploads();
