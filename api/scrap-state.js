@@ -59,11 +59,18 @@ export default async function handler(req, res) {
       const baseRevision = Number(req.body?.baseRevision) || 0;
       const current = await readRow();
       if (Number(current.revision) !== baseRevision) {
-        return res.status(409).json({ error: '다른 사용자가 먼저 저장했습니다.', payload: current.payload, revision: current.revision });
+        return res.status(409).json({ error: '?ㅻⅨ ?ъ슜?먭? 癒쇱? ??ν뻽?듬땲??', payload: current.payload, revision: current.revision });
       }
       let payload = req.body?.payload || emptyState;
       if (req.method === 'PATCH') {
-        const allowed = ['companies', 'gradeMasters', 'gradeTypes', 'mainGrades', 'subGrades', 'locations', 'waitingLocations', 'workWaitLocations', 'selectionGuides'];
+        const allowed = [
+          'pos', 'splits', 'inputs', 'bags', 'companies', 'gradeMasters', 'gradeTypes',
+          'mainGrades', 'subGrades', 'locations', 'movements', 'waitingLocations',
+          'waitingMoves', 'workWaitLocations', 'losses', 'inspectionDrafts',
+          'inspectionHandovers', 'workWaits', 'salesOrders', 'shippingAreaMoves',
+          'packingLists', 'shipments', 'shipmentAllocations', 'returnReceipts',
+          'claims', 'domesticReceipts', 'packagingMaterials', 'selectionGuides', 'auditLogs'
+        ];
         const changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
         payload = { ...current.payload };
         for (const key of allowed) {
