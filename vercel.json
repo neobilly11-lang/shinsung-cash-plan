@@ -7,54 +7,64 @@
     {
       "source": "/",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html",
+      "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     },
     {
       "source": "/app.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html",
+      "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     },
     {
       "source": "/scan.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html#scan",
+      "destination": "/stable-inspection-mobile-v4.html#scan",
       "permanent": false
     },
     {
       "source": "/inspection.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html#inspection",
+      "destination": "/stable-inspection-mobile-v4.html#inspection",
       "permanent": false
     },
     {
       "source": "/completed.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html#completed",
+      "destination": "/stable-inspection-mobile-v4.html#completed",
       "permanent": false
     },
     {
       "source": "/po.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html#po",
+      "destination": "/stable-inspection-mobile-v4.html#po",
       "permanent": false
     },
     {
       "source": "/shared.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html",
+      "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     },
     {
       "source": "/scan-inspect.html",
       "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
-      "destination": "/inspection-app.html#scan",
+      "destination": "/stable-inspection-mobile-v4.html#scan",
       "permanent": false
     },
     {
       "source": "/sales/",
       "destination": "/sales.html",
+      "permanent": false
+    },
+    {
+      "source": "/inspection-app.html",
+      "destination": "/stable-inspection-mobile-v4.html",
+      "permanent": false
+    },
+    {
+      "source": "/stable-inspection.html",
+      "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     }
   ],
@@ -76,7 +86,7 @@
     {
       "source": "/stable-inspection-mobile-v4.html",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=60, stale-while-revalidate=86400" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
     },
