@@ -84,7 +84,9 @@ export default async function handler(req, res) {
           'waitingMoves', 'workWaitLocations', 'losses', 'inspectionDrafts',
           'inspectionHandovers', 'workWaits', 'salesOrders', 'shippingAreaMoves',
           'packingLists', 'shipments', 'shipmentAllocations', 'returnReceipts',
-          'claims', 'domesticReceipts', 'packagingMaterials', 'selectionGuides', 'inspectors', 'auditLogs'
+          'claims', 'domesticReceipts', 'packagingMaterials', 'selectionGuides',
+          'receiptWorks', 'shippingWorks', 'orderPhotos', 'workflowDrafts',
+          'workflowDraftDeletions', 'inspectors', 'auditLogs'
         ];
         const changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
         payload = { ...current.payload };
