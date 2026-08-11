@@ -1546,6 +1546,123 @@ const openOrderPhotoIndexBeforeOperatorFlow=openOrderPhotoIndex;
 openOrderPhotoIndex=function openOrderPhotoIndexWithOperatorFlow(){const result=openOrderPhotoIndexBeforeOperatorFlow.apply(this,arguments);focusOperatorTarget('orderPhotoSearch');return result};
 const showBeforeOperatorNavigation=show;
 show=function showWithOperatorNavigation(id){const previous=document.querySelector('.view.on')?.id||'',result=showBeforeOperatorNavigation.apply(this,arguments);if(previous===id)return result;const targets={so:'soNo',inventory:'stockSearch',returnReceipt:'returnSearch',shipments:'shipmentSearch',workWaits:'workWaitSearch',packingListArchive:'packingListArchiveSearch'};if(targets[id])focusOperatorTarget(targets[id],220,id==='so');if(id==='shippingModeMenu')focusOperatorSelector('#shippingModeMenu .task-grid button',220);if(id==='inspectionSettlement')focusOperatorSelector('#inspectionSettlementRows input[type="checkbox"]',220);return result};
+function ensureSavedPhotoActionStyle(){
+  if(E('savedPhotoActionStyle'))return;
+  document.head.insertAdjacentHTML('beforeend',`<style id="savedPhotoActionStyle">
+    .saved-photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0 12px}
+    .saved-photo-actions .btn{min-height:48px;padding:10px 12px;font-size:16px}
+    .saved-photo-actions .photo-delete{background:#fff0f0;color:#a12626;border:1px solid #efb8b8}
+    .saved-photo-replace-input{display:none!important}
+    @media(max-width:560px){.saved-photo-actions{grid-template-columns:1fr 1fr}.saved-photo-actions .btn{font-size:15px}}
+  </style>`);
+}
+function reselectSavedPhoto(button,inputId){
+  const scope=button?.closest('[data-saved-photo-scope]'),input=scope?.querySelector(`input[id="${inputId}"]`)||E(inputId);
+  if(!input)return showFlowToast('사진 선택창을 찾지 못했습니다. 화면을 새로 열어 주세요.');
+  input.value='';input.click();
+}
+function addSavedPhotoActions(input,deleteCall,label='사진'){
+  if(!input||!input.closest('label'))return;
+  const holder=input.closest('label').parentElement||input.closest('label');
+  holder.dataset.savedPhotoScope='1';
+  if(holder.querySelector(`[data-photo-actions-for="${input.id}"]`))return;
+  input.closest('label').insertAdjacentHTML('afterend',`<div class="saved-photo-actions" data-photo-actions-for="${input.id}"><button type="button" class="btn" onclick="reselectSavedPhoto(this,'${input.id}')">📷 ${esc(label)} 다시 선택</button><button type="button" class="btn photo-delete" onclick="${deleteCall}">🗑 ${esc(label)} 삭제</button></div>`);
+}
+async function commitPhotoRemoval(label,mutate,rerender){
+  if(!confirm(`${label}을 삭제하시겠습니까?\n삭제하면 공용 화면에서도 더 이상 보이지 않습니다.`))return false;
+  const backup=JSON.parse(JSON.stringify(state));
+  try{
+    beginSaveProgress(`${label} 삭제 중`,'공용 자료에서 선택한 사진을 제거하고 있습니다.');
+    const meta=mutate?.()||{};
+    state.auditLogs.push({id:crypto.randomUUID(),action:'PHOTO_DELETE',photoLabel:label,operatorName:currentUserName(),createdAt:new Date().toISOString(),...meta});
+    await saveState();
+    rerender?.();
+    showFlowToast(`${label} 삭제 완료`);
+    return true;
+  }catch(error){
+    state=defaults(backup);renderAll();
+    showFlowToast(`${label} 삭제 실패: ${error.message}`);
+    return false;
+  }finally{endSaveProgress()}
+}
+async function deleteDomesticReceiptPhoto(kind){
+  const receipt=domesticReceiptById();if(!receipt)return;
+  const labels={weightSlipPhoto:'계근표 사진',arrivalPhoto:'입출고 사진'},label=labels[kind]||'국내입고 사진';
+  await commitPhotoRemoval(label,()=>{receipt[kind]='';receipt.updatedAt=new Date().toISOString();return{domesticReceiptId:receipt.id,photoKind:kind}},()=>renderDomesticReceiptEditor(receipt));
+}
+async function deleteDomesticPendingPackagePhoto(){
+  const receipt=syncDomesticDraftFromForm()||domesticReceiptById();if(!receipt?.pendingPackage)return;
+  await commitPhotoRemoval('패키지 사진',()=>{receipt.pendingPackage.photo='';receipt.updatedAt=new Date().toISOString();return{domesticReceiptId:receipt.id,packageNo:receipt.pendingPackage.packageNo,photoKind:'package'}},()=>renderDomesticReceiptEditor(receipt));
+}
+function decorateDomesticPhotoActions(receipt){
+  ensureSavedPhotoActionStyle();
+  if(receipt?.weightSlipPhoto)addSavedPhotoActions(E('domesticWeightSlipPhoto'),"deleteDomesticReceiptPhoto('weightSlipPhoto')",'계근표 사진');
+  if(receipt?.arrivalPhoto){addSavedPhotoActions(E('domesticArrivalPhoto'),"deleteDomesticReceiptPhoto('arrivalPhoto')",'입출고 사진');addSavedPhotoActions(E('domesticArrivalPhotoTop'),"deleteDomesticReceiptPhoto('arrivalPhoto')",'입출고 사진')}
+  if(receipt?.pendingPackage?.photo)addSavedPhotoActions(E('domesticPackagePhoto'),'deleteDomesticPendingPackagePhoto()','패키지 사진');
+}
+const renderDomesticReceiptEditorBeforeSavedPhotoActions=renderDomesticReceiptEditor;
+renderDomesticReceiptEditor=function renderDomesticReceiptEditorWithSavedPhotoActions(receipt){const result=renderDomesticReceiptEditorBeforeSavedPhotoActions.apply(this,arguments);decorateDomesticPhotoActions(receipt);return result};
+async function deleteImportReceiptPhoto(){
+  const work=activeReceiptWork();if(!work)return;
+  await commitPhotoRemoval('입고사진',()=>{work.photo='';work.updatedAt=new Date().toISOString();state.pos.forEach(row=>{if(row.receiptWorkId===work.id)row.receiptPhoto=''});return{receiptWorkId:work.id,poNo:work.poNo}},()=>{renderImportReceiptPhotoPanels();renderReceiptCompletionManagement()});
+}
+async function deleteShippingWorkPhoto(){
+  const work=activeShippingWork();if(!work)return;
+  await commitPhotoRemoval('출하사진',()=>{work.photo='';work.updatedAt=new Date().toISOString();state.shipments.forEach(row=>{if(row.shippingWorkId===work.id)row.shippingPhoto=''});state.packingLists.forEach(row=>{if(row.shippingWorkId===work.id)row.shippingPhoto=''});return{shippingWorkId:work.id,soNo:work.soNo}},()=>{renderShippingPhotoPanels();renderShippingCompletionManagement()});
+}
+function decorateWorkflowPhotoPanel(panel,inputId,deleteCall,label){if(!panel)return;panel.dataset.savedPhotoScope='1';addSavedPhotoActions(panel.querySelector(`input[id="${inputId}"]`),deleteCall,label)}
+const renderImportReceiptPhotoPanelsBeforeSavedActions=renderImportReceiptPhotoPanels;
+renderImportReceiptPhotoPanels=function renderImportReceiptPhotoPanelsWithSavedActions(){const result=renderImportReceiptPhotoPanelsBeforeSavedActions.apply(this,arguments),work=activeReceiptWork();if(work?.photo)[E('importReceiptQrPhotoPanel'),E('importReceiptDirectPhotoPanel'),E('importReceiptConfirmPhotoPanel')].forEach(panel=>decorateWorkflowPhotoPanel(panel,'importReceiptWorkPhoto','deleteImportReceiptPhoto()','입고사진'));return result};
+const renderShippingPhotoPanelsBeforeSavedActions=renderShippingPhotoPanels;
+renderShippingPhotoPanels=function renderShippingPhotoPanelsWithSavedActions(){const result=renderShippingPhotoPanelsBeforeSavedActions.apply(this,arguments),work=activeShippingWork();if(work?.photo)[E('shippingWorkPhotoPanel'),E('instantShippingPhotoPanel')].forEach(panel=>decorateWorkflowPhotoPanel(panel,'shippingWorkPhoto','deleteShippingWorkPhoto()','출하사진'));return result};
+function inspectionPhotoLabel(kind){return{shape:'형상 사진',analyzer:'분석기 사진',anomaly:'이상 사진'}[kind]||'검수 사진'}
+async function deleteInspectionDraftPhoto(kind){
+  const draft=state.inspectionDrafts.find(row=>row.packageNo===currentPackage&&row.status==='TEMP');if(!draft?.photos?.[kind])return;
+  const packageNo=currentPackage,workId=activeInspectionWorkTaskId;
+  await commitPhotoRemoval(inspectionPhotoLabel(kind),()=>{draft.photos[kind]='';draft.updatedAt=new Date().toISOString();return{packageNo,draftId:draft.id,photoKind:kind}},()=>openInspection(packageNo,workId));
+}
+function decorateInspectionDraftPhotoActions(){
+  const draft=state.inspectionDrafts.find(row=>row.packageNo===currentPackage&&row.status==='TEMP'),entries=[['shape','shapePhoto'],['analyzer','analyzerPhoto'],['anomaly','anomalyPhoto']];
+  entries.forEach(([kind,inputId])=>{if(draft?.photos?.[kind])addSavedPhotoActions(E(inputId),`deleteInspectionDraftPhoto('${kind}')`,inspectionPhotoLabel(kind))});
+}
+const openInspectionBeforeSavedPhotoActions=openInspection;
+openInspection=function openInspectionWithSavedPhotoActions(){const result=openInspectionBeforeSavedPhotoActions.apply(this,arguments);decorateInspectionDraftPhotoActions();return result};
+async function deleteInspectionHandoverPhoto(){
+  const handover=activeInspectionHandover(currentPackage);if(!handover?.photo)return;
+  const packageNo=currentPackage;
+  await commitPhotoRemoval('인수인계 미작업 사진',()=>{handover.photo='';handover.updatedAt=new Date().toISOString();return{packageNo,handoverId:handover.id,photoKind:'handover'}},()=>openInspectionHandover());
+}
+function decorateInspectionHandoverPhotoActions(){const handover=activeInspectionHandover(currentPackage);if(handover?.photo)addSavedPhotoActions(E('handoverPhoto'),'deleteInspectionHandoverPhoto()','미작업 사진')}
+const openInspectionHandoverBeforeSavedPhotoActions=openInspectionHandover;
+openInspectionHandover=function openInspectionHandoverWithSavedPhotoActions(){const result=openInspectionHandoverBeforeSavedPhotoActions.apply(this,arguments);decorateInspectionHandoverPhotoActions();return result};
+async function replaceWorkResultPhoto(kind,input){
+  const task=state.workWaits.find(row=>row.id===currentWorkWaitId),file=input?.files?.[0];if(!task?.workResult||!file)return;
+  const backup=JSON.parse(JSON.stringify(state)),label=kind==='afterPhoto'?'작업후 사진':'분석치 사진';
+  try{beginSaveProgress(`${label} 교체 중`,'새 사진을 압축하여 공용 서버에 저장하고 있습니다.');task.workResult[kind]=await uploadPhoto(file,task.packageNo,kind==='afterPhoto'?`${task.type}-after-replace`:`${task.type}-analyzer-replace`);task.workResult.updatedAt=new Date().toISOString();state.auditLogs.push({id:crypto.randomUUID(),action:'PHOTO_REPLACE',photoLabel:label,packageNo:task.packageNo,workWaitId:task.id,operatorName:currentUserName(),createdAt:new Date().toISOString()});await saveState();renderWorkWaitDetail();showFlowToast(`${label} 다시 선택·저장 완료`)}catch(error){state=defaults(backup);renderAll();showFlowToast(`${label} 교체 실패: ${error.message}`)}finally{endSaveProgress();if(input)input.value=''}
+}
+async function deleteWorkResultPhoto(kind){
+  const task=state.workWaits.find(row=>row.id===currentWorkWaitId),label=kind==='afterPhoto'?'작업후 사진':'분석치 사진';if(!task?.workResult?.[kind])return;
+  await commitPhotoRemoval(label,()=>{task.workResult[kind]='';task.workResult.updatedAt=new Date().toISOString();return{packageNo:task.packageNo,workWaitId:task.id,photoKind:kind}},()=>renderWorkWaitDetail());
+}
+function decorateWorkResultPhotoActions(){
+  const task=state.workWaits.find(row=>row.id===currentWorkWaitId),result=task?.workResult,body=E('workWaitDetailBody');if(!result||!body)return;
+  const section=[...body.querySelectorAll('section.card')].find(node=>node.textContent.includes('작업완료 결과'));if(!section)return;
+  const host=document.createElement('div');host.className='work-result-photo-actions';host.dataset.savedPhotoScope='1';host.innerHTML=`<input id="workResultAfterReplace" class="saved-photo-replace-input" type="file" accept="image/*" onchange="replaceWorkResultPhoto('afterPhoto',this)"><input id="workResultAnalyzerReplace" class="saved-photo-replace-input" type="file" accept="image/*" onchange="replaceWorkResultPhoto('analyzerPhoto',this)"><div class="saved-photo-actions"><button type="button" class="btn" onclick="reselectSavedPhoto(this,'workResultAfterReplace')">📷 작업후 사진 다시 선택</button><button type="button" class="btn photo-delete" onclick="deleteWorkResultPhoto('afterPhoto')">🗑 작업후 사진 삭제</button></div><div class="saved-photo-actions"><button type="button" class="btn" onclick="reselectSavedPhoto(this,'workResultAnalyzerReplace')">📷 분석치 사진 다시 선택</button><button type="button" class="btn photo-delete" onclick="deleteWorkResultPhoto('analyzerPhoto')">🗑 분석치 사진 삭제</button></div>`;
+  section.appendChild(host);enableMobilePhotoUploads(host);
+}
+const renderWorkWaitDetailBeforeSavedPhotoActions=renderWorkWaitDetail;
+renderWorkWaitDetail=function renderWorkWaitDetailWithSavedPhotoActions(){const result=renderWorkWaitDetailBeforeSavedPhotoActions.apply(this,arguments);decorateWorkResultPhotoActions();return result};
+async function deleteConfirmedInspectionPhoto(kind){
+  const split=state.splits.find(row=>row.id===currentEditSplitId&&row.status!=='CANCELLED');if(!split?.photos?.[kind])return;
+  const splitId=split.id,packageNo=split.packageNo;
+  await commitPhotoRemoval('검수확정 '+inspectionPhotoLabel(kind),()=>{split.photos[kind]='';split.updatedAt=new Date().toISOString();return{packageNo,splitId,photoKind:kind}},()=>openInspectionEdit(splitId));
+}
+function decorateConfirmedInspectionPhotoActions(){
+  const split=state.splits.find(row=>row.id===currentEditSplitId&&row.status!=='CANCELLED'),entries=[['shape','editShapePhoto'],['analyzer','editAnalyzerPhoto'],['anomaly','editAnomalyPhoto']];
+  entries.forEach(([kind,inputId])=>{if(split?.photos?.[kind])addSavedPhotoActions(E(inputId),`deleteConfirmedInspectionPhoto('${kind}')`,inspectionPhotoLabel(kind))});
+}
+const openInspectionEditBeforeSavedPhotoActions=openInspectionEdit;
+openInspectionEdit=function openInspectionEditWithSavedPhotoActions(){const result=openInspectionEditBeforeSavedPhotoActions.apply(this,arguments);decorateConfirmedInspectionPhotoActions();return result};
 if(!WORK_USER_ARRAYS.includes('receiptWorks'))WORK_USER_ARRAYS.push('receiptWorks');if(!WORK_USER_ARRAYS.includes('shippingWorks'))WORK_USER_ARRAYS.push('shippingWorks');
 if(!WORK_USER_ARRAYS.includes('orderPhotos'))WORK_USER_ARRAYS.push('orderPhotos');
 ensureImportReceiptUi();
