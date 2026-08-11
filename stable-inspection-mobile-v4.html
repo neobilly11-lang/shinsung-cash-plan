@@ -1829,6 +1829,90 @@ const confirmReturnReceiptBeforeWorkflowAutosave=confirmReturnReceipt;
 confirmReturnReceipt=async function confirmReturnReceiptWithWorkflowAutosave(){const id=currentReturnAllocationId,before=state.returnReceipts.length,result=await confirmReturnReceiptBeforeWorkflowAutosave.apply(this,arguments);if(state.returnReceipts.length>before)clearWorkflowDrafts(3,[id]);return result};
 const createInstantPackingListBeforeWorkflowAutosave=createInstantPackingList;
 createInstantPackingList=async function createInstantPackingListWithWorkflowAutosave(){const orderId=currentShippingOrderId,before=state.packingLists.length,result=await createInstantPackingListBeforeWorkflowAutosave.apply(this,arguments);if(state.packingLists.length>before)clearWorkflowDrafts(4,[orderId]);return result};
+
+/* P.O 거래처 모바일 검색 · 수입입고 대기 자동등록 · 입고완료 빠른 저장 */
+let poRegistrationSaving=false,importReceiptConfirmSaving=false,fastInboundSaveDepth=0;
+function poCompanyValues(){
+  return[...new Set([...safeArray(state.companies),...safeArray(state.pos).map(row=>row.company)].map(value=>String(value||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'))
+}
+function poCompanyMatches(query=''){
+  const q=String(query||'').trim().toLocaleLowerCase(),values=poCompanyValues();
+  if(!q)return values.slice(0,20);
+  return values.filter(value=>value.toLocaleLowerCase().includes(q)).sort((a,b)=>Number(b.toLocaleLowerCase()===q)-Number(a.toLocaleLowerCase()===q)||a.localeCompare(b,'ko')).slice(0,20)
+}
+function ensurePoCompanyPickerUi(){
+  const input=E('company'),form=input?.closest('.form');
+  if(!input||!form)return;
+  input.removeAttribute('list');input.autocomplete='off';input.placeholder='거래처명을 입력해 아래 결과에서 선택';
+  if(!E('poCompanyPicker'))form.insertAdjacentHTML('afterend',`<div id="poCompanyPicker" class="guide-choice-group mobile-choice-picker"><span class="guide-choice-title">거래처 검색결과 · 눌러서 선택</span><div id="poCompanyChoices" class="guide-choice-list grade-choice-list"></div><div class="grade-picker-footer"><button type="button" class="grade-clear" onpointerdown="event.preventDefault()" onclick="clearPoCompany()">× 선택 지우기 · 다른 거래처 입력</button><button type="button" class="grade-picker-close" onpointerdown="event.preventDefault()" onclick="closeGradePicker('poCompanyPicker','company')">검색창 닫기</button></div></div>`);
+  if(input.dataset.poCompanyPicker==='1')return;
+  input.dataset.poCompanyPicker='1';
+  input.addEventListener('input',renderPoCompanyChoices);
+  input.addEventListener('focus',renderPoCompanyChoices);
+  input.addEventListener('blur',()=>hideGradePickerLater('poCompanyPicker','company'));
+  input.addEventListener('keydown',event=>{if(event.key==='Enter'){const match=poCompanyMatches(input.value)[0];if(match){event.preventDefault();choosePoCompany(match)}}})
+}
+function renderPoCompanyChoices(){
+  ensurePoCompanyPickerUi();
+  const input=E('company'),picker=E('poCompanyPicker'),target=E('poCompanyChoices');if(!input||!picker||!target)return;
+  const selected=String(input.value||'').trim().toLocaleLowerCase(),matches=poCompanyMatches(input.value);
+  picker.classList.toggle('on',document.activeElement===input);
+  target.innerHTML=matches.length?matches.map(value=>`<button type="button" class="${value.toLocaleLowerCase()===selected?'recommended':''}" data-po-company="${esc(value)}" onpointerdown="event.preventDefault()" onclick="choosePoCompany(this.dataset.poCompany)">${esc(value)}</button>`).join(''):'<span class="guide-choice-empty">일치하는 저장 거래처가 없습니다. 기준정보에서 거래처를 먼저 등록하세요.</span>';
+  revealGradeSearchResults('company','poCompanyPicker')
+}
+function choosePoCompany(value){
+  const input=E('company');if(!input||!value)return;
+  input.value=value;E('poCompanyPicker')?.classList.remove('on');restoreGradeSearchCursor('company','grade')
+}
+function clearPoCompany(){const input=E('company');if(!input)return;input.value='';refocusGradeInput('company',renderPoCompanyChoices)}
+function resolvePoCompany(value){
+  const raw=String(value||'').trim(),exact=poCompanyValues().find(name=>name.toLocaleLowerCase()===raw.toLocaleLowerCase());if(exact)return exact;
+  const matches=poCompanyMatches(raw);return matches.length===1?matches[0]:''
+}
+function renderInboundRegistrationTargets(){
+  renderPoRows();renderImportReceiptHomeCount();
+  if(E('importReceiptManagement')?.classList.contains('on'))renderImportReceiptManagement();
+  if(E('poLookup')?.classList.contains('on'))renderPoLookup()
+}
+const saveStateBeforeFastInboundFlow=saveState;
+saveState=function saveStateWithFastInboundRendering(options={}){
+  const next={...(options||{})};if(fastInboundSaveDepth>0&&next.quiet===undefined)next.quiet=true;
+  return saveStateBeforeFastInboundFlow(next)
+};
+addPackage=async function addPoPackagesAndRegisterImportWaiting(){
+  if(poRegistrationSaving)return;
+  ensureMultiItemRegistrationUi();ensurePoCompanyPickerUi();
+  const poNo=String(E('poNo')?.value||'').trim(),company=resolvePoCompany(E('company')?.value),items=poRegistrationItems();
+  if(!poNo)return msg('poMsg','P.O 번호를 입력하세요.',true);
+  if(!company)return msg('poMsg','기준정보에 미리 저장된 거래처를 검색해 결과에서 선택하세요.',true);
+  if(!items.length||items.some(row=>!row.sourceGrade||row.weight<=0))return msg('poMsg','각 P.O 품목 행의 강종명과 0kg보다 큰 중량을 입력하세요.',true);
+  poRegistrationSaving=true;
+  const button=E('po')?.querySelector('button[onclick="addPackage()"]'),createdAt=new Date().toISOString(),batchId=crypto.randomUUID(),created=[];
+  items.forEach((row,index)=>{const record={id:crypto.randomUUID(),batchId,itemIndex:index+1,itemCount:items.length,poNo,company,grade:row.sourceGrade,confirmedGrade:row.confirmedGrade,packageNo:nextPackage(),weight:row.weight,status:'CONFIRMED',receiptStatus:'WAITING',inspectionStatus:'NOT_RECEIVED',createdAt};state.pos.push(record);selected.add(record.id);created.push(record)});if(button)button.disabled=true;
+  renderInboundRegistrationTargets();msg('poMsg',`${poNo} ${created.length}개 품목 화면 등록 완료 · 수입입고 대기 공용 서버 저장 중`);
+  try{
+    await saveState({quiet:true});
+    ['poNo','company','grade','weight','poConfirmedGrade'].forEach(id=>{if(E(id))E(id).value=''});poExtraRegistrationRows=[];renderPoExtraRegistrationRows();renderInboundRegistrationTargets();
+    msg('poMsg',`${poNo} 품목 ${created.length}행 저장 완료 · 수입입고 대기 P.O 1건 자동등록 · 사내입고번호 ${created.map(row=>row.packageNo).join(', ')}`);showFlowToast(`${poNo} 수입입고 대기 자동등록 완료`);focusOperatorTarget('poNo',120,true)
+  }catch(error){
+    const ids=new Set(created.map(row=>row.id));state.pos=state.pos.filter(row=>!ids.has(row.id));ids.forEach(id=>selected.delete(id));renderInboundRegistrationTargets();msg('poMsg','P.O 저장 실패 · 입력값은 유지했습니다: '+error.message,true)
+  }finally{poRegistrationSaving=false;if(button)button.disabled=false}
+};
+const confirmReceiptBeforeFastInboundFlow=confirmReceipt;
+confirmReceipt=async function confirmReceiptWithReliableFastSave(){
+  if(importReceiptConfirmSaving)return;
+  importReceiptConfirmSaving=true;fastInboundSaveDepth++;
+  const button=E('receiptConfirm');if(button)button.disabled=true;
+  try{return await confirmReceiptBeforeFastInboundFlow.apply(this,arguments)}
+  finally{
+    fastInboundSaveDepth=Math.max(0,fastInboundSaveDepth-1);importReceiptConfirmSaving=false;
+    renderImportReceiptHomeCount();if(E('importReceiptManagement')?.classList.contains('on'))renderImportReceiptManagement();if(button){const row=state.pos.find(item=>item.packageNo===currentReceiptPackage);button.disabled=!!(row?.receivedAt||row?.receiptStatus==='RECEIVED')}
+  }
+};
+const renderAllBeforePoCompanyPicker=renderAll;
+renderAll=function renderAllWithPoCompanyPicker(){const result=renderAllBeforePoCompanyPicker.apply(this,arguments);ensurePoCompanyPickerUi();if(E('po')?.classList.contains('on')&&document.activeElement===E('company'))renderPoCompanyChoices();return result};
+const openPoInputBeforeCompanyPicker=openPoInput;
+openPoInput=function openPoInputWithCompanyPicker(){const result=openPoInputBeforeCompanyPicker.apply(this,arguments);ensurePoCompanyPickerUi();return result};
 ensureImportReceiptUi();
 ensureInspectionSettlementUi();
 renderImportReceiptHomeCount();
