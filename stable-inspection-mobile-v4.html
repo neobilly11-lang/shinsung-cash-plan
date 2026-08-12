@@ -683,6 +683,58 @@ function overseasPackingSheet(list,order,rows){const total=packingListTotals(row
 function downloadPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;if(!window.XLSX)return alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');const order=packingListOrder(list),rows=packingListPreviewRows(list),type=packingListTemplateType(list),ws=type==='OVERSEAS'?overseasPackingSheet(list,order,rows):domesticPackingSheet(list,order,rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'PACKING');XLSX.writeFile(wb,`${String(list.packingListNo||'PACKING-LIST').replace(/[\\/:*?"<>|]/g,'_')}_${type==='OVERSEAS'?'해외':'국내'}.xlsx`)}
 function printPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;const order=packingListOrder(list),rows=packingListPreviewRows(list),html=packingListTemplateType(list)==='OVERSEAS'?overseasPackingListHtml(list,order,rows):domesticPackingListHtml(list,order,rows),popup=open('','_blank','width=960,height=900');if(!popup)return alert('팝업이 차단되었습니다. 브라우저의 팝업을 허용하세요.');popup.document.write(`<html><head><title>${esc(list.packingListNo)}</title><style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,'Malgun Gothic',sans-serif;margin:0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #222;padding:6px;text-align:center;font-size:11px}.tablewrap{width:100%}h1{margin:8px 0}</style></head><body>${html}
 
+<script id="subgradeSelectionCompatV1">
+(function(){
+'use strict';
+var FALLBACK_SUBGRADES=['SOLID','SOLIDS','TURNING','TURNINGS','VS','VT','AS'];
+function subgradeText(value){
+  if(typeof value==='string'||typeof value==='number')return String(value).trim();
+  if(!value||typeof value!=='object')return'';
+  for(var key of ['sub','subGrade','minorGrade','name','value','label']){
+    var text=String(value[key]==null?'':value[key]).trim();
+    if(text)return text;
+  }
+  return'';
+}
+function mainGradeText(value){
+  if(typeof value==='string'||typeof value==='number')return String(value).trim();
+  if(!value||typeof value!=='object')return'';
+  for(var key of ['main','mainGrade','grade','name','value','label']){
+    var text=String(value[key]==null?'':value[key]).trim();
+    if(text)return text;
+  }
+  return'';
+}
+function uniqueSubgrades(values){return [...new Set(values.map(subgradeText).filter(Boolean))]}
+allSubGrades=function allSubGradesCompat(){
+  var values=[...safeArray(state.subGrades),...safeArray(state.gradeMasters),...safeArray(state.splits).map(row=>row?.subGrade),...safeArray(state.bags).map(row=>row?.subGrade),...safeArray(state.workWaits).map(row=>row?.subGrade),...safeArray(state.selectionGuides).flatMap(guide=>safeArray(guide?.rows).map(row=>row?.subGrade))];
+  var result=uniqueSubgrades(values);
+  return result.length?result:FALLBACK_SUBGRADES.slice();
+};
+linkedInspectionSubGrades=function linkedInspectionSubGradesCompat(main){
+  var normalized=normalizedGradeChoice(main),rows=[...safeArray(state.gradeMasters),...safeArray(state.splits),...safeArray(state.bags),...safeArray(state.selectionGuides).flatMap(guide=>safeArray(guide?.rows))];
+  return uniqueSubgrades(rows.filter(row=>normalizedGradeChoice(mainGradeText(row))===normalized));
+};
+renderSubGrades=function renderSubGradesCompat(selected=''){
+  var target=E('finalSub');if(!target)return;
+  var keep=String(selected||target.value||'').trim(),linked=linkedInspectionSubGrades(E('finalMain')?.value),values=uniqueSubgrades([...linked,...allSubGrades(),keep]),choice=keep||(linked.length===1?linked[0]:'');
+  target.innerHTML='<option value="">소강종 선택</option>'+values.map(value=>`<option value="${esc(value)}">${esc(value)}</option>`).join('');
+  target.value=choice;
+};
+function refreshSubgradeSelect(){if(E('inspection')?.classList.contains('on'))renderSubGrades(E('finalSub')?.value||'')}
+var finalSub=E('finalSub');
+if(finalSub&&finalSub.dataset.compatSubgrade!=='1'){
+  finalSub.dataset.compatSubgrade='1';
+  finalSub.addEventListener('pointerdown',refreshSubgradeSelect);
+  finalSub.addEventListener('focus',refreshSubgradeSelect);
+}
+var renderAllBeforeSubgradeCompat=renderAll;
+renderAll=function renderAllWithSubgradeCompat(){var result=renderAllBeforeSubgradeCompat.apply(this,arguments);refreshSubgradeSelect();return result};
+refreshSubgradeSelect();
+document.documentElement.dataset.subgradeSelectionCompatV1='ready';
+})();
+
+</script>
 </body></html>`);popup.document.close();setTimeout(()=>popup.print(),300)}
 function openShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(!list){currentShipmentId=shipmentId;show('shipmentDetail');return msg('claimMsg','이전 출하자료에는 저장된 PACKING LIST가 없습니다.',true)}openPackingListPreview(list.id,'shipments')}
 function shareShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(list)sharePackingList(list.id)}
