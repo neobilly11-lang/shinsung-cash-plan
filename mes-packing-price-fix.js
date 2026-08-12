@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 2.8 seconds
-Output:
 (function mesPackingPriceFixV1(){
   'use strict';
   function round2(value){return Math.round((Number(value)||0)*100)/100;}
