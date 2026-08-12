@@ -8,6 +8,7 @@ const SYSTEM_ID = '__SCRAP_SHARED_STATE_V1__';
 const STATE_BUCKET = 'scrap-photos';
 const V2_PREFIX = '_shared-state-v2';
 const V3_PREFIX = '_shared-state-v3';
+const CHANGE_PREFIX = '_state-changes-v4/';
 const headers = { apikey: SUPABASE_KEY, 'content-type': 'application/json' };
 const emptyState = {
   pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
@@ -198,7 +199,18 @@ export default async function handler(req, res) {
 
       let payload = req.body?.payload || emptyState;
       if (req.method === 'PATCH') {
-        const changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
+        let changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
+        const changesObjectPath = String(req.body?.changesObjectPath || '').trim();
+        if (changesObjectPath) {
+          if (!changesObjectPath.startsWith(CHANGE_PREFIX)) {
+            return res.status(400).json({ error: '허용되지 않은 변경자료 경로입니다.' });
+          }
+          const storedChanges = await readObject(changesObjectPath);
+          if (!storedChanges || typeof storedChanges !== 'object' || Array.isArray(storedChanges)) {
+            return res.status(400).json({ error: '저장된 변경자료를 읽지 못했습니다.' });
+          }
+          changes = storedChanges;
+        }
         payload = { ...current.payload };
         for (const key of allowedKeys) {
           if (Object.prototype.hasOwnProperty.call(changes, key)) payload[key] = changes[key];
