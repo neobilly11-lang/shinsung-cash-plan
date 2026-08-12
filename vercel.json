@@ -73,6 +73,8 @@
     { "source": "/scrap/", "destination": "/scrap/index.html" },
     { "source": "/scrap-v2", "destination": "/scrap-v2/index.html" },
     { "source": "/scrap-v2/", "destination": "/scrap-v2/index.html" },
+    { "source": "/mes", "destination": "/mes.html" },
+    { "source": "/mes/", "destination": "/mes.html" },
     { "source": "/sales", "destination": "/sales.html" }
   ],
   "headers": [
@@ -92,6 +94,13 @@
     },
     {
       "source": "/scrap-v2/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
+    {
+      "source": "/mes.html",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }

@@ -2198,5 +2198,26 @@ ensureSettlementUi();renderSettlementCounts();applyUpdatedTaskLabels();
 })();
 
 </script>
+<script id="mesRealtimeBridge">
+/* MES와 현장관리 간 2.5초 자동 동기화. 입력 중인 작업은 건드리지 않고 안전한 화면에서만 갱신한다. */
+let mesRealtimeBridgeBusy=false;
+async function syncChangesFromMes(){
+  if(mesRealtimeBridgeBusy||document.hidden||saving||editSaving||handoverSaving||workProcessSaving||domesticSaving)return;
+  const active=document.activeElement,typing=active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName)&&active.matches(':focus');
+  if(typing||document.body.classList.contains('auth-locked'))return;
+  mesRealtimeBridgeBusy=true;
+  try{
+    const check=await fastestRevision();
+    if(num(check.revision)<=revision)return;
+    const latest=await fastestServerRead(),out=latest.value;
+    if(num(out.revision)<=revision)return;
+    state=defaults(out.payload);applyWorkflowDraftDeletionTombstones();revision=num(out.revision);serverTransport='vercel';cloudMode=true;rememberSyncedState();writeFastCache();renderAll();
+    if(E('server')){E('server').textContent='● MES 변경자료 자동 반영됨';E('server').style.color='#8ff0b5'}
+  }catch(_){}finally{mesRealtimeBridgeBusy=false}
+}
+setInterval(syncChangesFromMes,2500);
+addEventListener('focus',syncChangesFromMes);
+addEventListener('online',syncChangesFromMes);
+</script>
 </body>
 </html>
