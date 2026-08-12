@@ -2465,6 +2465,7 @@ saveState=function saveStateSerializedPhotoTransportV4(options={}){
 <script id="inspectionWorkflowCursorV4">
 (function(){
 "use strict";
+document.documentElement.dataset.inspectionWorkflowCursorV4Stage="started";
 var LEGACY_REINSPECTION="\uC7AC\uAC80\uC218";
 function workflowCenter(element,focus){
   if(!element)return;
@@ -2609,6 +2610,7 @@ setSimplePackingMove=function(no,grade,mode){
 };
 decorateRecentCompletionGrade();
 window.__inspectionWorkflowCursorV4Loaded=true;
+document.documentElement.dataset.inspectionWorkflowCursorV4Stage="loaded";
 })();
 </script>
 </body>
