@@ -318,7 +318,8 @@
     var content=document.getElementById('content'),head=content&&content.querySelector('.dashboard-head'),actions=head&&head.querySelector('.actions');
     if(!head||!actions)return;
     var paragraph=head.querySelector('p');
-    if(paragraph)paragraph.textContent='PACKING LIST가 저장된 입고요청과 업무수행 0번 강제입고만 표시합니다.';
+    var description='PACKING LIST가 저장된 입고요청과 업무수행 0번 강제입고만 표시합니다.';
+    if(paragraph&&paragraph.textContent!==description)paragraph.textContent=description;
     if(!document.getElementById('mesForceInboundButton'))actions.insertAdjacentHTML('afterbegin','<button id="mesForceInboundButton" class="btn primary" onclick="openForceInboundRegistration()">＋ 강제 입고등록</button>');
     if(!document.getElementById('mesInboundPackingNotice'))head.insertAdjacentHTML('afterend','<div id="mesInboundPackingNotice" class="detail-banner" style="margin:0 0 16px"><h2>입고현황 표시 기준</h2><p>① P.O의 PACKING LIST를 입고요청으로 저장한 패키지 ② 업무수행 0번에서 P.O 없이 확정한 강제입고만 표시됩니다.</p></div>');
   }
