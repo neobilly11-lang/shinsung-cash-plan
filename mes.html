@@ -813,5 +813,239 @@ if(currentView)render();
 document.documentElement.dataset.mesInboundRequestV1="loaded";
 })();
 </script>
+
+<style id="mesShippingRequestV2Style">
+.shipping-request-action{margin-left:6px;background:#0b7d70!important;border-color:#0b7d70!important;color:#fff!important}
+.shipping-request-action.done{background:#e7f7f4!important;border-color:#83cfc3!important;color:#087266!important}
+.shipping-request-quick{background:#eef9f7!important;border-color:#83cfc3!important;color:#087266!important}
+.shipping-request-required{color:#c63737;font-weight:900}
+.shipping-request-info{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:14px 0}
+.shipping-request-info>div{border:1px solid #dbe5ed;border-radius:12px;padding:12px;background:#f8fbfc}
+.shipping-request-info small{display:block;color:#67768a;font-weight:800}.shipping-request-info b{display:block;margin-top:5px}
+.container-choice{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:7px}
+.container-choice label{position:relative}.container-choice input{position:absolute;opacity:0;pointer-events:none}
+.container-choice span{display:block;padding:17px 10px;border:2px solid #cbd5e1;border-radius:13px;background:#fff;text-align:center;font-weight:900;cursor:pointer}
+.container-choice input:checked+span{background:#087f72;color:#fff;border-color:#087f72;box-shadow:0 8px 22px #087f7230}
+.shipping-request-note{background:#fff8e7;border:1px solid #f3d28a;border-radius:12px;padding:12px;color:#815f10;font-weight:800}
+@media(max-width:760px){
+ .shipping-request-action{width:100%;margin:8px 0 0!important}
+ .shipping-request-info{grid-template-columns:1fr 1fr}
+ .container-choice{grid-template-columns:1fr}
+ .shipping-plan-quick-actions{display:grid!important;grid-template-columns:1fr;width:100%}
+ .shipping-plan-quick-actions .btn{width:100%}
+}
+</style>
+<script id="mesShippingRequestV2">
+(function(){
+"use strict";
+if(window.__mesShippingRequestV2)return;
+window.__mesShippingRequestV2=true;
+
+var baseShippingRowsV2=schemas.shippingPlan.rows;
+function distinct(items,key){
+  return Array.from(new Set(safe(items).map(function(item){return String(item&&item[key]||"").trim();}).filter(Boolean))).join(" / ");
+}
+function requestItemGrade(item){
+  return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · ");
+}
+function requestSource(row){
+  return safe(row.items).find(function(item){return item.shippingRequestStatus==="REQUESTED"||item.shippingRequestedAt||item.shippingRequestDate;})||safe(row.items)[0]||{};
+}
+function shippingPlanRowsV2(){
+  return safe(baseShippingRowsV2()).map(function(row){
+    var items=safe(row.items),source=requestSource(row);
+    var requestDate=source.shippingRequestDate||source.requestDate||"";
+    var productTypes=distinct(items,"productType");
+    var mainGrades=distinct(items,"mainGrade");
+    var subGrades=distinct(items,"subGrade");
+    var detailGrades=distinct(items,"detailGrade");
+    var unitPrices=Array.from(new Set(items.map(function(item){return num(item.unitPrice);}).filter(function(value){return value||value===0;}))).join(" / ");
+    var exchangeRates=Array.from(new Set(items.map(function(item){return num(item.exchangeRate);}).filter(Boolean))).join(" / ");
+    var currency=distinct(items,"currency")||row.currency||"";
+    var search=items.map(function(item){return Object.keys(item||{}).map(function(key){var value=item[key];return typeof value==="string"||typeof value==="number"?value:"";}).join(" ");}).join(" ");
+    return Object.assign({},row,{
+      requestDate:requestDate,
+      shippingRequestNo:source.shippingRequestNo||"",
+      shippingRequestStatus:source.shippingRequestStatus||"",
+      containerSize:source.shippingContainerSize||source.containerSize||"",
+      shippingRequirements:source.shippingRequirements||source.requestMemo||"",
+      vehicleNo:source.shippingVehicleNo||source.vehicleNo||"",
+      driverPhone:source.driverPhone||source.contact||"",
+      requestOperatorName:source.shippingRequestOperatorName||source.updatedByName||source.createdByName||"",
+      productTypes:productTypes,
+      mainGrades:mainGrades||row.grade||"",
+      subGrades:subGrades,
+      detailGrades:detailGrades,
+      unitPrices:unitPrices,
+      exchangeRates:exchangeRates,
+      currency:currency,
+      requestState:(source.shippingRequestStatus==="REQUESTED"||source.shippingRequestedAt)?"요청완료":"미요청",
+      _salesSearch:search+" "+requestDate+" "+(source.shippingRequestNo||"")+" "+(source.shippingRequirements||"")+" "+(source.vehicleNo||"")+" "+(source.driverPhone||""),
+      _savedAt:requestDate?requestDate+"T12:00:00":row._savedAt
+    });
+  });
+}
+window.mesShippingPlanRowsV2=shippingPlanRowsV2;
+schemas.shippingPlan.rows=shippingPlanRowsV2;
+schemas.shippingPlan.cols=[
+  ["요청날짜",function(r){return r.requestDate||"-";}],
+  ["S.O",function(r){return r.soNo||"-";},"link"],
+  ["판매구분",function(r){return r.type||"-";}],
+  ["판매처",function(r){return r.customer||"-";},"left"],
+  ["품종",function(r){return r.productTypes||"-";}],
+  ["강종",function(r){return r.mainGrades||"-";},"left"],
+  ["소강종",function(r){return r.subGrades||"-";}],
+  ["상세강종",function(r){return r.detailGrades||"-";},"left"],
+  ["출하예정일",function(r){return date(r.shipDate);}],
+  ["판매중량",function(r){return fmt(r.weight)+" kg";}],
+  ["통화",function(r){return r.currency||"-";}],
+  ["환율",function(r){return r.exchangeRates||"-";}],
+  ["단가",function(r){return r.unitPrices||"-";}],
+  ["판매금액",function(r){return fmt(r.amount);}],
+  ["컨테이너",function(r){return r.containerSize||"-";}],
+  ["필수요청사항",function(r){return r.shippingRequirements||"-";},"left"],
+  ["차량번호",function(r){return r.vehicleNo||"-";}],
+  ["기사전번",function(r){return r.driverPhone||"-";}],
+  ["출하요청",function(r){return status(r.requestState);}],
+  ["요청작업자",function(r){return r.requestOperatorName||"-";}],
+  ["저장일시",function(r){return window.mesSavedAtText(r);}]
+];
+schemas.shippingPlan.edit="sales";
+
+function requestExists(row){
+  return safe(row.items).some(function(item){return item.shippingRequestStatus==="REQUESTED"||item.shippingRequestedAt;});
+}
+function requestButton(row){
+  var done=requestExists(row),encoded=encodeURIComponent(row.soNo||row.id||"");
+  return "<button class='btn shipping-request-action "+(done?"done":"")+"' onclick='event.stopPropagation();openMesShippingRequest(decodeURIComponent(\""+encoded+"\"))'>"+(done?"출하요청 수정":"출하요청")+"</button>";
+}
+function decorateShippingRequestButtons(){
+  if(currentView!=="shippingPlan")return;
+  var rows=filtered(schemas.shippingPlan.rows());
+  document.querySelectorAll("#content .table-wrap tbody tr:not(.total-row)").forEach(function(tr,index){
+    var row=rows[index];if(!row)return;
+    var old=tr.querySelector(".shipping-request-action");if(old)old.remove();
+    if(tr.lastElementChild)tr.lastElementChild.insertAdjacentHTML("beforeend",requestButton(row));
+  });
+  document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
+    var row=rows[index];if(!row)return;
+    var old=card.querySelector(".shipping-request-action");if(old)old.remove();
+    card.insertAdjacentHTML("beforeend",requestButton(row));
+  });
+  var actions=document.querySelector("#content .dashboard-head .actions");
+  if(actions&&!actions.querySelector(".shipping-request-help")){
+    actions.insertAdjacentHTML("afterbegin","<button class='btn shipping-request-quick shipping-request-help' onclick='event.stopPropagation();toast(\"아래 판매계획의 출하요청 버튼을 누르면 요청일·컨테이너·필수요청사항을 등록할 수 있습니다.\")'>출하요청 작성 안내</button>");
+  }
+}
+function decoratePurchaseButtonsFixed(){
+  if(currentView!=="purchase")return;
+  var rows=filtered(schemas.purchase.rows());
+  document.querySelectorAll("#content .table-wrap tbody tr:not(.total-row)").forEach(function(tr,index){
+    var row=rows[index];if(!row)return;
+    var old=tr.querySelector(".inbound-request-action");if(old)old.remove();
+    var existing=typeof poRequest==="function"&&poRequest(row.poNo);
+    var html="<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>";
+    if(tr.lastElementChild)tr.lastElementChild.insertAdjacentHTML("beforeend",html);
+  });
+  document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
+    var row=rows[index];if(!row)return;
+    var old=card.querySelector(".inbound-request-action");if(old)old.remove();
+    var existing=typeof poRequest==="function"&&poRequest(row.poNo);
+    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>");
+  });
+  var actions=document.querySelector("#content .dashboard-head .actions");
+  if(actions&&!actions.querySelector(".purchase-mode-actions")){
+    actions.insertAdjacentHTML("afterbegin","<span class='purchase-mode-actions shipping-plan-quick-actions'><button class='btn primary' onclick='event.stopPropagation();openMesDirectPoRegistration()'>+ P.O 직접입력</button><button class='btn shipping-request-quick' onclick='event.stopPropagation();openMesDocumentPoRegistration()'>+ 거래처 서류로 등록</button></span>");
+  }
+}
+window.openMesShippingRequest=function(soNo){
+  var row=shippingPlanRowsV2().find(function(item){return String(item.soNo)===String(soNo)||String(item.id)===String(soNo);});
+  if(!row)return toast("판매계획 S.O 자료를 찾지 못했습니다.",true);
+  var source=requestSource(row),savedContainer=source.shippingContainerSize||source.containerSize||"";
+  $("modalTitle").textContent=(row.soNo||"S.O")+" · 출하요청 작성";
+  var itemRows=safe(row.items).map(function(item,index){
+    return "<tr><td>"+(index+1)+"</td><td>"+esc(item.productType||"-")+"</td><td>"+esc(item.mainGrade||item.grade||"-")+"</td><td>"+esc(item.subGrade||"-")+"</td><td>"+esc(item.detailGrade||"-")+"</td><td>"+fmt(item.weight)+" kg</td><td>"+esc(item.currency||"-")+"</td><td>"+fmt(item.exchangeRate)+"</td><td>"+fmt(item.unitPrice)+"</td><td>"+fmt(item.amount||num(item.weight)*num(item.unitPrice))+"</td></tr>";
+  }).join("");
+  $("modalBody").innerHTML="<div class='shipping-request-info'><div><small>S.O</small><b>"+esc(row.soNo)+"</b></div><div><small>판매처</small><b>"+esc(row.customer)+"</b></div><div><small>출하예정일</small><b>"+esc(date(row.shipDate))+"</b></div><div><small>판매중량</small><b>"+fmt(row.weight)+" kg</b></div></div>"
+    +"<form id='mesShippingRequestForm' class='form-grid' onsubmit='saveMesShippingRequest(event,this,decodeURIComponent(\""+encodeURIComponent(row.soNo)+"\"))'>"
+    +"<label>출하요청일 <span class='shipping-request-required'>필수</span><input name='requestDate' type='date' required value='"+esc(source.shippingRequestDate||source.requestDate||nowDate())+"'></label>"
+    +"<label class='wide'>컨테이너 선택 <span class='shipping-request-required'>필수</span><div class='container-choice'>"
+    +["20FT","40FT","OPEN TOP"].map(function(value){return "<label><input type='radio' name='containerSize' value='"+value+"' "+(savedContainer===value?"checked":"")+"><span>"+value+"</span></label>";}).join("")
+    +"</div></label>"
+    +"<label class='wide'>필수요청사항 <span class='shipping-request-required'>필수</span><textarea name='shippingRequirements' required placeholder='출하 작업에 반드시 필요한 요청사항을 입력하세요.'>"+esc(source.shippingRequirements||source.requestMemo||"")+"</textarea></label>"
+    +"<label>차량번호 <small>선택</small><input name='vehicleNo' value='"+esc(source.shippingVehicleNo||source.vehicleNo||"")+"'></label>"
+    +"<label>기사전번 <small>선택</small><input name='driverPhone' type='tel' value='"+esc(source.driverPhone||source.contact||"")+"'></label>"
+    +"<div class='wide shipping-request-note'>저장하면 동일 공용 서버의 신성 스크랩 현장관리 ‘출하요청 진행현황’에 즉시 반영됩니다.</div>"
+    +"<div class='wide table-wrap'><table><thead><tr><th>No.</th><th>품종</th><th>강종</th><th>소강종</th><th>상세강종</th><th>중량</th><th>통화</th><th>환율</th><th>단가</th><th>금액</th></tr></thead><tbody>"+itemRows+"</tbody></table></div>"
+    +"<div class='wide actions'><button class='btn primary'>출하요청 저장</button><button type='button' class='btn' onclick='closeModal()'>취소</button></div></form>";
+  $("modal").classList.add("on");
+  setTimeout(function(){$("mesShippingRequestForm")?.querySelector("[name=requestDate]")?.focus();},80);
+};
+function nextShippingRequestNo(){
+  var day=nowDate().replace(/-/g,""),max=0;
+  safe(state.salesOrders).forEach(function(item){var match=String(item.shippingRequestNo||"").match(new RegExp("^SR-"+day+"-(\\d+)$"));if(match)max=Math.max(max,num(match[1]));});
+  return "SR-"+day+"-"+String(max+1).padStart(3,"0");
+}
+window.saveMesShippingRequest=async function(event,form,soNo){
+  event.preventDefault();
+  var value=formData(form),container=form.querySelector("[name=containerSize]:checked")?.value;
+  if(!value.requestDate)return toast("출하요청일을 입력하세요.",true);
+  if(!container)return toast("컨테이너 20FT, 40FT 또는 OPEN TOP을 선택하세요.",true);
+  if(!String(value.shippingRequirements||"").trim())return toast("필수요청사항을 입력하세요.",true);
+  var row=shippingPlanRowsV2().find(function(item){return String(item.soNo)===String(soNo);});
+  if(!row)return toast("저장할 S.O 판매계획을 찾지 못했습니다.",true);
+  var ids=new Set(safe(row.items).map(function(item){return String(item.id);}));
+  var source=requestSource(row),stamp=new Date().toISOString(),requestNo=source.shippingRequestNo||nextShippingRequestNo();
+  var ok=await commit("MES 출하요청 저장",["salesOrders"],function(shared){
+    safe(shared.salesOrders).forEach(function(item){
+      if(!ids.has(String(item.id)))return;
+      var oldStatus=String(item.status||"");
+      Object.assign(item,{
+        shippingRequestNo:requestNo,
+        shippingRequestDate:value.requestDate,
+        shippingRequestedAt:stamp,
+        shippingRequestStatus:"REQUESTED",
+        shippingContainerSize:container,
+        containerSize:container,
+        shippingRequirements:String(value.shippingRequirements).trim(),
+        requestMemo:String(value.shippingRequirements).trim(),
+        shippingVehicleNo:String(value.vehicleNo||"").trim(),
+        vehicleNo:String(value.vehicleNo||"").trim(),
+        driverPhone:String(value.driverPhone||"").trim(),
+        contact:String(value.driverPhone||"").trim(),
+        shippingRequestOperatorName:currentUserName(),
+        shippingRequestOperatorEmail:authUser?.email||"",
+        updatedAt:stamp,
+        updatedByName:currentUserName(),
+        status:["AREA_COMPLETE","INSTANT_READY","WAITING"].includes(oldStatus)?oldStatus:"WAITING"
+      });
+    });
+  });
+  if(ok){
+    closeModal();
+    openView("shippingPlan");
+    toast("출하요청 저장완료 · 신성 현장관리 출하요청에 반영했습니다.");
+  }
+};
+
+var baseFilterControlsShipping=window.filterControls;
+window.filterControls=function(){
+  var html=baseFilterControlsShipping();
+  if(currentView!=="shippingPlan")return html;
+  return html.replace(/저장일 시작/g,"요청일 시작").replace(/저장일 종료/g,"요청일 종료").replace(/번호·회사·강종/g,"요청일·S.O·판매처·품종·강종·차량·기사전번");
+};
+var baseRenderShippingV2=window.render;
+window.render=function(){
+  var result=baseRenderShippingV2.apply(this,arguments);
+  decoratePurchaseButtonsFixed();
+  decorateShippingRequestButtons();
+  requestAnimationFrame(function(){decoratePurchaseButtonsFixed();decorateShippingRequestButtons();});
+  return result;
+};
+if(currentView)render();
+document.documentElement.dataset.mesShippingRequestV2="loaded";
+})();
+</script>
+
 </body>
 </html>
