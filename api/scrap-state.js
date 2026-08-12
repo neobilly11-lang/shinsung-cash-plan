@@ -38,6 +38,14 @@ async function responseJson(response, label) {
 async function readObject(path) {
   const response = await fetch(`${publicObjectUrl(path)}?v=${Date.now()}`, { cache: 'no-store' });
   if (response.status === 404) return null;
+  if (response.status === 400) {
+    const text = await response.text();
+    try {
+      const problem = JSON.parse(text || '{}');
+      if (problem.code === 'NoSuchKey' || problem.error === 'not_found') return null;
+    } catch (_) {}
+    throw new Error(`Supabase state object HTTP 400: ${text}`);
+  }
   return responseJson(response, 'Supabase state object');
 }
 
