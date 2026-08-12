@@ -113,7 +113,6 @@ const saveEditBase=saveEdit;saveEdit=async function(id,type,form){if(type!=='dai
 function exportView(){const schema=schemas[currentView];if(!schema)return;const rows=filtered(schema.rows()),headers=schema.cols.map(x=>x[0]),plain=html=>{const d=document.createElement('div');d.innerHTML=html;return d.textContent};const body=[headers,...rows.map(r=>schema.cols.map(c=>plain(String(c[1](r)))))];const html=`<html><head><meta charset="utf-8"></head><body><table border="1"><tr>${headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>${body.slice(1).map(row=>`<tr>${row.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>
 
 
-<script src="./mes-document-import-v4.js?v=20260813-4"></script>
 </body></html>`,blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`신성금속_MES_${schema.title}_${nowDate()}.xls`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 buildNav();currentView=location.hash.slice(1)||'dashboard';openView(currentView);setTimeout(initAuth,0);setInterval(realtimePoll,2500);addEventListener('focus',realtimePoll);addEventListener('online',realtimePoll);
 </script>
@@ -1048,5 +1047,6 @@ document.documentElement.dataset.mesShippingRequestV2="loaded";
 })();
 </script>
 
+<script src="./mes-document-import-v4.js?v=20260813-4"></script>
 </body>
 </html>
