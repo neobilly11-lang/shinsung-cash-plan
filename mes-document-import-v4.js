@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-4c";
+  const VERSION = "20260813-4";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -711,25 +711,26 @@
     return `<span title="${escHtml(full)}">${escHtml(full.slice(0, 20))}… 외</span>`;
   }
 
-  const purchaseGradeColumn = schemas.purchase.cols.find(column => column[0] === "대표강종" || column[0] === "거래처강종");
+  const mesSchemas = root.schemas || (typeof schemas !== "undefined" ? schemas : null);
+  const purchaseGradeColumn = mesSchemas && mesSchemas.purchase && mesSchemas.purchase.cols.find(column => column[0] === "대표강종" || column[0] === "거래처강종");
   if (purchaseGradeColumn) { purchaseGradeColumn[0] = "거래처강종"; purchaseGradeColumn[1] = row => gradeSummary(row.grade); }
 
   const baseRender = root.render;
   root.render = function () {
     const result = baseRender.apply(this, arguments);
+    const viewName = root.currentView || (typeof currentView !== "undefined" ? currentView : "");
     document.querySelectorAll("#content .mes-register").forEach(button => {
-      if (currentView === "purchase" || currentView === "dashboard") button.remove();
+      if (viewName === "purchase" || viewName === "dashboard") button.remove();
     });
-    if (currentView === "dashboard") document.querySelectorAll("#content .dashboard-head .actions button").forEach(button => {
+    if (viewName === "dashboard") document.querySelectorAll("#content .dashboard-head .actions button").forEach(button => {
       if (/P\.O\s*등록|S\.O\s*등록/.test(button.textContent || "")) button.remove();
     });
-    if (currentView === "purchase") document.querySelectorAll("#content .dashboard-head .actions button").forEach(button => {
+    if (viewName === "purchase") document.querySelectorAll("#content .dashboard-head .actions button").forEach(button => {
       if (/^\+?\s*P\.O\s*등록$/.test(clean(button.textContent))) button.remove();
     });
     return result;
   };
-  if (typeof currentView !== "undefined") root.render();
+  if (root.currentView || typeof currentView !== "undefined") root.render();
   document.documentElement.dataset.mesDocumentImportV4 = VERSION;
 })(typeof window !== "undefined" ? window : globalThis);
-
 
