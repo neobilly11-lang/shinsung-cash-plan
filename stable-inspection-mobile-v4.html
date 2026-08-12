@@ -682,93 +682,6 @@ function domesticPackingSheet(list,order,rows){const total=packingListTotals(row
 function overseasPackingSheet(list,order,rows){const total=packingListTotals(rows),date=order.shipDate||String(list.createdAt||'').slice(0,10),data=[['SS','PACKING LIST','','','','Sales No.',order.soNo||list.soNo],['','','','','','PO No.',order.poNo||''],['','','','','','Page No.','1/1 PAGE'],['','','','','','date of preparation',date],[],['Consignee',order.customer||list.customer,'','','Port',order.port||'',''],['Cont No.',order.containerNo||'','','','Seal No.',order.sealNo||'',''],['Department',order.department||'Shipment management','','','Cont size',order.containerSize||'',''],['Shipper',order.shipper||'SHIN SUNG METAL','','','','',''],[],['ITEM','Packing No','Packing','Gross Weight(Kg)','Loss Weight(Kg)','Net Weight(Kg)','Remark'],...rows.map(x=>[x.grade,x.completionNo,x.packing,x.gross,x.tare,x.net,x.remark]),['Grand Total',rows.length+' PACKAGES','',total.gross,total.tare,total.net,'']],ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:25},{wch:22},{wch:16},{wch:20},{wch:18},{wch:18},{wch:22}];ws['!merges']=[XLSX.utils.decode_range('B1:E4'),XLSX.utils.decode_range('B6:D6'),XLSX.utils.decode_range('F6:G6'),XLSX.utils.decode_range('B7:D7'),XLSX.utils.decode_range('F7:G7'),XLSX.utils.decode_range('B8:D8'),XLSX.utils.decode_range('F8:G8'),XLSX.utils.decode_range('B9:D9')];return ws}
 function downloadPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;if(!window.XLSX)return alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');const order=packingListOrder(list),rows=packingListPreviewRows(list),type=packingListTemplateType(list),ws=type==='OVERSEAS'?overseasPackingSheet(list,order,rows):domesticPackingSheet(list,order,rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'PACKING');XLSX.writeFile(wb,`${String(list.packingListNo||'PACKING-LIST').replace(/[\\/:*?"<>|]/g,'_')}_${type==='OVERSEAS'?'해외':'국내'}.xlsx`)}
 function printPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;const order=packingListOrder(list),rows=packingListPreviewRows(list),html=packingListTemplateType(list)==='OVERSEAS'?overseasPackingListHtml(list,order,rows):domesticPackingListHtml(list,order,rows),popup=open('','_blank','width=960,height=900');if(!popup)return alert('팝업이 차단되었습니다. 브라우저의 팝업을 허용하세요.');popup.document.write(`<html><head><title>${esc(list.packingListNo)}</title><style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,'Malgun Gothic',sans-serif;margin:0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #222;padding:6px;text-align:center;font-size:11px}.tablewrap{width:100%}h1{margin:8px 0}</style></head><body>${html}
-<script id="photoStateTransportV3">
-/* 사진은 Storage에, 업무자료에는 짧은 경로만 저장한다. 대용량 legacy JSON 행은 다시 쓰지 않는다. */
-let photoStateSaveQueueV3=Promise.resolve();
-
-directRead=async function directReadViaV3(){return vercelRead()};
-directRevision=async function directRevisionViaV3(){return vercelRevision()};
-fastestServerRead=async function fastestServerReadViaV3(){
-  return {name:'Vercel 사진·업무자료 서버',value:await vercelRead()}
-};
-fastestRevision=async function fastestRevisionViaV3(){return vercelRevision()};
-saveDirect=async function disabledLegacyDirectWrite(){
-  throw Error('이전 대용량 직접 저장은 사용하지 않습니다.')
-};
-
-async function saveStatePhotoTransportV3(options={}){
-  const quiet=options?.quiet===true;
-  if(typeof stampPendingWorkUsers==='function')stampPendingWorkUsers();
-  if(typeof stampInspectionSettlementPackingInputs==='function')stampInspectionSettlementPackingInputs();
-  const pending=stateClone(state);
-  const base=stateClone(lastSyncedState||defaults({}));
-  if(!quiet)beginSaveProgress(
-    '사진·업무자료 저장 중',
-    '사진은 전용 저장소에 저장하고, 업무자료에는 짧은 사진 경로만 안전하게 저장합니다.'
-  );
-  try{
-    if(!cloudMode){
-      await loadState();
-      if(!cloudMode)throw Error('공용 서버에 연결되지 않았습니다. 인터넷 연결을 확인한 뒤 다시 눌러 주세요.')
-    }
-    let lastError=null;
-    for(let attempt=0;attempt<4;attempt++){
-      const changes=stateTopLevelChanges();
-      if(!Object.keys(changes).length){
-        if(!quiet)renderAll();
-        if(E('server'))E('server').textContent='● 사진·업무자료 저장됨';
-        return {revision}
-      }
-      try{
-        const response=await fetchWithTimeout('/api/scrap-state',{
-          method:'PATCH',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({changes,baseRevision:revision})
-        },45000);
-        const out=await responsePayload(response);
-        if(response.status===409){
-          if(!out.payload)throw Error(out.error||'최신 공용자료를 불러오지 못했습니다.');
-          const latest=defaults(out.payload);
-          revision=num(out.revision);
-          lastSyncedState=stateClone(latest);
-          state=mergePendingStateAfterConflict(latest,pending,base);
-          lastError=Error(out.error||'다른 사용자의 저장내용과 자동 병합 중입니다.');
-          if(E('saveProgressDetail'))E('saveProgressDetail').textContent=
-            '다른 사용자의 최신 자료와 현재 입력을 합친 뒤 자동으로 다시 저장합니다.';
-          await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
-          continue
-        }
-        if(!response.ok)throw Error(out.error||('저장 서버 HTTP '+response.status));
-        revision=num(out.revision);
-        serverTransport='vercel-v3';
-        cloudMode=true;
-        rememberSyncedState();
-        writeFastCache();
-        if(!quiet)renderAll();
-        if(E('server'))E('server').textContent='● 사진·업무자료 빠른 저장됨';
-        return out
-      }catch(error){
-        lastError=error;
-        if(attempt>=3)break;
-        if(E('saveProgressDetail'))E('saveProgressDetail').textContent=
-          '서버 응답이 잠시 지연되어 자동 재시도 중입니다. '+(attempt+1)+'/3';
-        await new Promise(resolve=>setTimeout(resolve,600*(attempt+1)))
-      }
-    }
-    throw Error('공용 서버 저장을 완료하지 못했습니다. 입력자료는 화면에 유지됩니다. 잠시 후 다시 눌러 주세요. ('+
-      (lastError?.message||'응답 없음')+')')
-  }finally{
-    if(!quiet)endSaveProgress()
-  }
-}
-
-saveState=function saveStateSerializedPhotoTransportV3(options={}){
-  const run=()=>saveStatePhotoTransportV3(options);
-  const task=photoStateSaveQueueV3.then(run,run);
-  photoStateSaveQueueV3=task.catch(()=>{});
-  return task
-};
-</script>
 
 </body></html>`);popup.document.close();setTimeout(()=>popup.print(),300)}
 function openShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(!list){currentShipmentId=shipmentId;show('shipmentDetail');return msg('claimMsg','이전 출하자료에는 저장된 PACKING LIST가 없습니다.',true)}openPackingListPreview(list.id,'shipments')}
@@ -2350,6 +2263,93 @@ async function syncChangesFromMes(){
 setInterval(syncChangesFromMes,2500);
 addEventListener('focus',syncChangesFromMes);
 addEventListener('online',syncChangesFromMes);
+</script>
+<script id="photoStateTransportV3">
+/* 사진은 Storage에, 업무자료에는 짧은 경로만 저장한다. 대용량 legacy JSON 행은 다시 쓰지 않는다. */
+let photoStateSaveQueueV3=Promise.resolve();
+
+directRead=async function directReadViaV3(){return vercelRead()};
+directRevision=async function directRevisionViaV3(){return vercelRevision()};
+fastestServerRead=async function fastestServerReadViaV3(){
+  return {name:'Vercel 사진·업무자료 서버',value:await vercelRead()}
+};
+fastestRevision=async function fastestRevisionViaV3(){return vercelRevision()};
+saveDirect=async function disabledLegacyDirectWrite(){
+  throw Error('이전 대용량 직접 저장은 사용하지 않습니다.')
+};
+
+async function saveStatePhotoTransportV3(options={}){
+  const quiet=options?.quiet===true;
+  if(typeof stampPendingWorkUsers==='function')stampPendingWorkUsers();
+  if(typeof stampInspectionSettlementPackingInputs==='function')stampInspectionSettlementPackingInputs();
+  const pending=stateClone(state);
+  const base=stateClone(lastSyncedState||defaults({}));
+  if(!quiet)beginSaveProgress(
+    '사진·업무자료 저장 중',
+    '사진은 전용 저장소에 저장하고, 업무자료에는 짧은 사진 경로만 안전하게 저장합니다.'
+  );
+  try{
+    if(!cloudMode){
+      await loadState();
+      if(!cloudMode)throw Error('공용 서버에 연결되지 않았습니다. 인터넷 연결을 확인한 뒤 다시 눌러 주세요.')
+    }
+    let lastError=null;
+    for(let attempt=0;attempt<4;attempt++){
+      const changes=stateTopLevelChanges();
+      if(!Object.keys(changes).length){
+        if(!quiet)renderAll();
+        if(E('server'))E('server').textContent='● 사진·업무자료 저장됨';
+        return {revision}
+      }
+      try{
+        const response=await fetchWithTimeout('/api/scrap-state',{
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({changes,baseRevision:revision})
+        },45000);
+        const out=await responsePayload(response);
+        if(response.status===409){
+          if(!out.payload)throw Error(out.error||'최신 공용자료를 불러오지 못했습니다.');
+          const latest=defaults(out.payload);
+          revision=num(out.revision);
+          lastSyncedState=stateClone(latest);
+          state=mergePendingStateAfterConflict(latest,pending,base);
+          lastError=Error(out.error||'다른 사용자의 저장내용과 자동 병합 중입니다.');
+          if(E('saveProgressDetail'))E('saveProgressDetail').textContent=
+            '다른 사용자의 최신 자료와 현재 입력을 합친 뒤 자동으로 다시 저장합니다.';
+          await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
+          continue
+        }
+        if(!response.ok)throw Error(out.error||('저장 서버 HTTP '+response.status));
+        revision=num(out.revision);
+        serverTransport='vercel-v3';
+        cloudMode=true;
+        rememberSyncedState();
+        writeFastCache();
+        if(!quiet)renderAll();
+        if(E('server'))E('server').textContent='● 사진·업무자료 빠른 저장됨';
+        return out
+      }catch(error){
+        lastError=error;
+        if(attempt>=3)break;
+        if(E('saveProgressDetail'))E('saveProgressDetail').textContent=
+          '서버 응답이 잠시 지연되어 자동 재시도 중입니다. '+(attempt+1)+'/3';
+        await new Promise(resolve=>setTimeout(resolve,600*(attempt+1)))
+      }
+    }
+    throw Error('공용 서버 저장을 완료하지 못했습니다. 입력자료는 화면에 유지됩니다. 잠시 후 다시 눌러 주세요. ('+
+      (lastError?.message||'응답 없음')+')')
+  }finally{
+    if(!quiet)endSaveProgress()
+  }
+}
+
+saveState=function saveStateSerializedPhotoTransportV3(options={}){
+  const run=()=>saveStatePhotoTransportV3(options);
+  const task=photoStateSaveQueueV3.then(run,run);
+  photoStateSaveQueueV3=task.catch(()=>{});
+  return task
+};
 </script>
 </body>
 </html>
