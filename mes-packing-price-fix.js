@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 2.8 seconds
+Output:
 (function mesPackingPriceFixV1(){
   'use strict';
   function round2(value){return Math.round((Number(value)||0)*100)/100;}
@@ -228,6 +231,111 @@
   window.mesPurchaseDetail=function(row){
     var rows=row.rows||safe(state.pos).filter(function(x){return x.poNo===row.poNo&&x.status!=='CANCELLED';});
     return mesSection('구매 계약 세부내역',[['P.O',function(x){return x.poNo;}],['거래처',function(x){return x.company;}],['거래처 강종',function(x){return x.grade;}],['패키지',function(x){return x.packageNo;}],['계약중량',function(x){return fmt(x.weight);}],['단가('+esc(row.currency||'USD')+'/kg)',function(x){return fmt(x.unitPrice||x.purchaseUnitPrice);}],['통화',function(x){return x.currency||row.currency;}],['환율',function(x){return fmt(x.exchangeRate||row.rate);}],['금액',function(x){return fmt(x.amount||num(x.weight)*num(x.unitPrice||x.purchaseUnitPrice));}],['입고예정일',function(x){return date(x.expectedArrivalDate||x.arrivalDate);}],['구매상태',function(x){return x.purchaseStatus||x.status;}]],rows);
+  };
+
+  /*
+   * 입고현황은 P.O 원본이 아니라 PACKING LIST가 확정된 입고요청을 기준으로 만든다.
+   * 업무수행 0번에서 확정한 국내입고는 purchaseRequests 없이 P.O가 생성되므로
+   * domesticReceipt 표식이 있는 자료도 같은 목록에 포함한다.
+   */
+  function validPackingRequest(request){
+    return request&&request.status!=='CANCELLED'&&safe(request.items).some(function(item){
+      return normalizeText(item.grade)&&cleanNumber(item.gw||item.nw||item.weight)>0;
+    });
+  }
+  function confirmedDomesticPoSet(){
+    return new Set(safe(state.domesticReceipts).filter(function(receipt){
+      return receipt.status==='CONFIRMED'&&receipt.poNo;
+    }).map(function(receipt){return receipt.poNo;}));
+  }
+  function requestSourcePos(request,item,index,used){
+    var candidates=safe(state.pos).filter(function(pos){return pos.status!=='CANCELLED'&&pos.poNo===request.poNo;});
+    var packageNo=normalizeText(item.packageNo).toLowerCase(),match=candidates.find(function(pos){
+      return !used.has(pos.id)&&packageNo&&normalizeText(pos.packageNo).toLowerCase()===packageNo;
+    });
+    if(!match){
+      var grade=normalizeText(item.grade).toLowerCase();
+      match=candidates.find(function(pos){return !used.has(pos.id)&&normalizeText(pos.grade).toLowerCase()===grade;});
+    }
+    if(!match)match=candidates.find(function(pos){return !used.has(pos.id);})||candidates[index]||null;
+    if(match)used.add(match.id);
+    return match;
+  }
+  function requestedInboundRows(){
+    var rows=[],usedPos=new Set(),domesticPos=new Set(),domesticPo=confirmedDomesticPoSet();
+    safe(state.purchaseRequests).filter(validPackingRequest).forEach(function(request){
+      safe(request.items).forEach(function(item,index){
+        if(!normalizeText(item.grade)||cleanNumber(item.gw||item.nw||item.weight)<=0)return;
+        var source=requestSourcePos(request,item,index,usedPos),nw=round2(item.nw||item.weight||item.gw),gw=round2(item.gw||item.weight||item.nw);
+        rows.push({
+          id:source&&source.id||('request:'+request.id+':'+index),
+          sourcePosId:source&&source.id||'',requestId:request.id,requestNo:request.requestNo||'',
+          packageNo:item.packageNo||source&&source.packageNo||((request.requestNo||request.poNo)+'-'+(index+1)),
+          poNo:request.poNo,company:request.company||source&&source.company||'',grade:item.grade||source&&source.grade||'',
+          planWeight:nw,receivedWeight:source&&source.receivedAt?round2(source.netWeight||source.weight||nw):0,
+          grossWeight:gw,receivedAt:source&&source.receivedAt||'',status:source&&source.receiptStatus||'WAITING',
+          inspection:source&&source.inspectionStatus||'NOT_RECEIVED',memo:item.memo||source&&source.receiptMemo||'',
+          requestDate:request.requestDate||'',savedAt:request.updatedAt||request.createdAt||'',sourceType:'PACKING_LIST'
+        });
+      });
+    });
+    safe(state.pos).filter(function(pos){
+      return pos.status!=='CANCELLED'&&(pos.domesticReceipt===true||pos.domesticReceiptId||domesticPo.has(pos.poNo));
+    }).forEach(function(pos){
+      if(usedPos.has(pos.id)||domesticPos.has(pos.id))return;domesticPos.add(pos.id);
+      rows.push({id:pos.id,sourcePosId:pos.id,packageNo:pos.packageNo,poNo:pos.poNo,company:pos.company,grade:pos.grade,
+        planWeight:round2(pos.netWeight||pos.weight),receivedWeight:round2(pos.netWeight||pos.weight),grossWeight:round2(pos.grossWeight||pos.weight),
+        receivedAt:pos.receivedAt,status:pos.receiptStatus||'RECEIVED',inspection:pos.inspectionStatus||'WAITING',memo:pos.receiptMemo||pos.packageMemo||'',
+        requestDate:pos.receivedAt||pos.createdAt||'',savedAt:pos.receivedAt||pos.createdAt||'',sourceType:'FORCE_DOMESTIC'});
+    });
+    return rows.sort(function(a,b){return String(b.requestDate||b.savedAt||'').localeCompare(String(a.requestDate||a.savedAt||''));});
+  }
+  window.__mesPackingPriceFixV1.validPackingRequest=validPackingRequest;
+  window.__mesPackingPriceFixV1.requestedInboundRows=requestedInboundRows;
+  window.inboundRows=requestedInboundRows;
+  try{inboundRows=requestedInboundRows;}catch(_){/* 전역 함수 바인딩이 읽기 전용인 환경 */}
+  if(typeof schemas!=='undefined'&&schemas.inbound){
+    schemas.inbound.title='입고현황 · PACKING LIST 등록자료';
+    schemas.inbound.rows=requestedInboundRows;
+    schemas.inbound.cols=[
+      ['입고구분',function(row){return row.sourceType==='FORCE_DOMESTIC'?'강제입고':'입고요청';}],
+      ['요청번호',function(row){return row.requestNo||'-';}],
+      ['P.O',function(row){return row.poNo||'-';}],
+      ['사내입고번호',function(row){return row.packageNo||'-';},'link'],
+      ['공급사',function(row){return row.company||'-';},'left'],
+      ['강종',function(row){return row.grade||'-';},'left'],
+      ['PACKING N/W(kg)',function(row){return fmt(row.planWeight);}],
+      ['입고 N/W(kg)',function(row){return fmt(row.receivedWeight);}],
+      ['입고일',function(row){return date(row.receivedAt);}],
+      ['입고상태',function(row){return status(row.status);}],
+      ['검수상태',function(row){return status(row.inspection);}],
+      ['자료저장일',function(row){return dt(row.savedAt||row.requestDate);}]
+    ];
+  }
+  window.openForceInboundRegistration=function(){
+    var target='./stable-inspection-mobile-v4.html?forceInbound=1#domesticReceipt';
+    window.location.href=target;
+  };
+  function decorateInboundPackingGate(){
+    if(typeof currentView==='undefined'||currentView!=='inbound')return;
+    var content=document.getElementById('content'),head=content&&content.querySelector('.dashboard-head'),actions=head&&head.querySelector('.actions');
+    if(!head||!actions)return;
+    var paragraph=head.querySelector('p');
+    if(paragraph)paragraph.textContent='PACKING LIST가 저장된 입고요청과 업무수행 0번 강제입고만 표시합니다.';
+    if(!document.getElementById('mesForceInboundButton'))actions.insertAdjacentHTML('afterbegin','<button id="mesForceInboundButton" class="btn primary" onclick="openForceInboundRegistration()">＋ 강제 입고등록</button>');
+    if(!document.getElementById('mesInboundPackingNotice'))head.insertAdjacentHTML('afterend','<div id="mesInboundPackingNotice" class="detail-banner" style="margin:0 0 16px"><h2>입고현황 표시 기준</h2><p>① P.O의 PACKING LIST를 입고요청으로 저장한 패키지 ② 업무수행 0번에서 P.O 없이 확정한 강제입고만 표시됩니다.</p></div>');
+  }
+  var renderBeforeInboundPackingGate=window.render;
+  if(typeof renderBeforeInboundPackingGate==='function'){
+    window.render=function(){var value=renderBeforeInboundPackingGate.apply(this,arguments);decorateInboundPackingGate();requestAnimationFrame(decorateInboundPackingGate);return value;};
+    try{render=window.render;}catch(_){/* 전역 함수 바인딩 호환 */}
+  }
+  var inboundDetailBeforePackingGate=window.mesInboundDetail;
+  window.mesInboundDetail=function(row){
+    var source=safe(state.pos).find(function(pos){return pos.id===(row.sourcePosId||row.id);});
+    if(source&&typeof inboundDetailBeforePackingGate==='function')return inboundDetailBeforePackingGate(Object.assign({},row,{id:source.id}));
+    var request=safe(state.purchaseRequests).find(function(item){return item.id===row.requestId;});
+    return mesSection('PACKING LIST 입고요청',[['요청번호',function(){return row.requestNo||'-';}],['P.O',function(){return row.poNo;}],['Package No.',function(){return row.packageNo;}],['거래처',function(){return row.company;}],['강종',function(){return row.grade;}],['G/W',function(){return fmt(row.grossWeight);}],['N/W',function(){return fmt(row.planWeight);}],['요청일',function(){return date(row.requestDate);}],['작업자',function(){return request&&request.operatorName||'-';}]],[row]);
   };
   document.documentElement.dataset.mesPackingPriceFixV1='ready';
 })();
