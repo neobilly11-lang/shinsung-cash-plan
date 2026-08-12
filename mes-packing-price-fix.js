@@ -314,7 +314,7 @@
     window.location.href=target;
   };
   function decorateInboundPackingGate(){
-    if(typeof currentView==='undefined'||currentView!=='inbound')return;
+    if(!document.getElementById||typeof currentView==='undefined'||currentView!=='inbound')return;
     var content=document.getElementById('content'),head=content&&content.querySelector('.dashboard-head'),actions=head&&head.querySelector('.actions');
     if(!head||!actions)return;
     var paragraph=head.querySelector('p');
@@ -326,6 +326,12 @@
   if(typeof renderBeforeInboundPackingGate==='function'){
     window.render=function(){var value=renderBeforeInboundPackingGate.apply(this,arguments);decorateInboundPackingGate();requestAnimationFrame(decorateInboundPackingGate);return value;};
     try{render=window.render;}catch(_){/* 전역 함수 바인딩 호환 */}
+  }
+  decorateInboundPackingGate();
+  if(typeof setTimeout==='function')setTimeout(decorateInboundPackingGate,250);
+  if(typeof MutationObserver==='function'&&document.getElementById){
+    var inboundGateObserver=new MutationObserver(decorateInboundPackingGate),inboundGateRoot=document.getElementById('content');
+    if(inboundGateRoot)inboundGateObserver.observe(inboundGateRoot,{childList:true,subtree:true});
   }
   var inboundDetailBeforePackingGate=window.mesInboundDetail;
   window.mesInboundDetail=function(row){
