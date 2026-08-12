@@ -1,13 +1,12 @@
 const SUPABASE_URL = 'https://orpeybiqikrdydkhsjjs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
 const LEGACY_TABLE = 'sales_state';
-const META_TABLE = 'scrap_app_state';
 const LEGACY_ROW_ID = 'main';
-const META_ROW_IDS = ['state-head-v3', 'main'];
 const SYSTEM_ID = '__SCRAP_SHARED_STATE_V1__';
 const STATE_BUCKET = 'scrap-photos';
 const V2_PREFIX = '_shared-state-v2';
 const V3_PREFIX = '_shared-state-v3';
+const V3_HEAD_PATH = `${V3_PREFIX}/head.json`;
 const headers = { apikey: SUPABASE_KEY, 'content-type': 'application/json' };
 const emptyState = {
   pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
@@ -25,8 +24,10 @@ const allowedKeys = [
   'workflowDraftDeletions', 'inspectors', 'auditLogs'
 ];
 
+const encodePath = path =>
+  String(path).split('/').map(encodeURIComponent).join('/');
 const publicObjectUrl = path =>
-  `${SUPABASE_URL}/storage/v1/object/public/${STATE_BUCKET}/${String(path).split('/').map(encodeURIComponent).join('/')}`;
+  `${SUPABASE_URL}/storage/v1/object/public/${STATE_BUCKET}/${encodePath(path)}`;
 
 async function responseJson(response, label) {
   const text = await response.text();
@@ -36,45 +37,38 @@ async function responseJson(response, label) {
 }
 
 async function readObject(path) {
-  const response = await fetch(`${publicObjectUrl(path)}?v=${Date.now()}`, { cache: 'no-store' });
+  const response = await fetch(`${publicObjectUrl(path)}?v=${Date.now()}-${Math.random()}`, { cache: 'no-store' });
   if (response.status === 404) return null;
   return responseJson(response, 'Supabase state object');
 }
 
-async function uploadObject(path, payload) {
-  const encoded = String(path).split('/').map(encodeURIComponent).join('/');
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${STATE_BUCKET}/${encoded}`, {
-    method: 'POST',
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store'
-    },
-    body: JSON.stringify(payload || emptyState)
-  });
-  if (!response.ok) throw new Error(`Supabase state object HTTP ${response.status}: ${await response.text()}`);
-}
-
-async function readMetaRows() {
-  const ids = META_ROW_IDS.map(encodeURIComponent).join(',');
+async function uploadObject(path, payload, upsert = false) {
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${META_TABLE}?id=in.(${ids})&select=id,payload,revision,updated_at`,
-    { headers, cache: 'no-store' }
+    `${SUPABASE_URL}/storage/v1/object/${STATE_BUCKET}/${encodePath(path)}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'x-upsert': upsert ? 'true' : 'false'
+      },
+      body: JSON.stringify(payload)
+    }
   );
-  const rows = await responseJson(response, 'Supabase state head');
-  return Array.isArray(rows) ? rows : [];
+  if (!response.ok) {
+    throw new Error(`Supabase state object HTTP ${response.status}: ${await response.text()}`);
+  }
 }
 
-function validHead(row) {
-  return row && row.payload?.version === 3 && row.payload?.objectPath;
+function validHead(head) {
+  return head && head.version === 3 && head.objectPath && Number.isFinite(Number(head.revision));
 }
 
 async function readHead() {
-  const rows = await readMetaRows();
-  return rows.find(row => row.id === META_ROW_IDS[0] && validHead(row))
-    || rows.find(row => row.id === META_ROW_IDS[1] && validHead(row))
-    || null;
+  const head = await readObject(V3_HEAD_PATH);
+  return validHead(head) ? head : null;
 }
 
 async function readLegacyRow(select = 'items,revision') {
@@ -95,72 +89,63 @@ async function readLegacyState() {
   const legacy = await readLegacyRow('items,revision');
   const items = Array.isArray(legacy.items) ? legacy.items : [];
   const system = items.find(item => item?.id === SYSTEM_ID);
-  return { payload: system?.scrapPayload || emptyState, revision: Number(legacy.revision) || 0 };
+  return {
+    payload: system?.scrapPayload || emptyState,
+    revision: Number(legacy.revision) || 0
+  };
 }
 
 async function readCurrent() {
   const head = await readHead();
   if (head) {
-    const payload = await readObject(head.payload.objectPath);
+    const payload = await readObject(head.objectPath);
     if (!payload) throw new Error('공용 상태 파일을 찾지 못했습니다.');
     return { payload, revision: Number(head.revision) || 0, head };
   }
   return { ...(await readLegacyState()), head: null };
 }
 
-async function upsertHead(id, revision, objectPath) {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${META_TABLE}?on_conflict=id`,
-    {
-      method: 'POST',
-      headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify({
-        id,
-        payload: { version: 3, objectPath, updatedAt: new Date().toISOString() },
-        revision,
-        updated_at: new Date().toISOString()
-      })
-    }
-  );
-  if (!response.ok) return { ok: false, status: response.status, text: await response.text() };
-  const rows = await response.json();
-  return { ok: true, row: Array.isArray(rows) ? rows[0] : rows };
-}
-
 async function ensureHead(current) {
   if (current.head) return current.head;
-  const path = `${V3_PREFIX}/bootstrap-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
-  await uploadObject(path, current.payload);
-  for (const id of META_ROW_IDS) {
-    const result = await upsertHead(id, current.revision, path);
-    if (result.ok) return { ...result.row, id, revision: current.revision, payload: { version: 3, objectPath: path } };
-  }
-  throw new Error('공용 상태 포인터를 생성하지 못했습니다.');
-}
-
-async function claimHead(headId, baseRevision, nextRevision, objectPath) {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${META_TABLE}?id=eq.${encodeURIComponent(headId)}&revision=eq.${baseRevision}&select=id,revision`,
-    {
-      method: 'PATCH',
-      headers: { ...headers, Prefer: 'return=representation' },
-      body: JSON.stringify({
-        payload: { version: 3, objectPath, updatedAt: new Date().toISOString() },
-        revision: nextRevision,
-        updated_at: new Date().toISOString()
-      })
-    }
-  );
-  const rows = await responseJson(response, 'Supabase state head update');
-  return Array.isArray(rows) && rows.length ? rows[0] : null;
+  const objectPath = `${V3_PREFIX}/bootstrap-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+  await uploadObject(objectPath, current.payload);
+  const head = {
+    version: 3,
+    revision: Number(current.revision) || 0,
+    objectPath,
+    updatedAt: new Date().toISOString()
+  };
+  await uploadObject(V3_HEAD_PATH, head, true);
+  return head;
 }
 
 async function writePayload(payload, baseRevision, current) {
-  const head = await ensureHead(current);
+  await ensureHead(current);
+  const latestBeforeWrite = await readHead();
+  if (!latestBeforeWrite || Number(latestBeforeWrite.revision) !== baseRevision) return null;
+
   const nextRevision = baseRevision + 1;
-  const objectPath = `${V3_PREFIX}/revision-${nextRevision}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+  const objectPath =
+    `${V3_PREFIX}/revision-${nextRevision}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
   await uploadObject(objectPath, payload);
-  return await claimHead(head.id, baseRevision, nextRevision, objectPath);
+
+  const latestBeforePublish = await readHead();
+  if (!latestBeforePublish || Number(latestBeforePublish.revision) !== baseRevision) return null;
+
+  const nextHead = {
+    version: 3,
+    revision: nextRevision,
+    objectPath,
+    updatedAt: new Date().toISOString()
+  };
+  await uploadObject(V3_HEAD_PATH, nextHead, true);
+
+  const confirmed = await readHead();
+  return confirmed &&
+    Number(confirmed.revision) === nextRevision &&
+    confirmed.objectPath === objectPath
+    ? nextHead
+    : null;
 }
 
 export default async function handler(req, res) {
@@ -190,7 +175,8 @@ export default async function handler(req, res) {
 
       let payload = req.body?.payload || emptyState;
       if (req.method === 'PATCH') {
-        const changes = req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
+        const changes =
+          req.body?.changes && typeof req.body.changes === 'object' ? req.body.changes : {};
         payload = { ...current.payload };
         for (const key of allowedKeys) {
           if (Object.prototype.hasOwnProperty.call(changes, key)) payload[key] = changes[key];
@@ -198,7 +184,10 @@ export default async function handler(req, res) {
         const guide = req.body?.selectionGuide;
         if (guide && typeof guide === 'object' && String(guide.id || '').trim()) {
           const currentGuides = Array.isArray(payload.selectionGuides) ? payload.selectionGuides : [];
-          payload.selectionGuides = [...currentGuides.filter(item => item?.id !== guide.id), guide];
+          payload.selectionGuides = [
+            ...currentGuides.filter(item => item?.id !== guide.id),
+            guide
+          ];
         }
       }
 
