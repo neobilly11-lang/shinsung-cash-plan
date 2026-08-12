@@ -185,5 +185,316 @@ async function saveMesRegistration(event,form,type){event.preventDefault();const
 renderDaily=function renderMesDailyDetail(){const rows=todayAudits().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));$('pageTitle').textContent='일일 작업일지';const schema={cols:[['시간',x=>dt(x.createdAt).slice(11)],['작업자',x=>x.operatorName||x.actorName||'-'],['구분',x=>x.action||'-'],['번호',x=>x.packageNo||x.poNo||x.soNo||x.completionNo||'-'],['내용',x=>x.label||x.note||x.reason||'-']]};$('content').innerHTML=`<div class="dashboard-head"><div><h1>일일 작업일지</h1><p>${nowDate()} · 현장관리와 MES 작업기록 통합</p></div><button class="btn primary" onclick="openDailyForm()">+ 작업일지 추가</button></div><div class="panel">${tableHtml(schema,rows)}${cardsHtml(schema,rows)}</div>`}
 const mesCachedOnBoot=mesReadCache();if(mesCachedOnBoot?.payload){state=defaults(mesCachedOnBoot.payload);revision=num(mesCachedOnBoot.revision);render()}
 </script>
+
+<style id="mesSearchShippingFixV3Style">
+.mes-search-note{grid-column:1/-1;padding:9px 12px;border-radius:9px;background:#eef8f6;color:#176b60;font-size:12px;font-weight:800}
+.shipping-workflow-banner{margin:14px 0;padding:17px;border-radius:14px;background:linear-gradient(135deg,#0d604f,#128b78);color:#fff}
+.shipping-workflow-banner h3{margin:0 0 6px}.shipping-workflow-banner p{margin:0;color:#d8fff7}
+.shipping-stage-cards{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr));gap:10px;margin-top:13px}
+.shipping-stage-card{border:1px solid var(--line);border-radius:12px;padding:13px;background:#f8fbfc}
+.shipping-stage-card small{display:block;color:var(--muted);font-weight:800}.shipping-stage-card b{display:block;margin-top:5px;font-size:20px;color:#123d37}
+@media(max-width:760px){.toolbar .control{min-width:100%;width:100%}.shipping-stage-cards{grid-template-columns:1fr 1fr}.shipping-stage-card b{font-size:17px}}
+</style>
+<script id="mesSearchShippingFixV3">
+(function(){
+"use strict";
+var mesDraftByView={};
+var mesTypingUntil=0;
+var mesDateIndexRevision=-1;
+var mesDateIndex=null;
+function mesDraft(){
+  if(!mesDraftByView[currentView]) mesDraftByView[currentView]=Object.assign({},filters||{});
+  return mesDraftByView[currentView];
+}
+window.mesDraftSet=function(key,value){
+  mesDraft()[key]=value;
+  mesTypingUntil=Date.now()+1800;
+};
+window.mesDraftKey=function(event){
+  if(event.key==="Enter"){event.preventDefault();window.mesApplySearch();}
+};
+window.mesApplySearch=function(){
+  filters=Object.assign({},mesDraft());
+  mesTypingUntil=0;
+  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  render();
+};
+window.mesResetSearch=function(){
+  filters={};
+  mesDraftByView[currentView]={};
+  mesTypingUntil=0;
+  render();
+};
+function mesMaxDate(values){
+  var best="";
+  var bestTime=0;
+  (values||[]).forEach(function(value){
+    if(!value) return;
+    var time=Date.parse(value);
+    if(Number.isFinite(time)&&time>bestTime){bestTime=time;best=String(value);}
+  });
+  return best;
+}
+function mesRecordDate(record){
+  if(!record||typeof record!=="object") return "";
+  var values=[
+    record.updatedAt,record.createdAt,record.savedAt,record.receivedAt,
+    record.completedAt,record.confirmedAt,record.shippedAt,record.shippingCompletedAt,
+    record.receiptCompletedAt,record.settlementUpdatedAt,record.cancelledAt
+  ];
+  ["rows","items","shipments","packingLists","allocations"].forEach(function(key){
+    if(Array.isArray(record[key])) record[key].forEach(function(item){values.push(mesRecordDate(item));});
+  });
+  if(record.bag) values.push(mesRecordDate(record.bag));
+  return mesMaxDate(values);
+}
+function mesBuildDateIndex(){
+  if(mesDateIndex&&mesDateIndexRevision===revision) return mesDateIndex;
+  var index={id:new Map(),po:new Map(),so:new Map(),pkg:new Map(),code:new Map()};
+  function touch(map,key,value){
+    if(key==null||key==="") return;
+    var next=mesMaxDate([value,map.get(String(key))]);
+    if(next) map.set(String(key),next);
+  }
+  [
+    "pos","salesOrders","bags","shipments","shipmentAllocations","packingLists",
+    "splits","inputs","losses","workWaits","waitingMoves","receiptWorks",
+    "shippingWorks","shippingAreaMoves","returnReceipts","domesticReceipts","auditLogs"
+  ].forEach(function(collection){
+    safe(state[collection]).forEach(function(record){
+      var saved=mesRecordDate(record);
+      touch(index.id,record.id,saved);
+      touch(index.po,record.poNo,saved);
+      touch(index.so,record.soNo,saved);
+      touch(index.pkg,record.packageNo||record.sourcePackageNo,saved);
+      touch(index.code,record.completionNo||record.bagNo||record.code,saved);
+    });
+  });
+  mesDateIndex=index;
+  mesDateIndexRevision=revision;
+  return index;
+}
+window.mesSavedAt=function(row){
+  var index=mesBuildDateIndex();
+  return mesMaxDate([
+    row&&row._savedAt,mesRecordDate(row),
+    row&&index.id.get(String(row.id||"")),
+    row&&index.po.get(String(row.poNo||"")),
+    row&&index.so.get(String(row.soNo||"")),
+    row&&index.pkg.get(String(row.packageNo||"")),
+    row&&index.code.get(String(row.code||row.completionNo||""))
+  ]);
+};
+window.mesSavedAtText=function(row){
+  var value=window.mesSavedAt(row);
+  return value?dt(value):"-";
+};
+var baseOpenView=window.openView;
+window.openView=function(id){
+  mesDraftByView[id]={};
+  return baseOpenView(id);
+};
+var baseLoadState=window.loadState;
+window.loadState=async function(shouldRender){
+  var wantsRender=shouldRender!==false;
+  var active=document.activeElement;
+  var typing=Date.now()<mesTypingUntil||(active&&active.closest&&active.closest(".toolbar"));
+  return baseLoadState(wantsRender&&!typing);
+};
+window.filterControls=function(){
+  var draft=mesDraft();
+  var inventoryView=currentView==="inventory"||currentView==="stockDetail";
+  return "<div class='mes-search-note'>검색어 입력 중에는 화면이 바뀌지 않습니다. 조건 입력 후 반드시 <b>조회</b>를 눌러 주세요. 기본 목록은 최근 저장 순입니다.</div>"
+    +"<div class='control'><label>통합 검색</label><input value='"+esc(draft.q||"")+"' placeholder='번호·회사·강종' oninput=\"mesDraftSet('q',this.value)\" onkeydown='mesDraftKey(event)'></div>"
+    +(inventoryView?"<div class='control'><label>장소 검색</label><input value='"+esc(draft.location||"")+"' placeholder='창고·구역·미지정' oninput=\"mesDraftSet('location',this.value)\" onkeydown='mesDraftKey(event)'></div>":"")
+    +"<div class='control'><label>저장일 시작</label><input type='date' value='"+esc(draft.from||"")+"' onchange=\"mesDraftSet('from',this.value)\"></div>"
+    +"<div class='control'><label>저장일 종료</label><input type='date' value='"+esc(draft.to||"")+"' onchange=\"mesDraftSet('to',this.value)\"></div>"
+    +(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":"")
+    +"<div class='control'><label>표시건수</label><select onchange=\"mesDraftSet('limit',this.value)\"><option "+(!draft.limit||draft.limit==="50"?"selected":"")+">50</option><option "+(draft.limit==="100"?"selected":"")+">100</option><option "+(draft.limit==="500"?"selected":"")+">500</option></select></div>";
+};
+window.rowDate=function(row){
+  var saved=window.mesSavedAt(row);
+  return saved?date(saved):"-";
+};
+window.filtered=function(rows){
+  var out=(rows||[]).slice().sort(function(a,b){
+    return String(window.mesSavedAt(b)||"").localeCompare(String(window.mesSavedAt(a)||""));
+  });
+  var q=String(filters.q||"").trim().toLowerCase();
+  if(q) out=out.filter(function(row){return rowText(row).includes(q);});
+  var location=String(filters.location||"").trim().toLowerCase();
+  if(location) out=out.filter(function(row){return String(row.location||row.locations||"").toLowerCase().includes(location);});
+  if(filters.from) out=out.filter(function(row){var value=rowDate(row);return value!=="-"&&value>=filters.from;});
+  if(filters.to) out=out.filter(function(row){var value=rowDate(row);return value!=="-"&&value<=filters.to;});
+  if(filters.status==="대기") out=out.filter(function(row){return !/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
+  if(filters.status==="완료") out=out.filter(function(row){return /완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
+  return out.slice(0,num(filters.limit)||50);
+};
+function mesWireSearchButtons(){
+  var toolbar=document.querySelector("#content .toolbar");
+  if(!toolbar) return;
+  var buttons=toolbar.querySelectorAll("button");
+  buttons.forEach(function(button){
+    var label=String(button.textContent||"").trim();
+    if(label==="조회"){button.onclick=window.mesApplySearch;button.setAttribute("onclick","mesApplySearch()");}
+    if(label==="초기화"){button.onclick=window.mesResetSearch;button.setAttribute("onclick","mesResetSearch()");}
+  });
+}
+function mesAddSavedColumn(schema){
+  if(!schema||!Array.isArray(schema.cols)||schema.cols.some(function(col){return col[0]==="저장일시";})) return;
+  schema.cols.push(["저장일시",function(row){return window.mesSavedAtText(row);}]);
+}
+Object.keys(schemas).forEach(function(key){mesAddSavedColumn(schemas[key]);});
+function mesCompletedStatus(value){
+  return /^(?:FINAL|SHIPPED|DONE|COMPLETE|COMPLETED|DELIVERED)$/i.test(String(value||""));
+}
+function mesShipmentIsComplete(shipment){
+  return !!shipment&&(mesCompletedStatus(shipment.status)||!!(shipment.shippedAt||shipment.shippingCompletedAt||shipment.completedAt));
+}
+function mesItemIsComplete(item){
+  if(mesCompletedStatus(item&&item.status)) return true;
+  return safe(state.shipments).some(function(shipment){
+    if(!mesShipmentIsComplete(shipment)) return false;
+    if(shipment.salesOrderId) return String(shipment.salesOrderId)===String(item.id);
+    return shipment.soNo&&String(shipment.soNo)===String(item.soNo);
+  });
+}
+function mesPendingShippingRows(){
+  return salesRows().map(function(group){
+    var pending=safe(group.items).filter(function(item){return !mesItemIsComplete(item);});
+    if(!pending.length) return null;
+    var next=Object.assign({},group,{
+      items:pending,
+      grade:Array.from(new Set(pending.map(function(item){return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · ");}).filter(Boolean))).join(" / "),
+      weight:pending.reduce(function(sum,item){return sum+num(item.weight);},0),
+      amount:pending.reduce(function(sum,item){return sum+num(item.amount||item.salesAmount||num(item.weight)*num(item.unitPrice));},0),
+      status:pending[0].status||"WAITING",
+      _savedAt:mesMaxDate(pending.map(mesRecordDate))
+    });
+    return next;
+  }).filter(Boolean);
+}
+function mesPackingListFor(item,shipment){
+  return safe(state.packingLists).filter(function(list){
+    return list.status!=="CANCELLED"&&(list.salesOrderId===item.id||list.soNo===item.soNo||list.shipmentId===shipment.id);
+  }).map(function(list){return list.packingListNo;}).filter(Boolean).join(" / ");
+}
+function mesCompletedShipmentRows(){
+  var orders=safe(state.salesOrders).filter(function(item){return item.status!=="CANCELLED";});
+  var rows=[];
+  var seen=new Set();
+  safe(state.shipments).filter(mesShipmentIsComplete).forEach(function(shipment){
+    var items=orders.filter(function(item){
+      return shipment.salesOrderId?String(item.id)===String(shipment.salesOrderId):shipment.soNo&&String(item.soNo)===String(shipment.soNo);
+    });
+    if(!items.length) items=[{id:"shipment",soNo:shipment.soNo||"",customer:shipment.customer||"",grade:shipment.grade||"",weight:shipment.weight||shipment.shippedWeight||0}];
+    items.forEach(function(item,index){
+      var key=String(shipment.id||shipment.soNo||"shipment")+"::"+String(item.id||index);
+      if(seen.has(key)) return;
+      seen.add(key);
+      var allocations=safe(state.shipmentAllocations).filter(function(allocation){
+        return allocation.status!=="CANCELLED"&&allocation.shipmentId===shipment.id&&(!allocation.salesOrderId||allocation.salesOrderId===item.id);
+      });
+      var shipped=allocations.length?allocations.reduce(function(sum,x){return sum+num(x.weight);},0):num(item.shippedWeight||shipment.itemWeights&&shipment.itemWeights[item.id]||item.weight||shipment.shippedWeight||shipment.weight);
+      rows.push({
+        id:key,shipmentId:shipment.id||"",soNo:item.soNo||shipment.soNo||"",customer:item.customer||shipment.customer||"",
+        productType:item.productType||"",mainGrade:item.mainGrade||item.grade||shipment.mainGrade||shipment.grade||"",
+        subGrade:item.subGrade||"",detailGrade:item.detailGrade||"",grade:item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · "),
+        weight:num(item.weight),shippedWeight:shipped,shipDate:item.shipDate||shipment.shipDate,
+        shippedAt:shipment.shippedAt||shipment.shippingCompletedAt||shipment.completedAt||shipment.updatedAt,
+        status:shipment.status||item.status||"SHIPPED",type:item.packingListType==="OVERSEAS"?"수출":"국내",
+        packingList:mesPackingListFor(item,shipment),items:[item],shipments:[shipment],_savedAt:mesRecordDate(shipment)
+      });
+    });
+  });
+  orders.filter(function(item){return mesCompletedStatus(item.status);}).forEach(function(item){
+    var has=rows.some(function(row){return safe(row.items).some(function(x){return x.id===item.id;});});
+    if(has) return;
+    rows.push({
+      id:"order::"+item.id,shipmentId:"",soNo:item.soNo||"",customer:item.customer||"",
+      productType:item.productType||"",mainGrade:item.mainGrade||item.grade||"",subGrade:item.subGrade||"",detailGrade:item.detailGrade||"",grade:item.grade||"",
+      weight:num(item.weight),shippedWeight:num(item.shippedWeight||item.weight),shipDate:item.shipDate,
+      shippedAt:item.shippedAt||item.shippingCompletedAt||item.updatedAt||item.createdAt,status:item.status,type:item.packingListType==="OVERSEAS"?"수출":"국내",
+      packingList:mesPackingListFor(item,{}),items:[item],shipments:[],_savedAt:mesRecordDate(item)
+    });
+  });
+  return rows.sort(function(a,b){return String(b.shippedAt||b._savedAt||"").localeCompare(String(a.shippedAt||a._savedAt||""));});
+}
+schemas.shippingPlan.rows=mesPendingShippingRows;
+schemas.shippingPlan.cols=[
+  ["판매구분",function(r){return r.type;}],["S.O",function(r){return r.soNo;}],["출하예정일",function(r){return date(r.shipDate);}],
+  ["판매처",function(r){return r.customer;},"left"],["미출하 강종",function(r){return r.grade;},"left"],["미출하 NW(kg)",function(r){return fmt(r.weight);}],
+  ["출하요청 상태",function(r){return status(r.status);}],["저장일시",function(r){return window.mesSavedAtText(r);}]
+];
+schemas.shippingPlan.edit="sales";
+schemas.shipping.rows=mesCompletedShipmentRows;
+schemas.shipping.cols=[
+  ["판매구분",function(r){return r.type;}],["S.O",function(r){return r.soNo;}],["품종",function(r){return r.productType||"-";}],
+  ["강종",function(r){return r.mainGrade||"-";},"left"],["소강종",function(r){return r.subGrade||"-";}],["상세강종",function(r){return r.detailGrade||"-";},"left"],
+  ["판매처",function(r){return r.customer;},"left"],["출하 NW(kg)",function(r){return fmt(r.shippedWeight);}],["출하일시",function(r){return dt(r.shippedAt);}],
+  ["PACKING LIST",function(r){return r.packingList||"-";}],["저장일시",function(r){return window.mesSavedAtText(r);}]
+];
+schemas.shipping.edit="shipping";
+schemas.inventory.rows=function(){
+  var map=groupBy(inventoryRows(),function(row){return [row.productType,row.mainGrade,row.subGrade].join("|");});
+  return Array.from(map).map(function(entry){
+    var key=entry[0],rows=entry[1];
+    return {id:key,productType:rows[0].productType,mainGrade:rows[0].mainGrade,subGrade:rows[0].subGrade,
+      stock:rows.reduce(function(sum,x){return sum+x.nw;},0),packing:rows.length,
+      locations:Array.from(new Set(rows.map(function(x){return x.location;}))).join(" / "),rows:rows,_savedAt:mesMaxDate(rows.map(mesRecordDate))};
+  });
+};
+schemas.stockDetail.rows=inventoryRows;
+function mesNormalizeGrade(value){return String(value||"").toUpperCase().replace(/[^A-Z0-9가-힣]/g,"");}
+function mesGradeMatches(source,target){
+  var a=mesNormalizeGrade(source),b=mesNormalizeGrade(target);
+  if(!a||!b) return false;
+  return a===b||a.includes(b)||b.includes(a);
+}
+function mesRequestItemGrade(item){return item.mainGrade||item.grade||[item.productType,item.mainGrade,item.subGrade].filter(Boolean).join(" ");}
+function mesShippingRequestDetail(row){
+  var items=safe(row.items).filter(function(item){return !mesItemIsComplete(item);});
+  var stock=inventoryRows();
+  var waits=safe(state.workWaits).filter(function(x){return x.status!=="CANCELLED"&&x.status!=="COMPLETE"&&x.status!=="DONE";});
+  var pendingPos=safe(state.pos).filter(function(x){return x.status!=="CANCELLED"&&!/COMPLETE/i.test(String(x.inspectionStatus||""));});
+  var metrics=items.map(function(item){
+    var grade=mesRequestItemGrade(item);
+    var completed=stock.filter(function(x){return mesGradeMatches(x.mainGrade,grade);}).reduce(function(sum,x){return sum+num(x.nw);},0);
+    var work=waits.filter(function(x){return mesGradeMatches(x.mainGrade||x.grade,grade);}).reduce(function(sum,x){return sum+num(x.weight);},0);
+    var inspect=pendingPos.filter(function(x){return mesGradeMatches(x.mainGrade||x.grade,grade);}).reduce(function(sum,x){return sum+Math.max(0,num(x.weight)-packageUsed(x.packageNo));},0);
+    var request=num(item.weight),available=Math.min(request,completed),progress=request?Math.min(100,Math.round(available/request*100)):0;
+    return {soNo:item.soNo||row.soNo,customer:item.customer||row.customer,grade:grade,subGrade:item.subGrade||"",request:request,completed:completed,work:work,inspection:inspect,progress:progress,status:item.status||"WAITING",shipDate:item.shipDate||row.shipDate};
+  });
+  var totalRequest=metrics.reduce(function(s,x){return s+x.request;},0);
+  var totalStock=metrics.reduce(function(s,x){return s+x.completed;},0);
+  var totalWork=metrics.reduce(function(s,x){return s+x.work;},0);
+  var totalInspect=metrics.reduce(function(s,x){return s+x.inspection;},0);
+  return "<div class='shipping-workflow-banner'><h3>업무수행 · 출하요청 진행화면</h3><p>출하완료 전 S.O 품목만 표시하며, 현장 공정 중량을 함께 확인합니다.</p></div>"
+    +"<div class='shipping-stage-cards'><div class='shipping-stage-card'><small>출하 요청</small><b>"+fmt(totalRequest)+" kg</b></div><div class='shipping-stage-card'><small>완료재고</small><b>"+fmt(totalStock)+" kg</b></div><div class='shipping-stage-card'><small>작업대기</small><b>"+fmt(totalWork)+" kg</b></div><div class='shipping-stage-card'><small>검수대기</small><b>"+fmt(totalInspect)+" kg</b></div></div>"
+    +mesSection("출하요청 품목",[
+      ["S.O",function(x){return x.soNo;}],["판매처",function(x){return x.customer;}],["강종",function(x){return x.grade;}],["소강종",function(x){return x.subGrade||"-";}],
+      ["요청중량",function(x){return fmt(x.request);}],["완료재고",function(x){return fmt(x.completed);}],["작업대기",function(x){return fmt(x.work);}],
+      ["검수대기",function(x){return fmt(x.inspection);}],["출하가능 진행률",function(x){return x.progress+"%";}],["출하예정일",function(x){return date(x.shipDate);}]
+    ],metrics)
+    +mesSection("출하요청 원본",[
+      ["S.O",function(x){return x.soNo;}],["판매처",function(x){return x.customer;}],["품종",function(x){return x.productType||"-";}],
+      ["강종",function(x){return x.mainGrade||x.grade;}],["소강종",function(x){return x.subGrade||"-";}],["상세강종",function(x){return x.detailGrade||"-";}],
+      ["요청중량",function(x){return fmt(x.weight);}],["상태",function(x){return x.status||"WAITING";}],["저장일시",function(x){return window.mesSavedAtText(x);}]
+    ],items);
+}
+var baseDetailMarkup=window.mesDetailMarkup;
+window.mesDetailMarkup=function(view,row){
+  if(view==="shippingPlan") return mesShippingRequestDetail(row);
+  if(view==="shipping") return mesShippingDetail(row);
+  return baseDetailMarkup(view,row);
+};
+var baseRenderSearch=window.render;
+window.render=function(){
+  baseRenderSearch();
+  mesWireSearchButtons();
+};
+if(currentView) render();
+})();
+</script>
 </body>
 </html>
