@@ -111,319 +111,7 @@ function renderDaily(){const rows=todayAudits().sort((a,b)=>String(b.createdAt).
 function openDailyForm(){$('modalTitle').textContent='작업일지 추가';$('modalBody').innerHTML=formWrap('new','daily',input('category','작업구분','일반업무')+input('reference','관련번호','')+`<label class="wide">작업내용<textarea name="note" required></textarea></label>`);$('modal').classList.add('on')}
 const saveEditBase=saveEdit;saveEdit=async function(id,type,form){if(type!=='daily')return saveEditBase(id,type,form);const v=formData(form);await commit('작업일지 등록',['auditLogs'],s=>s.auditLogs.push({id:crypto.randomUUID(),action:'MES_DAILY_NOTE',category:v.category,reference:v.reference,label:v.note,note:v.note,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()}));closeModal();renderDaily()}
 function exportView(){const schema=schemas[currentView];if(!schema)return;const rows=filtered(schema.rows()),headers=schema.cols.map(x=>x[0]),plain=html=>{const d=document.createElement('div');d.innerHTML=html;return d.textContent};const body=[headers,...rows.map(r=>schema.cols.map(c=>plain(String(c[1](r)))))];const html=`<html><head><meta charset="utf-8"></head><body><table border="1"><tr>${headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>${body.slice(1).map(row=>`<tr>${row.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>
-<style id="mesInboundRequestV1Style">
-.po-mode-grid,.request-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
-.po-mode-card,.request-mode-card{border:2px solid #d7e1ea;border-radius:18px;background:#fff;padding:20px;text-align:left;cursor:pointer;min-height:150px}
-.po-mode-card:hover,.request-mode-card:hover{border-color:#008ea1;box-shadow:0 12px 30px #008ea120}
-.po-mode-card b,.request-mode-card b{display:block;font-size:21px;margin-bottom:8px;color:#12324f}
-.po-mode-card span,.request-mode-card span{color:#64748b;line-height:1.55}
-.document-upload{border:3px dashed #7db7c2;background:#f0fbfc;border-radius:18px;padding:24px;text-align:center;margin:16px 0}
-.document-upload input{display:block;width:100%;margin-top:14px}
-.po-system-frame{width:100%;height:520px;border:1px solid #cbd5e1;border-radius:14px;background:#fff}
-.registration-lines,.packing-request-lines{grid-column:1/-1;display:grid;gap:12px}
-.line-editor{border:1px solid #d8e1eb;border-radius:14px;padding:14px;background:#f9fbfd}
-.line-editor-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
-.inbound-request-action{margin-left:6px;background:#e9f8f6!important;border-color:#9ad8d0!important;color:#087566!important}
-.request-summary{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:14px 0}
-.request-summary>div{background:#eef7f6;border-radius:12px;padding:13px}
-.request-summary small{display:block;color:#65768a;font-weight:800}.request-summary b{display:block;margin-top:6px;font-size:19px}
-.choice-segment{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.choice-segment label{position:relative}
-.choice-segment input{position:absolute;opacity:0}
-.choice-segment span{display:block;border:2px solid #cbd5e1;border-radius:12px;padding:14px;text-align:center;background:#fff;font-weight:900}
-.choice-segment input:checked+span{background:#087f72;color:#fff;border-color:#087f72}
-.request-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
-.request-detail-grid div{border:1px solid #e0e7ef;border-radius:11px;padding:12px}.request-detail-grid small{display:block;color:#718096}.request-detail-grid b{display:block;margin-top:5px}
-@media(max-width:760px){.po-mode-grid,.request-mode-grid{grid-template-columns:1fr}.po-mode-card,.request-mode-card{min-height:120px}.po-system-frame{height:62vh}.request-summary,.request-detail-grid{grid-template-columns:1fr 1fr}.inbound-request-action{margin:7px 0 0!important;width:100%}}
-</style>
-<script id="mesInboundRequestV1">
-(function(){
-"use strict";
-if(window.__mesInboundRequestV1)return;
-window.__mesInboundRequestV1=true;
 
-var navInsert=VIEWS.findIndex(function(v){return v.id==="inbound";});
-if(!VIEWS.some(function(v){return v.id==="inboundRequest";})){
-  VIEWS.splice(navInsert<0?2:navInsert,0,{group:"입고·생산",id:"inboundRequest",icon:"03",label:"입고요청현황"});
-}
-var mesOrder=["purchase","sales","inboundRequest","inbound","production","settlement","inventory","stockDetail","shippingPlan","shipping","daily"];
-mesOrder.forEach(function(id,index){var view=VIEWS.find(function(v){return v.id===id;});if(view)view.icon=String(index+1).padStart(2,"0");});
-buildNav();
-
-function requestRows(){
-  return safe(state.purchaseRequests).filter(function(x){return x.status!=="CANCELLED";}).slice().sort(function(a,b){
-    return String(b.requestDate||b.createdAt||"").localeCompare(String(a.requestDate||a.createdAt||""));
-  }).map(function(x){
-    var items=safe(x.items),po=poRows().find(function(p){return p.poNo===x.poNo;})||{};
-    return Object.assign({},x,{
-      company:x.company||po.company||"",
-      gradeSummary:x.gradeSummary||Array.from(new Set(items.map(function(i){return i.grade;}))).filter(Boolean).join(" / "),
-      packageCount:items.length,
-      totalGw:items.reduce(function(s,i){return s+num(i.gw);},0),
-      totalNw:items.reduce(function(s,i){return s+num(i.nw||i.weight);},0),
-      savedAt:x.updatedAt||x.createdAt
-    });
-  });
-}
-schemas.inboundRequest={
-  title:"입고요청현황",
-  rows:requestRows,
-  cols:[
-    ["요청번호",function(r){return r.requestNo||"-";},"link"],
-    ["P.O",function(r){return r.poNo||"-";}],
-    ["구분",function(r){return r.importType==="OVERSEAS"?"해외입고":"국내입고";}],
-    ["거래처",function(r){return r.company||"-";},"left"],
-    ["강종",function(r){return r.gradeSummary||"-";},"left"],
-    ["입고요청일",function(r){return date(r.requestDate)+" "+(r.requestTime||"");}],
-    ["컨테이너",function(r){return r.containerSize||"-";}],
-    ["차량번호",function(r){return r.vehicleNo||"-";}],
-    ["연락처",function(r){return r.contact||"-";}],
-    ["패키지",function(r){return r.packageCount+"개";}],
-    ["G/W",function(r){return fmt(r.totalGw)+" kg";}],
-    ["N/W",function(r){return fmt(r.totalNw)+" kg";}],
-    ["상태",function(r){return status(r.status==="REQUESTED"?"입고요청완료":r.status);}],
-    ["작업자",function(r){return r.operatorName||"-";}],
-    ["저장일시",function(r){return dt(r.savedAt);}]
-  ],
-  edit:"inboundRequest"
-};
-
-var baseOpenRegistration=window.openMesRegistration;
-window.openMesRegistration=function(type){
-  if(type==="PO")return openMesPoModeChooser();
-  return baseOpenRegistration.apply(this,arguments);
-};
-function openMesPoModeChooser(){
-  $("modalTitle").textContent="구매계획 · P.O 등록";
-  $("modalBody").innerHTML="<p>등록 방법을 선택하세요. 두 방법 모두 국내·해외입고를 선택하고 공용 서버에 저장합니다.</p>"
-    +"<div class='po-mode-grid'>"
-    +"<button class='po-mode-card' onclick='openMesDirectPoRegistration()'><b>직접입력</b><span>P.O 번호·거래처·강종·중량을 직접 입력합니다. 품목행을 여러 개 추가할 수 있습니다.</span></button>"
-    +"<button class='po-mode-card' onclick='openMesDocumentPoRegistration()'><b>거래처 서류로 등록</b><span>PDF·Excel·사진을 분석하고 캐시카우 P.O 변환 시스템을 함께 활용합니다.</span></button>"
-    +"</div>";
-  $("modal").classList.add("on");
-}
-window.openMesPoModeChooser=openMesPoModeChooser;
-window.openMesDirectPoRegistration=function(){
-  baseOpenRegistration("PO");
-  $("modalTitle").textContent="P.O 등록 · 직접입력";
-  var form=$("modalBody").querySelector("form");
-  if(form){
-    var kind=form.querySelector("[name=kind]");
-    if(kind)kind.closest("label").childNodes[0].textContent="입고 구분";
-    var actions=form.querySelector(".actions");
-    if(actions)actions.insertAdjacentHTML("afterbegin","<button type='button' class='btn' onclick='openMesPoModeChooser()'>← 등록방법 선택</button>");
-  }
-};
-window.openMesDocumentPoRegistration=function(){
-  $("modalTitle").textContent="P.O 등록 · 거래처 서류";
-  $("modalBody").innerHTML="<div class='document-upload'><b>PDF · Excel · 사진 자동완성</b><p>거래처 P.O/INVOICE/PACKING LIST를 선택하면 번호·거래처·강종·중량을 읽어 수정 가능한 P.O 입력창으로 전환합니다.</p><input id='mesPoDocumentFile' type='file' accept='.pdf,.xlsx,.xls,image/*' onchange='mesAnalyzePoDocument(this.files[0])'></div>"
-    +"<div class='actions'><button class='btn' onclick='window.open(\"/cashcow-po-system.html?v=20260804-1\",\"_blank\")'>캐시카우 P.O 전문 변환 화면 크게 열기</button><button class='btn' onclick='openMesPoModeChooser()'>← 등록방법 선택</button></div>"
-    +"<h3>캐시카우 P.O 변환·검증 시스템</h3><iframe class='po-system-frame' src='/cashcow-po-system.html?v=20260804-1' title='캐시카우 P.O 변환 시스템'></iframe>";
-  $("modal").classList.add("on");
-};
-function loadExternalScript(src,test){
-  if(test())return Promise.resolve();
-  return new Promise(function(resolve,reject){var s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=function(){reject(Error("문서 분석 모듈을 불러오지 못했습니다."));};document.head.appendChild(s);});
-}
-async function mesPdfLines(file){
-  await loadExternalScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",function(){return !!window.pdfjsLib;});
-  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-  var pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];
-  for(var p=1;p<=pdf.numPages;p++){
-    var page=await pdf.getPage(p),content=await page.getTextContent(),items=content.items.map(function(x){return{text:String(x.str||"").trim(),x:num(x.transform&&x.transform[4]),y:num(x.transform&&x.transform[5])};}).filter(function(x){return x.text;}),groups=[];
-    items.sort(function(a,b){return b.y-a.y||a.x-b.x;}).forEach(function(item){var g=groups.find(function(row){return Math.abs(row.y-item.y)<=3;});if(!g){g={y:item.y,items:[]};groups.push(g);}g.items.push(item);});
-    groups.sort(function(a,b){return b.y-a.y;}).forEach(function(g){var line=g.items.sort(function(a,b){return a.x-b.x;}).map(function(x){return x.text;}).join(" ").replace(/\s+/g," ").trim();if(line)lines.push(line);});
-  }
-  return lines;
-}
-async function mesImageLines(file){
-  await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",function(){return !!window.Tesseract;});
-  var result=await Tesseract.recognize(file,"eng+kor",{logger:function(m){if(m.status==="recognizing text")setSync("사진 문자 인식 "+Math.round((m.progress||0)*100)+"%");}});
-  return String(result.data&&result.data.text||"").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
-}
-function mesDocNo(lines,fileName){
-  var text=lines.join("\n"),m=text.match(/(?:P\s*\.?\s*O\s*\.?|PURCHASE\s+ORDER)\s*(?:NO\.?|NUMBER|#|:)??\s*[:#-]?\s*([A-Z0-9][A-Z0-9_./#-]{2,})/i);
-  if(m)return m[1].replace(/[.,;:]$/,"");
-  var base=String(fileName||"").replace(/\.[^.]+$/,"").toUpperCase(),codes=base.match(/[A-Z]{1,12}[-_#]?\d{3,}/g)||[];
-  return codes[codes.length-1]&&codes[codes.length-1].replace(/_/g,"-")||"";
-}
-function mesDocCompany(lines){
-  var labels=["SUPPLIER","VENDOR","SELLER","SHIP FROM","공급사","거래처"];
-  for(var i=0;i<lines.length;i++)for(var j=0;j<labels.length;j++){var m=lines[i].match(new RegExp("(?:^|\\b)"+labels[j]+"\\s*(?:NAME)?\\s*[:#-]?\\s*(.+)$","i"));if(m&&m[1].trim().length>1)return m[1].trim().replace(/\s{2,}.*/,"");}
-  return "";
-}
-function mesWeightKg(value,unit){var n=num(String(value||"").replace(/,/g,"")),u=String(unit||"KG").toUpperCase();return Math.round((/^LB/.test(u)?n*.45359237:/^(MT|M\/T|TON|TONS|TONNE|TONNES|T)$/.test(u)?n*1000:n)*100)/100;}
-function mesDocItems(lines){
-  var weightRe=/(-?\d[\d,]*(?:\.\d+)?)\s*(KGS?|KILOGRAMS?|LBS?|POUNDS?|MT|M\/T|TONS?|TONNES?|TON)\b/ig,rows=[];
-  lines.forEach(function(line,index){if(/\b(TOTAL|SUBTOTAL|GRAND TOTAL|합계)\b/i.test(line))return;var match;while((match=weightRe.exec(line))){var weight=mesWeightKg(match[1],match[2]);if(weight<=0)continue;var grade=line.slice(0,match.index).replace(/\b(ITEM|NO\.?|DESCRIPTION|COMMODITY|GRADE|MARKING|QUANTITY|QTY|WEIGHT)\b\s*[:#-]?/ig," ").replace(/^\s*\d+[.)-]?\s+/," ").replace(/\s+/g," ").trim();if(!/[A-Z가-힣]/i.test(grade))grade=String(lines[index-1]||"").trim();grade=grade.replace(/[|:;,-]+$/,"").trim();if(grade.length>1)rows.push({grade:grade,weight:weight,packageCount:1});}});
-  return rows;
-}
-async function mesExcelPo(file){
-  await mesEnsureXlsx();
-  var wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),sheet=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}),rows=[];
-  sheet.forEach(function(r){var grade=r["강종명"]||r["강종"]||r["상세강종"]||r["GRADE"]||r["DESCRIPTION"]||r["COMMODITY"]||r["MARKING"],weight=r["중량(kg)"]||r["중량"]||r["N/W"]||r["NW"]||r["QUANTITY"]||r["WEIGHT"];if(grade&&num(weight)>0)rows.push({grade:String(grade),weight:num(weight),packageCount:num(r["패키지 수"]||r["PACKAGE COUNT"])||1});});
-  var first=sheet[0]||{};
-  return{poNo:String(first["P.O 넘버"]||first["PO 넘버"]||first["P.O"]||first["PO NO"]||"").trim(),company:String(first["거래처명"]||first["공급사"]||first["SUPPLIER"]||first["VENDOR"]||"").trim(),rows:rows};
-}
-function mesFillPoForm(parsed){
-  window.openMesDirectPoRegistration();
-  var form=$("modalBody").querySelector("form");if(!form)return;
-  form.querySelector("[name=orderNo]").value=parsed.poNo||"";
-  form.querySelector("[name=partner]").value=parsed.company||"";
-  var holder=form.querySelector(".registration-lines");holder.innerHTML="";
-  (parsed.rows.length?parsed.rows:[{grade:"",weight:"",packageCount:1}]).forEach(function(row){
-    holder.insertAdjacentHTML("beforeend",mesRegistrationLine("PO"));
-    var line=holder.lastElementChild;
-    line.querySelector("[name=sourceGrade]").value=row.grade||"";
-    line.querySelector("[name=mainGrade]").value=row.grade||"";
-    line.querySelector("[name=weight]").value=row.weight||"";
-    line.querySelector("[name=packageCount]").value=row.packageCount||1;
-  });
-  $("modalTitle").textContent="P.O 자동완성 결과 · 확인 후 저장";
-  holder.scrollIntoView({behavior:"smooth",block:"start"});
-  toast("거래처 서류 분석 완료 · 내용을 확인한 뒤 P.O 저장하기를 누르세요.");
-}
-window.mesAnalyzePoDocument=async function(file){
-  if(!file)return;
-  $("progress").classList.add("on");
-  try{
-    var parsed;
-    if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPo(file);
-    else{
-      var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);
-      parsed={poNo:mesDocNo(lines,file.name),company:mesDocCompany(lines),rows:mesDocItems(lines)};
-    }
-    if(!parsed.rows.length)throw Error("강종과 중량을 찾지 못했습니다. 캐시카우 전문 변환 화면에서 확인하거나 직접입력을 이용하세요.");
-    mesFillPoForm(parsed);
-  }catch(error){toast("서류 자동완성 실패: "+error.message,true);}
-  finally{$("progress").classList.remove("on");setSync("공용 서버 연결됨");}
-};
-
-var baseSaveRegistration=window.saveMesRegistration;
-window.saveMesRegistration=async function(event,form,type){
-  await baseSaveRegistration.apply(this,arguments);
-  if(type==="PO"&&!$("modal").classList.contains("on")&&currentView==="purchase")toast("P.O 저장완료 · 구매계획에 등록했습니다.");
-};
-
-function poRequest(poNo){return requestRows().find(function(x){return x.poNo===poNo;});}
-function decoratePurchaseRequestButtons(){
-  var rows=filtered(schemas.purchase.rows());
-  document.querySelectorAll("#content .table-wrap tbody tr:not(.total-row)").forEach(function(tr,index){
-    var row=rows[index];if(!row||tr.querySelector(".inbound-request-action"))return;
-    var cell=tr.lastElementChild,request=poRequest(row.poNo);
-    cell.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
-  });
-  document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
-    var row=rows[index];if(!row||card.querySelector(".inbound-request-action"))return;
-    var request=poRequest(row.poNo);
-    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
-  });
-}
-window.openInboundRequestBuilder=function(poNo){
-  var po=poRows().find(function(x){return x.poNo===poNo;});if(!po)return toast("P.O 자료를 찾지 못했습니다.",true);
-  $("modalTitle").textContent=poNo+" · 입고요청";
-  $("modalBody").innerHTML="<div class='request-summary'><div><small>P.O</small><b>"+esc(po.poNo)+"</b></div><div><small>거래처</small><b>"+esc(po.company)+"</b></div><div><small>품목</small><b>"+po.rows.length+"개</b></div><div><small>계획 N/W</small><b>"+fmt(po.nw)+" kg</b></div></div>"
-    +"<p>PACKING LIST 입력 방법을 선택하세요.</p><div class='request-mode-grid'>"
-    +"<button class='request-mode-card' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'><b>PACKING LIST 직접입력</b><span>P.O 품목을 불러온 뒤 패키지번호·G/W·N/W·포장종류를 직접 수정합니다.</span></button>"
-    +"<button class='request-mode-card' onclick='openPackingRequestUpload(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'><b>업로드로 자동완성</b><span>PDF·Excel·사진파일에서 강종과 중량을 읽어 자동으로 입력합니다.</span></button></div>";
-  $("modal").classList.add("on");
-};
-function packingLineHtml(row,index){
-  return "<div class='line-editor packing-request-line'><div class='line-editor-head'><b>패키지 "+(index+1)+"</b><button type='button' class='btn danger' onclick='this.closest(\".packing-request-line\").remove();updatePackingRequestTotals()'>삭제</button></div><div class='form-grid'>"
-    +"<label>Package No.<input name='packageNo' value='"+esc(row.packageNo||"")+"'></label><label>강종<input name='grade' value='"+esc(row.grade||"")+"' required></label>"
-    +"<label>G/W(kg)<input name='gw' type='number' step='0.01' value='"+esc(row.gw||row.weight||"")+"' oninput='updatePackingRequestTotals()'></label>"
-    +"<label>N/W(kg)<input name='nw' type='number' step='0.01' value='"+esc(row.nw||row.weight||"")+"' oninput='updatePackingRequestTotals()'></label>"
-    +"<label>포장 종류<input name='packingType' value='"+esc(row.packingType||"")+"'></label><label>비고<input name='memo' value='"+esc(row.memo||"")+"'></label></div></div>";
-}
-function requestDefaultItems(po){
-  return po.rows.map(function(row){return{packageNo:row.packageNo||"",grade:row.grade||"",gw:num(row.grossWeight||row.weight),nw:num(row.netWeight||row.weight),packingType:row.packingType||"",memo:""};});
-}
-window.openPackingRequestDirect=function(poNo){var po=poRows().find(function(x){return x.poNo===poNo;});renderPackingRequestForm(po,requestDefaultItems(po));};
-window.openPackingRequestUpload=function(poNo){
-  $("modalTitle").textContent=poNo+" · PACKING LIST 업로드 자동완성";
-  $("modalBody").innerHTML="<div class='document-upload'><b>PDF · Excel · 사진파일 업로드</b><p>현장관리 P.O PDF·Excel 업로드 방식과 같은 중량 환산·강종 추출 방식을 사용합니다.</p><input type='file' accept='.pdf,.xlsx,.xls,image/*' onchange='analyzePackingRequestFile(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"),this.files[0])'></div><div class='actions'><button class='btn' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'>← 입력방법 선택</button></div>";
-};
-window.analyzePackingRequestFile=async function(poNo,file){
-  if(!file)return;$("progress").classList.add("on");
-  try{
-    var parsed;if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPo(file);else{var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);parsed={rows:mesDocItems(lines)};}
-    var po=poRows().find(function(x){return x.poNo===poNo;}),defaults=requestDefaultItems(po);
-    var items=parsed.rows.map(function(row,index){var base=defaults[index]||{};return{packageNo:base.packageNo||"",grade:row.grade||base.grade||"",gw:num(row.gw||row.weight),nw:num(row.nw||row.weight),packingType:row.packingType||base.packingType||"",memo:""};});
-    if(!items.length)throw Error("강종과 중량을 찾지 못했습니다.");
-    renderPackingRequestForm(po,items);toast("PACKING LIST 자동완성 완료 · 필수 입고요청 정보를 입력하세요.");
-  }catch(error){toast("PACKING LIST 자동완성 실패: "+error.message,true);}
-  finally{$("progress").classList.remove("on");setSync("공용 서버 연결됨");}
-};
-function renderPackingRequestForm(po,items){
-  var saved=poRequest(po.poNo)||{},requestDate=saved.requestDate||nowDate(),requestTime=saved.requestTime||new Date().toTimeString().slice(0,5);
-  $("modalTitle").textContent=po.poNo+" · 입고요청 작성";
-  $("modalBody").innerHTML="<form id='inboundRequestForm' class='form-grid' onsubmit='saveInboundRequest(event,this,decodeURIComponent(\""+encodeURIComponent(po.poNo)+"\"))'>"
-    +"<label>입고 구분<select name='importType'><option value='DOMESTIC' "+((saved.importType||po.rows[0]?.type)==="DOMESTIC"?"selected":"")+">국내입고</option><option value='OVERSEAS' "+((saved.importType||po.rows[0]?.type)!=="DOMESTIC"?"selected":"")+">해외입고</option></select></label>"
-    +"<label>입고요청일 <b style='color:#d23'>필수</b><input name='requestDate' type='date' required value='"+esc(requestDate)+"'></label>"
-    +"<label>입고요청 시간 <b style='color:#d23'>필수</b><input name='requestTime' type='time' required value='"+esc(requestTime)+"'></label>"
-    +"<label class='wide'>컨테이너 규격 <b style='color:#d23'>필수</b><div class='choice-segment'><label><input type='radio' name='containerSize' value='20FT' "+(saved.containerSize==="20FT"?"checked":"")+"><span>20FT</span></label><label><input type='radio' name='containerSize' value='40FT' "+(saved.containerSize==="40FT"?"checked":"")+"><span>40FT</span></label></div></label>"
-    +"<label>차량번호 <small>선택</small><input name='vehicleNo' value='"+esc(saved.vehicleNo||"")+"'></label><label>연락처 <small>선택</small><input name='contact' type='tel' value='"+esc(saved.contact||"")+"'></label>"
-    +"<div id='packingRequestLines' class='packing-request-lines'>"+items.map(packingLineHtml).join("")+"</div>"
-    +"<div class='wide actions'><button type='button' class='btn' onclick='addPackingRequestLine()'>+ 패키지 행 추가</button><button class='btn primary'>입고요청완료</button><button type='button' class='btn' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(po.poNo)+"\"))'>← 입력방법 선택</button></div></form>";
-  $("modal").classList.add("on");updatePackingRequestTotals();
-}
-window.addPackingRequestLine=function(){var holder=$("packingRequestLines"),index=holder.querySelectorAll(".packing-request-line").length;holder.insertAdjacentHTML("beforeend",packingLineHtml({},index));holder.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"});};
-window.updatePackingRequestTotals=function(){
-  var lines=Array.from(document.querySelectorAll(".packing-request-line")),gw=lines.reduce(function(s,l){return s+num(l.querySelector("[name=gw]")?.value);},0),nw=lines.reduce(function(s,l){return s+num(l.querySelector("[name=nw]")?.value);},0);
-  var form=$("inboundRequestForm");if(!form)return;var old=form.querySelector(".packing-live-total");if(old)old.remove();
-  form.querySelector(".packing-request-lines").insertAdjacentHTML("beforebegin","<div class='wide packing-live-total request-summary'><div><small>패키지</small><b>"+lines.length+"개</b></div><div><small>전체 G/W</small><b>"+fmt(gw)+" kg</b></div><div><small>전체 N/W</small><b>"+fmt(nw)+" kg</b></div><div><small>차이</small><b>"+fmt(gw-nw)+" kg</b></div></div>");
-};
-function nextRequestNo(){
-  var day=nowDate().replace(/-/g,""),max=0;safe(state.purchaseRequests).forEach(function(x){var m=String(x.requestNo||"").match(new RegExp("^IR-"+day+"-(\\d+)$"));if(m)max=Math.max(max,num(m[1]));});return"IR-"+day+"-"+String(max+1).padStart(3,"0");
-}
-window.saveInboundRequest=async function(event,form,poNo){
-  event.preventDefault();var v=formData(form),container=form.querySelector("[name=containerSize]:checked")?.value;
-  if(!container)return toast("컨테이너 20FT 또는 40FT를 선택하세요.",true);
-  var items=Array.from(form.querySelectorAll(".packing-request-line")).map(function(line){return{packageNo:line.querySelector("[name=packageNo]").value.trim(),grade:line.querySelector("[name=grade]").value.trim(),gw:num(line.querySelector("[name=gw]").value),nw:num(line.querySelector("[name=nw]").value),packingType:line.querySelector("[name=packingType]").value.trim(),memo:line.querySelector("[name=memo]").value.trim()};}).filter(function(x){return x.grade&&(x.gw>0||x.nw>0);});
-  if(!items.length)return toast("강종과 G/W 또는 N/W가 입력된 패키지가 필요합니다.",true);
-  var po=poRows().find(function(x){return x.poNo===poNo;}),existing=poRequest(poNo),stamp=new Date().toISOString(),requestId=existing?.id||crypto.randomUUID(),requestNo=existing?.requestNo||nextRequestNo(),gradeSummary=Array.from(new Set(items.map(function(x){return x.grade;}))).join(" / ");
-  var ok=await commit("MES 입고요청 완료",["purchaseRequests","pos"],function(s){
-    s.purchaseRequests=safe(s.purchaseRequests);var request=s.purchaseRequests.find(function(x){return x.id===requestId;});
-    var data={id:requestId,requestNo:requestNo,poNo:poNo,company:po.company,importType:v.importType,requestDate:v.requestDate,requestTime:v.requestTime,containerSize:container,vehicleNo:v.vehicleNo,contact:v.contact,items:items,gradeSummary:gradeSummary,status:"REQUESTED",operatorName:currentUserName(),operatorEmail:authUser?.email||"",createdAt:existing?.createdAt||stamp,updatedAt:stamp};
-    if(request)Object.assign(request,data);else s.purchaseRequests.push(data);
-    safe(s.pos).filter(function(x){return x.poNo===poNo&&x.status!=="CANCELLED";}).forEach(function(x){Object.assign(x,{inboundRequestId:requestId,inboundRequestNo:requestNo,inboundRequestStatus:"REQUESTED",inboundRequestedAt:v.requestDate+"T"+v.requestTime+":00",expectedArrivalDate:v.requestDate,importType:v.importType,updatedAt:stamp,updatedByName:currentUserName()});});
-  });
-  if(ok){closeModal();openView("inboundRequest");toast("입고요청 저장완료 · 입고요청현황에 등록했습니다.");}
-};
-function renderInboundRequestView(){
-  var q=String(filters.q||"").trim().toLowerCase(),from=filters.from||"",to=filters.to||"",rows=requestRows().filter(function(r){var d=r.requestDate||date(r.createdAt);return(!q||rowText(r).includes(q))&&(!from||d>=from)&&(!to||d<=to);});
-  $("pageTitle").textContent="입고요청현황";
-  $("content").innerHTML="<div class='dashboard-head'><div><h1>입고요청현황</h1><p>입고요청 완료자료 · "+rows.length+"건 · 최근 요청부터 표시</p></div><div class='actions'><button class='btn' onclick='loadState()'>↻ 조회</button><button class='btn primary' onclick='exportView()'>엑셀</button></div></div>"
-    +"<div class='panel'><div class='toolbar'><div class='control'><label>통합 검색</label><input id='requestQ' value='"+esc(filters.q||"")+"' placeholder='P.O·거래처·강종·차량번호'></div><div class='control'><label>요청일 시작</label><input id='requestFrom' type='date' value='"+esc(from)+"'></div><div class='control'><label>요청일 종료</label><input id='requestTo' type='date' value='"+esc(to)+"'></div><button class='btn primary' onclick='applyInboundRequestFilters()'>조회</button><button class='btn' onclick='filters={};render()'>초기화</button></div>"
-    +tableHtml(schemas.inboundRequest,rows)+cardsHtml(schemas.inboundRequest,rows)+"</div>";
-}
-window.applyInboundRequestFilters=function(){filters.q=$("requestQ").value;filters.from=$("requestFrom").value;filters.to=$("requestTo").value;render();};
-window.openInboundRequestDetail=function(id){
-  var row=requestRows().find(function(x){return x.id===id||x.requestNo===id;});if(!row)return;
-  $("modalTitle").textContent=(row.requestNo||"입고요청")+" · 상세";
-  $("modalBody").innerHTML="<div class='request-detail-grid'>"
-    +"<div><small>P.O</small><b>"+esc(row.poNo)+"</b></div><div><small>거래처</small><b>"+esc(row.company)+"</b></div><div><small>입고구분</small><b>"+(row.importType==="OVERSEAS"?"해외입고":"국내입고")+"</b></div>"
-    +"<div><small>요청일시</small><b>"+esc(row.requestDate+" "+row.requestTime)+"</b></div><div><small>컨테이너</small><b>"+esc(row.containerSize)+"</b></div><div><small>차량번호</small><b>"+esc(row.vehicleNo||"-")+"</b></div>"
-    +"<div><small>연락처</small><b>"+esc(row.contact||"-")+"</b></div><div><small>작업자</small><b>"+esc(row.operatorName||"-")+"</b></div><div><small>저장일시</small><b>"+dt(row.savedAt)+"</b></div></div>"
-    +mesSection("PACKING LIST",[["Package No.",function(x){return x.packageNo||"-";}],["강종",function(x){return x.grade;}],["G/W",function(x){return fmt(x.gw);}],["N/W",function(x){return fmt(x.nw);}],["포장종류",function(x){return x.packingType||"-";}],["비고",function(x){return x.memo||"-";}]],row.items)
-    +"<div class='actions'><button class='btn primary' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>입고요청 수정</button><button class='btn' onclick='closeModal()'>닫기</button></div>";
-  $("modal").classList.add("on");
-};
-var baseEditRowInbound=window.editRow;
-window.editRow=function(id){
-  if(currentView==="inboundRequest")return openInboundRequestDetail(id);
-  return baseEditRowInbound.apply(this,arguments);
-};
-var baseRenderInbound=window.render;
-window.render=function(){
-  if(currentView==="inboundRequest")return renderInboundRequestView();
-  var result=baseRenderInbound.apply(this,arguments);
-  if(currentView==="purchase")setTimeout(decoratePurchaseRequestButtons,0);
-  return result;
-};
-if(currentView)render();
-})();
-</script>
 
 </body></html>`,blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`신성금속_MES_${schema.title}_${nowDate()}.xls`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 buildNav();currentView=location.hash.slice(1)||'dashboard';openView(currentView);setTimeout(initAuth,0);setInterval(realtimePoll,2500);addEventListener('focus',realtimePoll);addEventListener('online',realtimePoll);
@@ -809,6 +497,319 @@ window.render=function(){
   mesWireSearchButtons();
 };
 if(currentView) render();
+})();
+</script>
+<style id="mesInboundRequestV1Style">
+.po-mode-grid,.request-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.po-mode-card,.request-mode-card{border:2px solid #d7e1ea;border-radius:18px;background:#fff;padding:20px;text-align:left;cursor:pointer;min-height:150px}
+.po-mode-card:hover,.request-mode-card:hover{border-color:#008ea1;box-shadow:0 12px 30px #008ea120}
+.po-mode-card b,.request-mode-card b{display:block;font-size:21px;margin-bottom:8px;color:#12324f}
+.po-mode-card span,.request-mode-card span{color:#64748b;line-height:1.55}
+.document-upload{border:3px dashed #7db7c2;background:#f0fbfc;border-radius:18px;padding:24px;text-align:center;margin:16px 0}
+.document-upload input{display:block;width:100%;margin-top:14px}
+.po-system-frame{width:100%;height:520px;border:1px solid #cbd5e1;border-radius:14px;background:#fff}
+.registration-lines,.packing-request-lines{grid-column:1/-1;display:grid;gap:12px}
+.line-editor{border:1px solid #d8e1eb;border-radius:14px;padding:14px;background:#f9fbfd}
+.line-editor-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.inbound-request-action{margin-left:6px;background:#e9f8f6!important;border-color:#9ad8d0!important;color:#087566!important}
+.request-summary{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:14px 0}
+.request-summary>div{background:#eef7f6;border-radius:12px;padding:13px}
+.request-summary small{display:block;color:#65768a;font-weight:800}.request-summary b{display:block;margin-top:6px;font-size:19px}
+.choice-segment{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.choice-segment label{position:relative}
+.choice-segment input{position:absolute;opacity:0}
+.choice-segment span{display:block;border:2px solid #cbd5e1;border-radius:12px;padding:14px;text-align:center;background:#fff;font-weight:900}
+.choice-segment input:checked+span{background:#087f72;color:#fff;border-color:#087f72}
+.request-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.request-detail-grid div{border:1px solid #e0e7ef;border-radius:11px;padding:12px}.request-detail-grid small{display:block;color:#718096}.request-detail-grid b{display:block;margin-top:5px}
+@media(max-width:760px){.po-mode-grid,.request-mode-grid{grid-template-columns:1fr}.po-mode-card,.request-mode-card{min-height:120px}.po-system-frame{height:62vh}.request-summary,.request-detail-grid{grid-template-columns:1fr 1fr}.inbound-request-action{margin:7px 0 0!important;width:100%}}
+</style>
+<script id="mesInboundRequestV1">
+(function(){
+"use strict";
+if(window.__mesInboundRequestV1)return;
+window.__mesInboundRequestV1=true;
+
+var navInsert=VIEWS.findIndex(function(v){return v.id==="inbound";});
+if(!VIEWS.some(function(v){return v.id==="inboundRequest";})){
+  VIEWS.splice(navInsert<0?2:navInsert,0,{group:"입고·생산",id:"inboundRequest",icon:"03",label:"입고요청현황"});
+}
+var mesOrder=["purchase","sales","inboundRequest","inbound","production","settlement","inventory","stockDetail","shippingPlan","shipping","daily"];
+mesOrder.forEach(function(id,index){var view=VIEWS.find(function(v){return v.id===id;});if(view)view.icon=String(index+1).padStart(2,"0");});
+buildNav();
+
+function requestRows(){
+  return safe(state.purchaseRequests).filter(function(x){return x.status!=="CANCELLED";}).slice().sort(function(a,b){
+    return String(b.requestDate||b.createdAt||"").localeCompare(String(a.requestDate||a.createdAt||""));
+  }).map(function(x){
+    var items=safe(x.items),po=poRows().find(function(p){return p.poNo===x.poNo;})||{};
+    return Object.assign({},x,{
+      company:x.company||po.company||"",
+      gradeSummary:x.gradeSummary||Array.from(new Set(items.map(function(i){return i.grade;}))).filter(Boolean).join(" / "),
+      packageCount:items.length,
+      totalGw:items.reduce(function(s,i){return s+num(i.gw);},0),
+      totalNw:items.reduce(function(s,i){return s+num(i.nw||i.weight);},0),
+      savedAt:x.updatedAt||x.createdAt
+    });
+  });
+}
+schemas.inboundRequest={
+  title:"입고요청현황",
+  rows:requestRows,
+  cols:[
+    ["요청번호",function(r){return r.requestNo||"-";},"link"],
+    ["P.O",function(r){return r.poNo||"-";}],
+    ["구분",function(r){return r.importType==="OVERSEAS"?"해외입고":"국내입고";}],
+    ["거래처",function(r){return r.company||"-";},"left"],
+    ["강종",function(r){return r.gradeSummary||"-";},"left"],
+    ["입고요청일",function(r){return date(r.requestDate)+" "+(r.requestTime||"");}],
+    ["컨테이너",function(r){return r.containerSize||"-";}],
+    ["차량번호",function(r){return r.vehicleNo||"-";}],
+    ["연락처",function(r){return r.contact||"-";}],
+    ["패키지",function(r){return r.packageCount+"개";}],
+    ["G/W",function(r){return fmt(r.totalGw)+" kg";}],
+    ["N/W",function(r){return fmt(r.totalNw)+" kg";}],
+    ["상태",function(r){return status(r.status==="REQUESTED"?"입고요청완료":r.status);}],
+    ["작업자",function(r){return r.operatorName||"-";}],
+    ["저장일시",function(r){return dt(r.savedAt);}]
+  ],
+  edit:"inboundRequest"
+};
+
+var baseOpenRegistration=window.openMesRegistration;
+window.openMesRegistration=function(type){
+  if(type==="PO")return openMesPoModeChooser();
+  return baseOpenRegistration.apply(this,arguments);
+};
+function openMesPoModeChooser(){
+  $("modalTitle").textContent="구매계획 · P.O 등록";
+  $("modalBody").innerHTML="<p>등록 방법을 선택하세요. 두 방법 모두 국내·해외입고를 선택하고 공용 서버에 저장합니다.</p>"
+    +"<div class='po-mode-grid'>"
+    +"<button class='po-mode-card' onclick='openMesDirectPoRegistration()'><b>직접입력</b><span>P.O 번호·거래처·강종·중량을 직접 입력합니다. 품목행을 여러 개 추가할 수 있습니다.</span></button>"
+    +"<button class='po-mode-card' onclick='openMesDocumentPoRegistration()'><b>거래처 서류로 등록</b><span>PDF·Excel·사진을 분석하고 캐시카우 P.O 변환 시스템을 함께 활용합니다.</span></button>"
+    +"</div>";
+  $("modal").classList.add("on");
+}
+window.openMesPoModeChooser=openMesPoModeChooser;
+window.openMesDirectPoRegistration=function(){
+  baseOpenRegistration("PO");
+  $("modalTitle").textContent="P.O 등록 · 직접입력";
+  var form=$("modalBody").querySelector("form");
+  if(form){
+    var kind=form.querySelector("[name=kind]");
+    if(kind)kind.closest("label").childNodes[0].textContent="입고 구분";
+    var actions=form.querySelector(".actions");
+    if(actions)actions.insertAdjacentHTML("afterbegin","<button type='button' class='btn' onclick='openMesPoModeChooser()'>← 등록방법 선택</button>");
+  }
+};
+window.openMesDocumentPoRegistration=function(){
+  $("modalTitle").textContent="P.O 등록 · 거래처 서류";
+  $("modalBody").innerHTML="<div class='document-upload'><b>PDF · Excel · 사진 자동완성</b><p>거래처 P.O/INVOICE/PACKING LIST를 선택하면 번호·거래처·강종·중량을 읽어 수정 가능한 P.O 입력창으로 전환합니다.</p><input id='mesPoDocumentFile' type='file' accept='.pdf,.xlsx,.xls,image/*' onchange='mesAnalyzePoDocument(this.files[0])'></div>"
+    +"<div class='actions'><button class='btn' onclick='window.open(\"/cashcow-po-system.html?v=20260804-1\",\"_blank\")'>캐시카우 P.O 전문 변환 화면 크게 열기</button><button class='btn' onclick='openMesPoModeChooser()'>← 등록방법 선택</button></div>"
+    +"<h3>캐시카우 P.O 변환·검증 시스템</h3><iframe class='po-system-frame' src='/cashcow-po-system.html?v=20260804-1' title='캐시카우 P.O 변환 시스템'></iframe>";
+  $("modal").classList.add("on");
+};
+function loadExternalScript(src,test){
+  if(test())return Promise.resolve();
+  return new Promise(function(resolve,reject){var s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=function(){reject(Error("문서 분석 모듈을 불러오지 못했습니다."));};document.head.appendChild(s);});
+}
+async function mesPdfLines(file){
+  await loadExternalScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",function(){return !!window.pdfjsLib;});
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  var pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];
+  for(var p=1;p<=pdf.numPages;p++){
+    var page=await pdf.getPage(p),content=await page.getTextContent(),items=content.items.map(function(x){return{text:String(x.str||"").trim(),x:num(x.transform&&x.transform[4]),y:num(x.transform&&x.transform[5])};}).filter(function(x){return x.text;}),groups=[];
+    items.sort(function(a,b){return b.y-a.y||a.x-b.x;}).forEach(function(item){var g=groups.find(function(row){return Math.abs(row.y-item.y)<=3;});if(!g){g={y:item.y,items:[]};groups.push(g);}g.items.push(item);});
+    groups.sort(function(a,b){return b.y-a.y;}).forEach(function(g){var line=g.items.sort(function(a,b){return a.x-b.x;}).map(function(x){return x.text;}).join(" ").replace(/\s+/g," ").trim();if(line)lines.push(line);});
+  }
+  return lines;
+}
+async function mesImageLines(file){
+  await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",function(){return !!window.Tesseract;});
+  var result=await Tesseract.recognize(file,"eng+kor",{logger:function(m){if(m.status==="recognizing text")setSync("사진 문자 인식 "+Math.round((m.progress||0)*100)+"%");}});
+  return String(result.data&&result.data.text||"").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
+}
+function mesDocNo(lines,fileName){
+  var text=lines.join("\n"),m=text.match(/(?:P\s*\.?\s*O\s*\.?|PURCHASE\s+ORDER)\s*(?:NO\.?|NUMBER|#|:)??\s*[:#-]?\s*([A-Z0-9][A-Z0-9_./#-]{2,})/i);
+  if(m)return m[1].replace(/[.,;:]$/,"");
+  var base=String(fileName||"").replace(/\.[^.]+$/,"").toUpperCase(),codes=base.match(/[A-Z]{1,12}[-_#]?\d{3,}/g)||[];
+  return codes[codes.length-1]&&codes[codes.length-1].replace(/_/g,"-")||"";
+}
+function mesDocCompany(lines){
+  var labels=["SUPPLIER","VENDOR","SELLER","SHIP FROM","공급사","거래처"];
+  for(var i=0;i<lines.length;i++)for(var j=0;j<labels.length;j++){var m=lines[i].match(new RegExp("(?:^|\\b)"+labels[j]+"\\s*(?:NAME)?\\s*[:#-]?\\s*(.+)$","i"));if(m&&m[1].trim().length>1)return m[1].trim().replace(/\s{2,}.*/,"");}
+  return "";
+}
+function mesWeightKg(value,unit){var n=num(String(value||"").replace(/,/g,"")),u=String(unit||"KG").toUpperCase();return Math.round((/^LB/.test(u)?n*.45359237:/^(MT|M\/T|TON|TONS|TONNE|TONNES|T)$/.test(u)?n*1000:n)*100)/100;}
+function mesDocItems(lines){
+  var weightRe=/(-?\d[\d,]*(?:\.\d+)?)\s*(KGS?|KILOGRAMS?|LBS?|POUNDS?|MT|M\/T|TONS?|TONNES?|TON)\b/ig,rows=[];
+  lines.forEach(function(line,index){if(/\b(TOTAL|SUBTOTAL|GRAND TOTAL|합계)\b/i.test(line))return;var match;while((match=weightRe.exec(line))){var weight=mesWeightKg(match[1],match[2]);if(weight<=0)continue;var grade=line.slice(0,match.index).replace(/\b(ITEM|NO\.?|DESCRIPTION|COMMODITY|GRADE|MARKING|QUANTITY|QTY|WEIGHT)\b\s*[:#-]?/ig," ").replace(/^\s*\d+[.)-]?\s+/," ").replace(/\s+/g," ").trim();if(!/[A-Z가-힣]/i.test(grade))grade=String(lines[index-1]||"").trim();grade=grade.replace(/[|:;,-]+$/,"").trim();if(grade.length>1)rows.push({grade:grade,weight:weight,packageCount:1});}});
+  return rows;
+}
+async function mesExcelPo(file){
+  await mesEnsureXlsx();
+  var wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),sheet=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}),rows=[];
+  sheet.forEach(function(r){var grade=r["강종명"]||r["강종"]||r["상세강종"]||r["GRADE"]||r["DESCRIPTION"]||r["COMMODITY"]||r["MARKING"],weight=r["중량(kg)"]||r["중량"]||r["N/W"]||r["NW"]||r["QUANTITY"]||r["WEIGHT"];if(grade&&num(weight)>0)rows.push({grade:String(grade),weight:num(weight),packageCount:num(r["패키지 수"]||r["PACKAGE COUNT"])||1});});
+  var first=sheet[0]||{};
+  return{poNo:String(first["P.O 넘버"]||first["PO 넘버"]||first["P.O"]||first["PO NO"]||"").trim(),company:String(first["거래처명"]||first["공급사"]||first["SUPPLIER"]||first["VENDOR"]||"").trim(),rows:rows};
+}
+function mesFillPoForm(parsed){
+  window.openMesDirectPoRegistration();
+  var form=$("modalBody").querySelector("form");if(!form)return;
+  form.querySelector("[name=orderNo]").value=parsed.poNo||"";
+  form.querySelector("[name=partner]").value=parsed.company||"";
+  var holder=form.querySelector(".registration-lines");holder.innerHTML="";
+  (parsed.rows.length?parsed.rows:[{grade:"",weight:"",packageCount:1}]).forEach(function(row){
+    holder.insertAdjacentHTML("beforeend",mesRegistrationLine("PO"));
+    var line=holder.lastElementChild;
+    line.querySelector("[name=sourceGrade]").value=row.grade||"";
+    line.querySelector("[name=mainGrade]").value=row.grade||"";
+    line.querySelector("[name=weight]").value=row.weight||"";
+    line.querySelector("[name=packageCount]").value=row.packageCount||1;
+  });
+  $("modalTitle").textContent="P.O 자동완성 결과 · 확인 후 저장";
+  holder.scrollIntoView({behavior:"smooth",block:"start"});
+  toast("거래처 서류 분석 완료 · 내용을 확인한 뒤 P.O 저장하기를 누르세요.");
+}
+window.mesAnalyzePoDocument=async function(file){
+  if(!file)return;
+  $("progress").classList.add("on");
+  try{
+    var parsed;
+    if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPo(file);
+    else{
+      var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);
+      parsed={poNo:mesDocNo(lines,file.name),company:mesDocCompany(lines),rows:mesDocItems(lines)};
+    }
+    if(!parsed.rows.length)throw Error("강종과 중량을 찾지 못했습니다. 캐시카우 전문 변환 화면에서 확인하거나 직접입력을 이용하세요.");
+    mesFillPoForm(parsed);
+  }catch(error){toast("서류 자동완성 실패: "+error.message,true);}
+  finally{$("progress").classList.remove("on");setSync("공용 서버 연결됨");}
+};
+
+var baseSaveRegistration=window.saveMesRegistration;
+window.saveMesRegistration=async function(event,form,type){
+  await baseSaveRegistration.apply(this,arguments);
+  if(type==="PO"&&!$("modal").classList.contains("on")&&currentView==="purchase")toast("P.O 저장완료 · 구매계획에 등록했습니다.");
+};
+
+function poRequest(poNo){return requestRows().find(function(x){return x.poNo===poNo;});}
+function decoratePurchaseRequestButtons(){
+  var rows=filtered(schemas.purchase.rows());
+  document.querySelectorAll("#content .table-wrap tbody tr:not(.total-row)").forEach(function(tr,index){
+    var row=rows[index];if(!row||tr.querySelector(".inbound-request-action"))return;
+    var cell=tr.lastElementChild,request=poRequest(row.poNo);
+    cell.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
+  });
+  document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
+    var row=rows[index];if(!row||card.querySelector(".inbound-request-action"))return;
+    var request=poRequest(row.poNo);
+    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
+  });
+}
+window.openInboundRequestBuilder=function(poNo){
+  var po=poRows().find(function(x){return x.poNo===poNo;});if(!po)return toast("P.O 자료를 찾지 못했습니다.",true);
+  $("modalTitle").textContent=poNo+" · 입고요청";
+  $("modalBody").innerHTML="<div class='request-summary'><div><small>P.O</small><b>"+esc(po.poNo)+"</b></div><div><small>거래처</small><b>"+esc(po.company)+"</b></div><div><small>품목</small><b>"+po.rows.length+"개</b></div><div><small>계획 N/W</small><b>"+fmt(po.nw)+" kg</b></div></div>"
+    +"<p>PACKING LIST 입력 방법을 선택하세요.</p><div class='request-mode-grid'>"
+    +"<button class='request-mode-card' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'><b>PACKING LIST 직접입력</b><span>P.O 품목을 불러온 뒤 패키지번호·G/W·N/W·포장종류를 직접 수정합니다.</span></button>"
+    +"<button class='request-mode-card' onclick='openPackingRequestUpload(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'><b>업로드로 자동완성</b><span>PDF·Excel·사진파일에서 강종과 중량을 읽어 자동으로 입력합니다.</span></button></div>";
+  $("modal").classList.add("on");
+};
+function packingLineHtml(row,index){
+  return "<div class='line-editor packing-request-line'><div class='line-editor-head'><b>패키지 "+(index+1)+"</b><button type='button' class='btn danger' onclick='this.closest(\".packing-request-line\").remove();updatePackingRequestTotals()'>삭제</button></div><div class='form-grid'>"
+    +"<label>Package No.<input name='packageNo' value='"+esc(row.packageNo||"")+"'></label><label>강종<input name='grade' value='"+esc(row.grade||"")+"' required></label>"
+    +"<label>G/W(kg)<input name='gw' type='number' step='0.01' value='"+esc(row.gw||row.weight||"")+"' oninput='updatePackingRequestTotals()'></label>"
+    +"<label>N/W(kg)<input name='nw' type='number' step='0.01' value='"+esc(row.nw||row.weight||"")+"' oninput='updatePackingRequestTotals()'></label>"
+    +"<label>포장 종류<input name='packingType' value='"+esc(row.packingType||"")+"'></label><label>비고<input name='memo' value='"+esc(row.memo||"")+"'></label></div></div>";
+}
+function requestDefaultItems(po){
+  return po.rows.map(function(row){return{packageNo:row.packageNo||"",grade:row.grade||"",gw:num(row.grossWeight||row.weight),nw:num(row.netWeight||row.weight),packingType:row.packingType||"",memo:""};});
+}
+window.openPackingRequestDirect=function(poNo){var po=poRows().find(function(x){return x.poNo===poNo;});renderPackingRequestForm(po,requestDefaultItems(po));};
+window.openPackingRequestUpload=function(poNo){
+  $("modalTitle").textContent=poNo+" · PACKING LIST 업로드 자동완성";
+  $("modalBody").innerHTML="<div class='document-upload'><b>PDF · Excel · 사진파일 업로드</b><p>현장관리 P.O PDF·Excel 업로드 방식과 같은 중량 환산·강종 추출 방식을 사용합니다.</p><input type='file' accept='.pdf,.xlsx,.xls,image/*' onchange='analyzePackingRequestFile(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"),this.files[0])'></div><div class='actions'><button class='btn' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'>← 입력방법 선택</button></div>";
+};
+window.analyzePackingRequestFile=async function(poNo,file){
+  if(!file)return;$("progress").classList.add("on");
+  try{
+    var parsed;if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPo(file);else{var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);parsed={rows:mesDocItems(lines)};}
+    var po=poRows().find(function(x){return x.poNo===poNo;}),defaults=requestDefaultItems(po);
+    var items=parsed.rows.map(function(row,index){var base=defaults[index]||{};return{packageNo:base.packageNo||"",grade:row.grade||base.grade||"",gw:num(row.gw||row.weight),nw:num(row.nw||row.weight),packingType:row.packingType||base.packingType||"",memo:""};});
+    if(!items.length)throw Error("강종과 중량을 찾지 못했습니다.");
+    renderPackingRequestForm(po,items);toast("PACKING LIST 자동완성 완료 · 필수 입고요청 정보를 입력하세요.");
+  }catch(error){toast("PACKING LIST 자동완성 실패: "+error.message,true);}
+  finally{$("progress").classList.remove("on");setSync("공용 서버 연결됨");}
+};
+function renderPackingRequestForm(po,items){
+  var saved=poRequest(po.poNo)||{},requestDate=saved.requestDate||nowDate(),requestTime=saved.requestTime||new Date().toTimeString().slice(0,5);
+  $("modalTitle").textContent=po.poNo+" · 입고요청 작성";
+  $("modalBody").innerHTML="<form id='inboundRequestForm' class='form-grid' onsubmit='saveInboundRequest(event,this,decodeURIComponent(\""+encodeURIComponent(po.poNo)+"\"))'>"
+    +"<label>입고 구분<select name='importType'><option value='DOMESTIC' "+((saved.importType||po.rows[0]?.type)==="DOMESTIC"?"selected":"")+">국내입고</option><option value='OVERSEAS' "+((saved.importType||po.rows[0]?.type)!=="DOMESTIC"?"selected":"")+">해외입고</option></select></label>"
+    +"<label>입고요청일 <b style='color:#d23'>필수</b><input name='requestDate' type='date' required value='"+esc(requestDate)+"'></label>"
+    +"<label>입고요청 시간 <b style='color:#d23'>필수</b><input name='requestTime' type='time' required value='"+esc(requestTime)+"'></label>"
+    +"<label class='wide'>컨테이너 규격 <b style='color:#d23'>필수</b><div class='choice-segment'><label><input type='radio' name='containerSize' value='20FT' "+(saved.containerSize==="20FT"?"checked":"")+"><span>20FT</span></label><label><input type='radio' name='containerSize' value='40FT' "+(saved.containerSize==="40FT"?"checked":"")+"><span>40FT</span></label></div></label>"
+    +"<label>차량번호 <small>선택</small><input name='vehicleNo' value='"+esc(saved.vehicleNo||"")+"'></label><label>연락처 <small>선택</small><input name='contact' type='tel' value='"+esc(saved.contact||"")+"'></label>"
+    +"<div id='packingRequestLines' class='packing-request-lines'>"+items.map(packingLineHtml).join("")+"</div>"
+    +"<div class='wide actions'><button type='button' class='btn' onclick='addPackingRequestLine()'>+ 패키지 행 추가</button><button class='btn primary'>입고요청완료</button><button type='button' class='btn' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(po.poNo)+"\"))'>← 입력방법 선택</button></div></form>";
+  $("modal").classList.add("on");updatePackingRequestTotals();
+}
+window.addPackingRequestLine=function(){var holder=$("packingRequestLines"),index=holder.querySelectorAll(".packing-request-line").length;holder.insertAdjacentHTML("beforeend",packingLineHtml({},index));holder.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"});};
+window.updatePackingRequestTotals=function(){
+  var lines=Array.from(document.querySelectorAll(".packing-request-line")),gw=lines.reduce(function(s,l){return s+num(l.querySelector("[name=gw]")?.value);},0),nw=lines.reduce(function(s,l){return s+num(l.querySelector("[name=nw]")?.value);},0);
+  var form=$("inboundRequestForm");if(!form)return;var old=form.querySelector(".packing-live-total");if(old)old.remove();
+  form.querySelector(".packing-request-lines").insertAdjacentHTML("beforebegin","<div class='wide packing-live-total request-summary'><div><small>패키지</small><b>"+lines.length+"개</b></div><div><small>전체 G/W</small><b>"+fmt(gw)+" kg</b></div><div><small>전체 N/W</small><b>"+fmt(nw)+" kg</b></div><div><small>차이</small><b>"+fmt(gw-nw)+" kg</b></div></div>");
+};
+function nextRequestNo(){
+  var day=nowDate().replace(/-/g,""),max=0;safe(state.purchaseRequests).forEach(function(x){var m=String(x.requestNo||"").match(new RegExp("^IR-"+day+"-(\\d+)$"));if(m)max=Math.max(max,num(m[1]));});return"IR-"+day+"-"+String(max+1).padStart(3,"0");
+}
+window.saveInboundRequest=async function(event,form,poNo){
+  event.preventDefault();var v=formData(form),container=form.querySelector("[name=containerSize]:checked")?.value;
+  if(!container)return toast("컨테이너 20FT 또는 40FT를 선택하세요.",true);
+  var items=Array.from(form.querySelectorAll(".packing-request-line")).map(function(line){return{packageNo:line.querySelector("[name=packageNo]").value.trim(),grade:line.querySelector("[name=grade]").value.trim(),gw:num(line.querySelector("[name=gw]").value),nw:num(line.querySelector("[name=nw]").value),packingType:line.querySelector("[name=packingType]").value.trim(),memo:line.querySelector("[name=memo]").value.trim()};}).filter(function(x){return x.grade&&(x.gw>0||x.nw>0);});
+  if(!items.length)return toast("강종과 G/W 또는 N/W가 입력된 패키지가 필요합니다.",true);
+  var po=poRows().find(function(x){return x.poNo===poNo;}),existing=poRequest(poNo),stamp=new Date().toISOString(),requestId=existing?.id||crypto.randomUUID(),requestNo=existing?.requestNo||nextRequestNo(),gradeSummary=Array.from(new Set(items.map(function(x){return x.grade;}))).join(" / ");
+  var ok=await commit("MES 입고요청 완료",["purchaseRequests","pos"],function(s){
+    s.purchaseRequests=safe(s.purchaseRequests);var request=s.purchaseRequests.find(function(x){return x.id===requestId;});
+    var data={id:requestId,requestNo:requestNo,poNo:poNo,company:po.company,importType:v.importType,requestDate:v.requestDate,requestTime:v.requestTime,containerSize:container,vehicleNo:v.vehicleNo,contact:v.contact,items:items,gradeSummary:gradeSummary,status:"REQUESTED",operatorName:currentUserName(),operatorEmail:authUser?.email||"",createdAt:existing?.createdAt||stamp,updatedAt:stamp};
+    if(request)Object.assign(request,data);else s.purchaseRequests.push(data);
+    safe(s.pos).filter(function(x){return x.poNo===poNo&&x.status!=="CANCELLED";}).forEach(function(x){Object.assign(x,{inboundRequestId:requestId,inboundRequestNo:requestNo,inboundRequestStatus:"REQUESTED",inboundRequestedAt:v.requestDate+"T"+v.requestTime+":00",expectedArrivalDate:v.requestDate,importType:v.importType,updatedAt:stamp,updatedByName:currentUserName()});});
+  });
+  if(ok){closeModal();openView("inboundRequest");toast("입고요청 저장완료 · 입고요청현황에 등록했습니다.");}
+};
+function renderInboundRequestView(){
+  var q=String(filters.q||"").trim().toLowerCase(),from=filters.from||"",to=filters.to||"",rows=requestRows().filter(function(r){var d=r.requestDate||date(r.createdAt);return(!q||rowText(r).includes(q))&&(!from||d>=from)&&(!to||d<=to);});
+  $("pageTitle").textContent="입고요청현황";
+  $("content").innerHTML="<div class='dashboard-head'><div><h1>입고요청현황</h1><p>입고요청 완료자료 · "+rows.length+"건 · 최근 요청부터 표시</p></div><div class='actions'><button class='btn' onclick='loadState()'>↻ 조회</button><button class='btn primary' onclick='exportView()'>엑셀</button></div></div>"
+    +"<div class='panel'><div class='toolbar'><div class='control'><label>통합 검색</label><input id='requestQ' value='"+esc(filters.q||"")+"' placeholder='P.O·거래처·강종·차량번호'></div><div class='control'><label>요청일 시작</label><input id='requestFrom' type='date' value='"+esc(from)+"'></div><div class='control'><label>요청일 종료</label><input id='requestTo' type='date' value='"+esc(to)+"'></div><button class='btn primary' onclick='applyInboundRequestFilters()'>조회</button><button class='btn' onclick='filters={};render()'>초기화</button></div>"
+    +tableHtml(schemas.inboundRequest,rows)+cardsHtml(schemas.inboundRequest,rows)+"</div>";
+}
+window.applyInboundRequestFilters=function(){filters.q=$("requestQ").value;filters.from=$("requestFrom").value;filters.to=$("requestTo").value;render();};
+window.openInboundRequestDetail=function(id){
+  var row=requestRows().find(function(x){return x.id===id||x.requestNo===id;});if(!row)return;
+  $("modalTitle").textContent=(row.requestNo||"입고요청")+" · 상세";
+  $("modalBody").innerHTML="<div class='request-detail-grid'>"
+    +"<div><small>P.O</small><b>"+esc(row.poNo)+"</b></div><div><small>거래처</small><b>"+esc(row.company)+"</b></div><div><small>입고구분</small><b>"+(row.importType==="OVERSEAS"?"해외입고":"국내입고")+"</b></div>"
+    +"<div><small>요청일시</small><b>"+esc(row.requestDate+" "+row.requestTime)+"</b></div><div><small>컨테이너</small><b>"+esc(row.containerSize)+"</b></div><div><small>차량번호</small><b>"+esc(row.vehicleNo||"-")+"</b></div>"
+    +"<div><small>연락처</small><b>"+esc(row.contact||"-")+"</b></div><div><small>작업자</small><b>"+esc(row.operatorName||"-")+"</b></div><div><small>저장일시</small><b>"+dt(row.savedAt)+"</b></div></div>"
+    +mesSection("PACKING LIST",[["Package No.",function(x){return x.packageNo||"-";}],["강종",function(x){return x.grade;}],["G/W",function(x){return fmt(x.gw);}],["N/W",function(x){return fmt(x.nw);}],["포장종류",function(x){return x.packingType||"-";}],["비고",function(x){return x.memo||"-";}]],row.items)
+    +"<div class='actions'><button class='btn primary' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>입고요청 수정</button><button class='btn' onclick='closeModal()'>닫기</button></div>";
+  $("modal").classList.add("on");
+};
+var baseEditRowInbound=window.editRow;
+window.editRow=function(id){
+  if(currentView==="inboundRequest")return openInboundRequestDetail(id);
+  return baseEditRowInbound.apply(this,arguments);
+};
+var baseRenderInbound=window.render;
+window.render=function(){
+  if(currentView==="inboundRequest")return renderInboundRequestView();
+  var result=baseRenderInbound.apply(this,arguments);
+  if(currentView==="purchase")setTimeout(decoratePurchaseRequestButtons,0);
+  return result;
+};
+if(currentView)render();
 })();
 </script>
 </body>
