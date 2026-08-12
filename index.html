@@ -683,153 +683,6 @@ function overseasPackingSheet(list,order,rows){const total=packingListTotals(row
 function downloadPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;if(!window.XLSX)return alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');const order=packingListOrder(list),rows=packingListPreviewRows(list),type=packingListTemplateType(list),ws=type==='OVERSEAS'?overseasPackingSheet(list,order,rows):domesticPackingSheet(list,order,rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'PACKING');XLSX.writeFile(wb,`${String(list.packingListNo||'PACKING-LIST').replace(/[\\/:*?"<>|]/g,'_')}_${type==='OVERSEAS'?'해외':'국내'}.xlsx`)}
 function printPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;const order=packingListOrder(list),rows=packingListPreviewRows(list),html=packingListTemplateType(list)==='OVERSEAS'?overseasPackingListHtml(list,order,rows):domesticPackingListHtml(list,order,rows),popup=open('','_blank','width=960,height=900');if(!popup)return alert('팝업이 차단되었습니다. 브라우저의 팝업을 허용하세요.');popup.document.write(`<html><head><title>${esc(list.packingListNo)}</title><style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,'Malgun Gothic',sans-serif;margin:0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #222;padding:6px;text-align:center;font-size:11px}.tablewrap{width:100%}h1{margin:8px 0}</style></head><body>${html}
 
-<style id="requestedImportReceiptsOnlyV1Style">
-.import-request-meta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
-.import-request-meta span{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid #b8ded4;border-radius:999px;background:#effbf7;color:#145f53;font-size:14px;font-weight:800}
-.import-po-card.requested{border:3px solid #89cfc0;background:linear-gradient(145deg,#fff,#f1fbf7)}
-.import-po-card.requested:active{transform:scale(.985)}
-</style>
-<script id="requestedImportReceiptsOnlyV1">
-(function(){
-"use strict";
-document.documentElement.dataset.requestedImportReceiptsOnlyV1="started";
-function requestText(value){return String(value==null?"":value).trim()}
-function requestStatus(row){return requestText(row?.status||row?.inboundRequestStatus||"").toUpperCase()}
-function activeInboundRequests(){
-  return (Array.isArray(state?.purchaseRequests)?state.purchaseRequests:[]).filter(function(row){
-    if(!row||!requestText(row.poNo))return false;
-    return !["CANCELLED","CANCELED","DELETED","COMPLETED","RECEIVED"].includes(requestStatus(row)||"REQUESTED");
-  });
-}
-function inboundRequestForPo(poNo){
-  var key=requestText(poNo);
-  return activeInboundRequests().filter(function(row){return requestText(row.poNo)===key}).sort(function(a,b){
-    return requestText(b.updatedAt||b.requestedAt||b.createdAt).localeCompare(requestText(a.updatedAt||a.requestedAt||a.createdAt));
-  })[0]||null;
-}
-function packageInboundRequest(row){
-  if(!row)return null;
-  var request=inboundRequestForPo(row.poNo);
-  if(request)return request;
-  if(row.inboundRequestId||row.inboundRequestNo||requestStatus(row)==="REQUESTED"){
-    return {
-      id:row.inboundRequestId||"",
-      requestNo:row.inboundRequestNo||"",
-      poNo:row.poNo||"",
-      status:row.inboundRequestStatus||"REQUESTED",
-      requestDate:row.expectedArrivalDate||row.inboundRequestDate||"",
-      requestTime:row.inboundRequestTime||"",
-      containerSize:row.inboundContainerSize||row.containerSize||"",
-      vehicleNo:row.inboundVehicleNo||"",
-      contact:row.inboundContact||"",
-      createdAt:row.inboundRequestedAt||row.updatedAt||row.createdAt||""
-    };
-  }
-  return null;
-}
-function waitingRequestedPackage(row){
-  return !!row&&!row.receivedAt&&row.receiptStatus!=="RECEIVED"&&packageUsed(row.packageNo)===0&&!!packageInboundRequest(row);
-}
-importWaitingPackages=function requestedImportWaitingPackages(){
-  return state.pos.filter(waitingRequestedPackage).sort(function(a,b){
-    var ra=packageInboundRequest(a),rb=packageInboundRequest(b);
-    return requestText(rb?.requestDate||rb?.createdAt||b.createdAt).localeCompare(requestText(ra?.requestDate||ra?.createdAt||a.createdAt))||
-      requestText(a.packageNo).localeCompare(requestText(b.packageNo),"ko");
-  });
-};
-importWaitingPoGroups=function requestedImportWaitingPoGroups(){
-  var groups=new Map();
-  importWaitingPackages().forEach(function(row){
-    var key=requestText(row.poNo)||"P.O 미지정";
-    var group=groups.get(key);
-    if(!group){
-      group={poNo:key,company:row.company||"",packages:[],request:packageInboundRequest(row)};
-      groups.set(key,group);
-    }
-    group.packages.push(row);
-    if(!group.request)group.request=packageInboundRequest(row);
-  });
-  return Array.from(groups.values()).sort(function(a,b){
-    return requestText(b.request?.requestDate||b.request?.createdAt||b.packages[0]?.createdAt).localeCompare(requestText(a.request?.requestDate||a.request?.createdAt||a.packages[0]?.createdAt));
-  });
-};
-function requestDateTime(row){
-  var date=requestText(row?.requestDate||row?.expectedArrivalDate||row?.arrivalDate);
-  var time=requestText(row?.requestTime||row?.expectedArrivalTime||row?.arrivalTime);
-  return [date,time].filter(Boolean).join(" ")||"일시 미지정";
-}
-function requestSearchValues(group){
-  var request=group.request||{};
-  return [
-    group.poNo,group.company,request.requestNo,request.requestDate,request.requestTime,
-    request.containerSize,request.vehicleNo,request.contact,
-    ...group.packages.flatMap(function(row){return[row.packageNo,row.grade,row.confirmedGrade,row.subGrade,row.detailGrade]})
-  ];
-}
-renderImportReceiptHomeCount=function renderRequestedImportReceiptHomeCount(){
-  ensureImportReceiptUi();
-  var poCount=importWaitingPoGroups().length;
-  if(E("homeImportWaitingCount"))E("homeImportWaitingCount").textContent="P.O "+poCount+"건";
-  if(E("homeImportReceiptButton")){
-    E("homeImportReceiptButton").setAttribute("aria-label","입고요청 완료된 수입입고대기 P.O "+poCount+"건");
-    E("homeImportReceiptButton").title="MES에서 입고요청 완료된 P.O만 표시됩니다.";
-  }
-};
-renderImportReceiptManagement=function renderRequestedImportReceiptManagement(){
-  ensureImportReceiptUi();
-  var all=importWaitingPackages(),groups=importWaitingPoGroups();
-  var q=requestText(E("importReceiptSearch")?.value).toLowerCase();
-  var filtered=groups.filter(function(group){
-    return !q||requestSearchValues(group).some(function(value){return requestText(value).toLowerCase().includes(q)});
-  });
-  if(E("importReceiptCounts"))E("importReceiptCounts").innerHTML=
-    "<div><small>입고요청 P.O</small><b>"+groups.length+"건</b></div>"+
-    "<div><small>남은 패키지</small><b>"+all.length+"건</b></div>"+
-    "<div><small>검색 결과</small><b>"+filtered.length+"건</b></div>";
-  if(E("importReceiptPoList"))E("importReceiptPoList").innerHTML=filtered.length?filtered.map(function(group){
-    var request=group.request||{},grades=Array.from(new Set(group.packages.map(function(row){return row.grade}).filter(Boolean)));
-    var weight=group.packages.reduce(function(total,row){return total+num(row.weight)},0);
-    var meta=[
-      request.requestNo?"요청번호 "+request.requestNo:"",
-      "입고요청 "+requestDateTime(request),
-      request.containerSize||"",
-      request.vehicleNo?"차량 "+request.vehicleNo:""
-    ].filter(Boolean).map(function(value){return"<span>"+esc(value)+"</span>"}).join("");
-    return '<button type="button" class="import-po-card requested" style="width:100%;text-align:left" data-import-po="'+esc(group.poNo)+'" onclick="openImportReceiptMethod(this.dataset.importPo)">'+
-      '<span class="status-chip success">입고요청 완료 · 남은 '+group.packages.length+'건</span>'+
-      '<h2>'+esc(group.poNo)+' · '+esc(group.company)+'</h2>'+
-      '<div class="import-request-meta">'+meta+'</div>'+
-      '<p><b>'+esc(grades.join(" · ")||"강종 미지정")+'</b></p>'+
-      '<p>예정중량 '+kg(weight)+' · 눌러서 QR 또는 직접선택 입고완료</p></button>';
-  }).join(""):'<div class="card"><b>입고요청 완료 후 대기 중인 P.O가 없습니다.</b><p>MES 구매계획에서 입고요청을 완료하면 이 목록과 업무수행 1번 카운팅에 자동으로 나타납니다.</p></div>';
-};
-renderImportReceiptMethod=function renderRequestedImportReceiptMethod(){
-  var group=importWaitingPoGroups().find(function(row){return row.poNo===selectedImportPoNo});
-  var waiting=group?.packages||[],request=group?.request||{},company=group?.company||waiting[0]?.company||"";
-  var grades=Array.from(new Set(waiting.map(function(row){return row.grade}).filter(Boolean)));
-  if(E("importReceiptMethodTitle"))E("importReceiptMethodTitle").textContent=selectedImportPoNo+" 수입입고";
-  if(E("importReceiptMethodSummary"))E("importReceiptMethodSummary").innerHTML=
-    "<div><small>입고요청</small><b>"+esc(requestDateTime(request))+"</b></div>"+
-    "<div><small>거래처</small><b>"+esc(company||"-")+"</b></div>"+
-    "<div><small>남은 패키지</small><b>"+waiting.length+"건</b></div>"+
-    "<div><small>강종</small><b>"+esc(grades.join(" · ")||"-")+"</b></div>"+
-    (request.containerSize?"<div><small>컨테이너</small><b>"+esc(request.containerSize)+"</b></div>":"")+
-    (request.vehicleNo?"<div><small>차량번호</small><b>"+esc(request.vehicleNo)+"</b></div>":"");
-};
-Object.assign(window,{
-  activeInboundRequests:activeInboundRequests,
-  inboundRequestForPo:inboundRequestForPo,
-  importWaitingPackages:importWaitingPackages,
-  importWaitingPoGroups:importWaitingPoGroups,
-  renderImportReceiptHomeCount:renderImportReceiptHomeCount,
-  renderImportReceiptManagement:renderImportReceiptManagement,
-  renderImportReceiptMethod:renderImportReceiptMethod
-});
-renderImportReceiptHomeCount();
-if(E("importReceiptManagement")?.classList.contains("on"))renderImportReceiptManagement();
-document.documentElement.dataset.requestedImportReceiptsOnlyV1="loaded";
-})();
-</script>
 </body></html>`);popup.document.close();setTimeout(()=>popup.print(),300)}
 function openShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(!list){currentShipmentId=shipmentId;show('shipmentDetail');return msg('claimMsg','이전 출하자료에는 저장된 PACKING LIST가 없습니다.',true)}openPackingListPreview(list.id,'shipments')}
 function shareShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(list)sharePackingList(list.id)}
@@ -2758,6 +2611,153 @@ setSimplePackingMove=function(no,grade,mode){
 decorateRecentCompletionGrade();
 window.__inspectionWorkflowCursorV4Loaded=true;
 document.documentElement.dataset.inspectionWorkflowCursorV4Stage="loaded";
+})();
+</script>
+<style id="requestedImportReceiptsOnlyV1Style">
+.import-request-meta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.import-request-meta span{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid #b8ded4;border-radius:999px;background:#effbf7;color:#145f53;font-size:14px;font-weight:800}
+.import-po-card.requested{border:3px solid #89cfc0;background:linear-gradient(145deg,#fff,#f1fbf7)}
+.import-po-card.requested:active{transform:scale(.985)}
+</style>
+<script id="requestedImportReceiptsOnlyV1">
+(function(){
+"use strict";
+document.documentElement.dataset.requestedImportReceiptsOnlyV1="started";
+function requestText(value){return String(value==null?"":value).trim()}
+function requestStatus(row){return requestText(row?.status||row?.inboundRequestStatus||"").toUpperCase()}
+function activeInboundRequests(){
+  return (Array.isArray(state?.purchaseRequests)?state.purchaseRequests:[]).filter(function(row){
+    if(!row||!requestText(row.poNo))return false;
+    return !["CANCELLED","CANCELED","DELETED","COMPLETED","RECEIVED"].includes(requestStatus(row)||"REQUESTED");
+  });
+}
+function inboundRequestForPo(poNo){
+  var key=requestText(poNo);
+  return activeInboundRequests().filter(function(row){return requestText(row.poNo)===key}).sort(function(a,b){
+    return requestText(b.updatedAt||b.requestedAt||b.createdAt).localeCompare(requestText(a.updatedAt||a.requestedAt||a.createdAt));
+  })[0]||null;
+}
+function packageInboundRequest(row){
+  if(!row)return null;
+  var request=inboundRequestForPo(row.poNo);
+  if(request)return request;
+  if(row.inboundRequestId||row.inboundRequestNo||requestStatus(row)==="REQUESTED"){
+    return {
+      id:row.inboundRequestId||"",
+      requestNo:row.inboundRequestNo||"",
+      poNo:row.poNo||"",
+      status:row.inboundRequestStatus||"REQUESTED",
+      requestDate:row.expectedArrivalDate||row.inboundRequestDate||"",
+      requestTime:row.inboundRequestTime||"",
+      containerSize:row.inboundContainerSize||row.containerSize||"",
+      vehicleNo:row.inboundVehicleNo||"",
+      contact:row.inboundContact||"",
+      createdAt:row.inboundRequestedAt||row.updatedAt||row.createdAt||""
+    };
+  }
+  return null;
+}
+function waitingRequestedPackage(row){
+  return !!row&&!row.receivedAt&&row.receiptStatus!=="RECEIVED"&&packageUsed(row.packageNo)===0&&!!packageInboundRequest(row);
+}
+importWaitingPackages=function requestedImportWaitingPackages(){
+  return state.pos.filter(waitingRequestedPackage).sort(function(a,b){
+    var ra=packageInboundRequest(a),rb=packageInboundRequest(b);
+    return requestText(rb?.requestDate||rb?.createdAt||b.createdAt).localeCompare(requestText(ra?.requestDate||ra?.createdAt||a.createdAt))||
+      requestText(a.packageNo).localeCompare(requestText(b.packageNo),"ko");
+  });
+};
+importWaitingPoGroups=function requestedImportWaitingPoGroups(){
+  var groups=new Map();
+  importWaitingPackages().forEach(function(row){
+    var key=requestText(row.poNo)||"P.O 미지정";
+    var group=groups.get(key);
+    if(!group){
+      group={poNo:key,company:row.company||"",packages:[],request:packageInboundRequest(row)};
+      groups.set(key,group);
+    }
+    group.packages.push(row);
+    if(!group.request)group.request=packageInboundRequest(row);
+  });
+  return Array.from(groups.values()).sort(function(a,b){
+    return requestText(b.request?.requestDate||b.request?.createdAt||b.packages[0]?.createdAt).localeCompare(requestText(a.request?.requestDate||a.request?.createdAt||a.packages[0]?.createdAt));
+  });
+};
+function requestDateTime(row){
+  var date=requestText(row?.requestDate||row?.expectedArrivalDate||row?.arrivalDate);
+  var time=requestText(row?.requestTime||row?.expectedArrivalTime||row?.arrivalTime);
+  return [date,time].filter(Boolean).join(" ")||"일시 미지정";
+}
+function requestSearchValues(group){
+  var request=group.request||{};
+  return [
+    group.poNo,group.company,request.requestNo,request.requestDate,request.requestTime,
+    request.containerSize,request.vehicleNo,request.contact,
+    ...group.packages.flatMap(function(row){return[row.packageNo,row.grade,row.confirmedGrade,row.subGrade,row.detailGrade]})
+  ];
+}
+renderImportReceiptHomeCount=function renderRequestedImportReceiptHomeCount(){
+  ensureImportReceiptUi();
+  var poCount=importWaitingPoGroups().length;
+  if(E("homeImportWaitingCount"))E("homeImportWaitingCount").textContent="P.O "+poCount+"건";
+  if(E("homeImportReceiptButton")){
+    E("homeImportReceiptButton").setAttribute("aria-label","입고요청 완료된 수입입고대기 P.O "+poCount+"건");
+    E("homeImportReceiptButton").title="MES에서 입고요청 완료된 P.O만 표시됩니다.";
+  }
+};
+renderImportReceiptManagement=function renderRequestedImportReceiptManagement(){
+  ensureImportReceiptUi();
+  var all=importWaitingPackages(),groups=importWaitingPoGroups();
+  var q=requestText(E("importReceiptSearch")?.value).toLowerCase();
+  var filtered=groups.filter(function(group){
+    return !q||requestSearchValues(group).some(function(value){return requestText(value).toLowerCase().includes(q)});
+  });
+  if(E("importReceiptCounts"))E("importReceiptCounts").innerHTML=
+    "<div><small>입고요청 P.O</small><b>"+groups.length+"건</b></div>"+
+    "<div><small>남은 패키지</small><b>"+all.length+"건</b></div>"+
+    "<div><small>검색 결과</small><b>"+filtered.length+"건</b></div>";
+  if(E("importReceiptPoList"))E("importReceiptPoList").innerHTML=filtered.length?filtered.map(function(group){
+    var request=group.request||{},grades=Array.from(new Set(group.packages.map(function(row){return row.grade}).filter(Boolean)));
+    var weight=group.packages.reduce(function(total,row){return total+num(row.weight)},0);
+    var meta=[
+      request.requestNo?"요청번호 "+request.requestNo:"",
+      "입고요청 "+requestDateTime(request),
+      request.containerSize||"",
+      request.vehicleNo?"차량 "+request.vehicleNo:""
+    ].filter(Boolean).map(function(value){return"<span>"+esc(value)+"</span>"}).join("");
+    return '<button type="button" class="import-po-card requested" style="width:100%;text-align:left" data-import-po="'+esc(group.poNo)+'" onclick="openImportReceiptMethod(this.dataset.importPo)">'+
+      '<span class="status-chip success">입고요청 완료 · 남은 '+group.packages.length+'건</span>'+
+      '<h2>'+esc(group.poNo)+' · '+esc(group.company)+'</h2>'+
+      '<div class="import-request-meta">'+meta+'</div>'+
+      '<p><b>'+esc(grades.join(" · ")||"강종 미지정")+'</b></p>'+
+      '<p>예정중량 '+kg(weight)+' · 눌러서 QR 또는 직접선택 입고완료</p></button>';
+  }).join(""):'<div class="card"><b>입고요청 완료 후 대기 중인 P.O가 없습니다.</b><p>MES 구매계획에서 입고요청을 완료하면 이 목록과 업무수행 1번 카운팅에 자동으로 나타납니다.</p></div>';
+};
+renderImportReceiptMethod=function renderRequestedImportReceiptMethod(){
+  var group=importWaitingPoGroups().find(function(row){return row.poNo===selectedImportPoNo});
+  var waiting=group?.packages||[],request=group?.request||{},company=group?.company||waiting[0]?.company||"";
+  var grades=Array.from(new Set(waiting.map(function(row){return row.grade}).filter(Boolean)));
+  if(E("importReceiptMethodTitle"))E("importReceiptMethodTitle").textContent=selectedImportPoNo+" 수입입고";
+  if(E("importReceiptMethodSummary"))E("importReceiptMethodSummary").innerHTML=
+    "<div><small>입고요청</small><b>"+esc(requestDateTime(request))+"</b></div>"+
+    "<div><small>거래처</small><b>"+esc(company||"-")+"</b></div>"+
+    "<div><small>남은 패키지</small><b>"+waiting.length+"건</b></div>"+
+    "<div><small>강종</small><b>"+esc(grades.join(" · ")||"-")+"</b></div>"+
+    (request.containerSize?"<div><small>컨테이너</small><b>"+esc(request.containerSize)+"</b></div>":"")+
+    (request.vehicleNo?"<div><small>차량번호</small><b>"+esc(request.vehicleNo)+"</b></div>":"");
+};
+Object.assign(window,{
+  activeInboundRequests:activeInboundRequests,
+  inboundRequestForPo:inboundRequestForPo,
+  importWaitingPackages:importWaitingPackages,
+  importWaitingPoGroups:importWaitingPoGroups,
+  renderImportReceiptHomeCount:renderImportReceiptHomeCount,
+  renderImportReceiptManagement:renderImportReceiptManagement,
+  renderImportReceiptMethod:renderImportReceiptMethod
+});
+renderImportReceiptHomeCount();
+if(E("importReceiptManagement")?.classList.contains("on"))renderImportReceiptManagement();
+document.documentElement.dataset.requestedImportReceiptsOnlyV1="loaded";
 })();
 </script>
 </body>
