@@ -2867,7 +2867,7 @@ async function saveProductTypeMaster(){
   if(input)input.value='';
   syncProductTypeConstant();renderMasters();ensureProductTypeManagerUi();
   msg('masterInfo',name+' 품종 화면 반영 완료 · 서버 저장 중');
-  try{await saveSettings();msg('masterInfo',name+' 품종 저장 완료')}
+  try{await saveState();msg('masterInfo',name+' 품종 저장 완료')}
   catch(error){state=defaults(backup);renderAll();msg('masterInfo','품종 저장 실패: '+error.message,true)}
 }
 function replaceProductTypeReferences(oldName,newName){
@@ -2901,7 +2901,7 @@ async function renameProductType(index){
   replaceProductTypeReferences(oldName,newName);
   syncProductTypeConstant();renderMasters();ensureProductTypeManagerUi();
   msg('masterEditInfo','품종 '+oldName+' → '+newName+' 화면 반영 완료 · 서버 저장 중');
-  try{await saveSettings();msg('masterEditInfo','품종 '+oldName+'을(를) '+newName+'(으)로 수정했습니다. 연결된 강종·기존자료에도 반영되었습니다.')}
+  try{await saveState();msg('masterEditInfo','품종 '+oldName+'을(를) '+newName+'(으)로 수정했습니다. 연결된 강종·기존자료에도 반영되었습니다.')}
   catch(error){state=defaults(backup);renderAll();msg('masterEditInfo','품종 수정 실패: '+error.message,true)}
 }
 async function removeProductType(index){
@@ -2912,7 +2912,7 @@ async function removeProductType(index){
   var backup=JSON.parse(JSON.stringify(state));
   state.productTypes=values.filter(function(_,i){return i!==index});
   syncProductTypeConstant();renderMasters();ensureProductTypeManagerUi();
-  try{await saveSettings();msg('masterEditInfo',name+' 품종을 사용중지했습니다.')}
+  try{await saveState();msg('masterEditInfo',name+' 품종을 사용중지했습니다.')}
   catch(error){state=defaults(backup);renderAll();msg('masterEditInfo','품종 사용중지 실패: '+error.message,true)}
 }
 var renderMastersBeforeProductTypeV1=renderMasters;
