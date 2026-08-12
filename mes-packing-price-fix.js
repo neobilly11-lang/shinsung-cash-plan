@@ -1,0 +1,1 @@
+(function(){document.documentElement.dataset.testConnectorFile='ok';})();
