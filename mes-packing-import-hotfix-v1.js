@@ -59,7 +59,7 @@
     if (typeof root.openPackingRequestDirect === "function" && po?.poNo) {
       root.openPackingRequestDirect(po.poNo);
       const holder = document.getElementById("packingRequestLines");
-      if (!holder) throw Error("?낃퀬?붿껌 ?낅젰 ?붾㈃??遺덈윭?ㅼ? 紐삵뻽?듬땲?? ?좎떆 ???ㅼ떆 ?쒕룄?섏꽭??");
+      if (!holder) throw Error("입고요청 입력 화면을 불러오지 못했습니다. 잠시 후 다시 시도하세요.");
 
       const wanted = Math.max(1, safeArray(items).length);
       while (holder.querySelectorAll(".packing-request-line").length < wanted) {
@@ -93,13 +93,13 @@
       return holder;
     }
 
-    throw Error("?낃퀬?붿껌 ?낅젰 ?붾㈃???????놁뒿?덈떎. ?덈줈怨좎묠 ???ㅼ떆 ?쒕룄?섏꽭??");
+    throw Error("입고요청 입력 화면을 열 수 없습니다. 새로고침 후 다시 시도하세요.");
   }
 
   async function parsePackingFile(file) {
     const importer = root.MesDocumentImporterV4 || root.__mesDocumentImporterV4;
     if (!importer || typeof importer.importFile !== "function") {
-      throw Error("PACKING LIST 怨듭슜 遺꾩꽍湲곕? 遺덈윭?ㅼ? 紐삵뻽?듬땲?? ?덈줈怨좎묠 ???ㅼ떆 ?쒕룄?섏꽭??");
+      throw Error("PACKING LIST 공용 분석기를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.");
     }
     return importer.importFile(file);
   }
@@ -138,18 +138,18 @@
     const progress = document.getElementById("progress");
     const statusBox = document.getElementById("mesPoImportStatus");
     progress?.classList.add("on");
-    if (statusBox) statusBox.textContent = `${file.name} 쨌 P.O쨌INVOICE 遺꾩꽍 以?;
+    if (statusBox) statusBox.textContent = `${file.name} · P.O·INVOICE 분석 중`;
     try {
       const parsed = await parsePackingFile(file);
-      if (!safeArray(parsed.items).length) throw Error("媛뺤쥌쨌以묐웾 ?덈ぉ??李얠? 紐삵뻽?듬땲??");
-      if (statusBox) statusBox.textContent = `${parsed.items.length}媛??덈ぉ 遺꾩꽍 ?꾨즺`;
+      if (!safeArray(parsed.items).length) throw Error("강종·중량 품목을 찾지 못했습니다.");
+      if (statusBox) statusBox.textContent = `${parsed.items.length}개 품목 분석 완료`;
       if (typeof root.__mesOpenDirectPo === "function") root.__mesOpenDirectPo(parsed);
       else if (typeof root.openMesDirectPoWithData === "function") root.openMesDirectPoWithData(parsed);
-      else throw Error("P.O ?먮룞?꾩꽦 ?낅젰 ?붾㈃???????놁뒿?덈떎. ?덈줈怨좎묠 ???ㅼ떆 ?쒕룄?섏꽭??");
-      showToast(`${file.name} 쨌 ${parsed.items.length}媛??덈ぉ ?먮룞?꾩꽦 ?꾨즺`);
+      else throw Error("P.O 자동완성 입력 화면을 열 수 없습니다. 새로고침 후 다시 시도하세요.");
+      showToast(`${file.name} · ${parsed.items.length}개 품목 자동완성 완료`);
     } catch (error) {
-      if (statusBox) statusBox.textContent = `遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`;
-      showToast(`?쒕쪟 ?먮룞?꾩꽦 ?ㅽ뙣: ${error.message}`, true);
+      if (statusBox) statusBox.textContent = `불러오기 실패: ${error.message}`;
+      showToast(`서류 자동완성 실패: ${error.message}`, true);
     } finally {
       progress?.classList.remove("on");
     }
@@ -158,12 +158,12 @@
   root.analyzePackingRequestFile = async function analyzePackingRequestFileV1(poNo, file) {
     if (!file) return;
     const po = currentPo(poNo);
-    if (!po) return showToast("?낃퀬?붿껌 P.O瑜?李얠? 紐삵뻽?듬땲??", true);
+    if (!po) return showToast("입고요청 P.O를 찾지 못했습니다.", true);
 
     const progress = document.getElementById("progress");
     const statusBox = document.getElementById("mesPackingImportStatus");
     progress?.classList.add("on");
-    if (statusBox) statusBox.textContent = `${file.name} 쨌 PACKING LIST 遺꾩꽍 以?;
+    if (statusBox) statusBox.textContent = `${file.name} · PACKING LIST 분석 중`;
 
     try {
       const parsed = await parsePackingFile(file);
@@ -195,22 +195,21 @@
         };
       }).filter(item => item.grade || item.gw > 0 || item.nw > 0);
 
-      if (!items.length) throw Error("PACKING LIST?먯꽌 媛뺤쥌쨌以묐웾 ?덈ぉ??李얠? 紐삵뻽?듬땲??");
-      if (statusBox) statusBox.textContent = `${items.length}媛??⑦궎吏 ?먮룞?꾩꽦 ?꾨즺`;
+      if (!items.length) throw Error("PACKING LIST에서 강종·중량 품목을 찾지 못했습니다.");
+      if (statusBox) statusBox.textContent = `${items.length}개 패키지 자동완성 완료`;
       showForm(po, items);
-      showToast(`${file.name} 쨌 ${items.length}媛??⑦궎吏 遺덈윭?ㅺ린 ?꾨즺`);
+      showToast(`${file.name} · ${items.length}개 패키지 불러오기 완료`);
     } catch (error) {
-      if (statusBox) statusBox.textContent = `遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`;
-      showToast(`PACKING LIST ?먮룞?꾩꽦 ?ㅽ뙣: ${error.message}`, true);
+      if (statusBox) statusBox.textContent = `불러오기 실패: ${error.message}`;
+      showToast(`PACKING LIST 자동완성 실패: ${error.message}`, true);
     } finally {
       progress?.classList.remove("on");
       try {
-        if (typeof root.setSync === "function") root.setSync("怨듭슜 ?쒕쾭 ?곌껐??);
-        else if (typeof setSync === "function") setSync("怨듭슜 ?쒕쾭 ?곌껐??);
+        if (typeof root.setSync === "function") root.setSync("공용 서버 연결됨");
+        else if (typeof setSync === "function") setSync("공용 서버 연결됨");
       } catch (_) {}
     }
   };
 
   document.documentElement.dataset.mesPackingImportHotfix = VERSION;
 })(window);
-
