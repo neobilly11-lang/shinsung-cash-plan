@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-2";
+  const VERSION = "20260813-3";
   const number = value => {
     const parsed = Number(String(value == null ? "" : value).replace(/,/g, ""));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -56,7 +56,7 @@
   }
 
   async function parsePackingFile(file) {
-    const importer = root.MesDocumentImporterV4;
+    const importer = root.MesDocumentImporterV4 || root.__mesDocumentImporterV4;
     if (!importer || typeof importer.importFile !== "function") {
       throw Error("PACKING LIST 공용 분석기를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.");
     }
@@ -66,6 +66,52 @@
   root.mesPdfLines = async function mesPdfLinesCompatibility(file) {
     const parsed = await parsePackingFile(file);
     return safeArray(parsed.lines);
+  };
+
+  root.mesDocNo = function mesDocNoCompatibility(lines, fileName) {
+    const importer = root.MesDocumentImporterV4 || root.__mesDocumentImporterV4;
+    return importer?.parseText?.(safeArray(lines).join("\n"), fileName || "")?.poNo || "";
+  };
+
+  root.mesDocCompany = function mesDocCompanyCompatibility(lines) {
+    const importer = root.MesDocumentImporterV4 || root.__mesDocumentImporterV4;
+    return importer?.parseText?.(safeArray(lines).join("\n"), "")?.company || "";
+  };
+
+  root.mesDocItems = function mesDocItemsCompatibility(lines) {
+    const importer = root.MesDocumentImporterV4 || root.__mesDocumentImporterV4;
+    return safeArray(importer?.parseText?.(safeArray(lines).join("\n"), "")?.items).map(item => ({
+      grade: item.matchedMarking || item.marking || "",
+      weight: round2(item.netWeight || item.weight),
+      nw: round2(item.netWeight || item.weight),
+      gw: round2(item.grossWeight || item.netWeight || item.weight),
+      price: round2(item.price),
+      amount: round2(item.amount),
+      packingType: item.packingType || "",
+      packageNo: item.packageNo || ""
+    }));
+  };
+
+  root.mesAnalyzePoDocument = async function mesAnalyzePoDocumentV3(file) {
+    if (!file) return;
+    const progress = document.getElementById("progress");
+    const statusBox = document.getElementById("mesPoImportStatus");
+    progress?.classList.add("on");
+    if (statusBox) statusBox.textContent = `${file.name} · P.O·INVOICE 분석 중`;
+    try {
+      const parsed = await parsePackingFile(file);
+      if (!safeArray(parsed.items).length) throw Error("강종·중량 품목을 찾지 못했습니다.");
+      if (statusBox) statusBox.textContent = `${parsed.items.length}개 품목 분석 완료`;
+      if (typeof root.__mesOpenDirectPo === "function") root.__mesOpenDirectPo(parsed);
+      else if (typeof root.openMesDirectPoWithData === "function") root.openMesDirectPoWithData(parsed);
+      else throw Error("P.O 자동완성 입력 화면을 열 수 없습니다. 새로고침 후 다시 시도하세요.");
+      showToast(`${file.name} · ${parsed.items.length}개 품목 자동완성 완료`);
+    } catch (error) {
+      if (statusBox) statusBox.textContent = `불러오기 실패: ${error.message}`;
+      showToast(`서류 자동완성 실패: ${error.message}`, true);
+    } finally {
+      progress?.classList.remove("on");
+    }
   };
 
   root.analyzePackingRequestFile = async function analyzePackingRequestFileV1(poNo, file) {
