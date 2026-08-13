@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-3";
+  const VERSION = "20260813-4";
   const number = value => {
     const parsed = Number(String(value == null ? "" : value).replace(/,/g, ""));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -52,6 +52,45 @@
   function showForm(po, items) {
     if (typeof root.renderPackingRequestForm === "function") return root.renderPackingRequestForm(po, items);
     if (typeof renderPackingRequestForm === "function") return renderPackingRequestForm(po, items);
+
+    // The original MES page keeps renderPackingRequestForm inside a closure.
+    // Open its normal direct-entry screen, then inject the analyzed rows.
+    if (typeof root.openPackingRequestDirect === "function" && po?.poNo) {
+      root.openPackingRequestDirect(po.poNo);
+      const holder = document.getElementById("packingRequestLines");
+      if (!holder) throw Error("입고요청 입력 화면을 불러오지 못했습니다. 잠시 후 다시 시도하세요.");
+
+      const wanted = Math.max(1, safeArray(items).length);
+      while (holder.querySelectorAll(".packing-request-line").length < wanted) {
+        if (typeof root.addPackingRequestLine !== "function") break;
+        root.addPackingRequestLine();
+      }
+      while (holder.querySelectorAll(".packing-request-line").length > wanted) {
+        holder.lastElementChild?.remove();
+      }
+
+      const rows = [...holder.querySelectorAll(".packing-request-line")];
+      safeArray(items).forEach((item, index) => {
+        const row = rows[index];
+        if (!row) return;
+        const set = (name, value) => {
+          const field = row.querySelector(`[name="${name}"]`);
+          if (field) field.value = value == null ? "" : value;
+        };
+        set("packageNo", item.packageNo || "");
+        set("grade", item.grade || item.mainGrade || "");
+        set("gw", round2(item.gw || item.grossWeight || item.nw || item.weight));
+        set("nw", round2(item.nw || item.netWeight || item.weight));
+        set("packingType", item.packingType || "");
+        set("memo", item.memo || "");
+      });
+
+      if (typeof root.updatePackingRequestTotals === "function") root.updatePackingRequestTotals();
+      document.getElementById("modal")?.classList.add("on");
+      holder.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      return holder;
+    }
+
     throw Error("입고요청 입력 화면을 열 수 없습니다. 새로고침 후 다시 시도하세요.");
   }
 
