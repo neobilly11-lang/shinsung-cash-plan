@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-12";
+  const VERSION = "20260813-13";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -86,6 +86,7 @@
       packageCount: Math.max(1, Math.floor(Number(extra && extra.packageCount) || 1)),
       packingType: clean(extra && extra.packingType),
       memo: clean(extra && extra.memo),
+      allowPoFallback: !!(extra && extra.allowPoFallback),
       sourceGradeLocked: !!(extra && extra.sourceGradeLocked),
       sourceLineNo: Number(extra && extra.sourceLineNo) || 0
     };
@@ -328,62 +329,59 @@
   }
 
   /*
-   * ARROUQ/CARR-style table:
-   * S.N. | DESCRIPTION | GROSS WEIGHT/TON | JUMBO WEIGHT K.G. | NET WEIGHT TON
-   * The middle value is tare in kilograms while gross/net are metric tons.
+   * D&D Recycling / CDD container summary packing list.
+   * Each material row carries a bag count and net weight.  The document says
+   * every big bag weighs 2 kg, so gross can be reconstructed without splitting
+   * a material into artificial package rows.
    */
-  function parseTonJumboPackingRows(lines, text) {
-    const header = lines.slice(0, 90).join(" ");
+  function parseContainerMaterialPackingRows(lines, text) {
+    const header = lines.slice(0, 40).join(" ");
     if (!/PACKING\s+LIST/i.test(header)
-      || !/GROSS\s+WEIGHT\s*\/?\s*TON/i.test(header)
-      || !/JUMBO\s+WEIGHT/i.test(header)
-      || !/NET\s+WEIGHT\s*\/?\s*TON/i.test(header)) return [];
+      || !/ITEM\s+DESCRIPTION\s+PACKING\s+NET\s+WEIGHT/i.test(header)
+      || !/TARE\s+BIG\s+BAGS?/i.test(text)) return [];
 
     const rows = [];
-    const normalized = value => clean(value)
-      .replace(/[|]/g, " ")
-      .replace(/(\d)\s*[.,]\s*(\d{3})\b/g, "$1.$2")
-      .replace(/\s+/g, " ");
-    const rowPattern = /^\s*(\d{1,2})[.)-]?\s+(.+?)\s+(\d{1,3}[.,]\d{3})\s+(\d{1,3})\s+(\d{1,3}[.,]\d{3})\s*$/i;
-
-    for (let index = 0; index < lines.length; index++) {
-      if (/^\s*(?:TOTAL|BANK|BENEFICIARY|ACCOUNT|SWIFT)\b/i.test(lines[index])) continue;
-      let joined = "";
-      for (let width = 1; width <= 3 && index + width <= lines.length; width++) {
-        joined = normalized(joined + " " + lines[index + width - 1]);
-        const match = joined.match(rowPattern);
-        if (!match) continue;
-        const lineNo = Number(match[1]), grade = clean(match[2]);
-        const grossTon = numberValue(match[3], "US"), tareKg = numberValue(match[4], "US"), netTon = numberValue(match[5], "US");
-        const expectedTare = round2((grossTon - netTon) * 1000);
-        if (!grade || !/[A-Z0-9]/i.test(grade) || !(grossTon > 0 && netTon > 0 && grossTon >= netTon)) continue;
-        if (Math.abs(expectedTare - tareKg) > Math.max(5, grossTon * 2)) continue;
-        rows.push(normalizeItem(grade, "", netTon, "TON", 0, "TON", 0, {
-          style: "US", gross: grossTon, tare: tareKg / 1000,
-          packageNo: `CARR-${String(lineNo).padStart(2, "0")}`,
-          packageCount: 1, sourceGradeLocked: true, sourceLineNo: lineNo,
-          memo: `Jumbo/Tare ${round2(tareKg)} kg`
-        }));
-        index += width - 1;
-        break;
+    let containerNo = "", materialIndex = 0;
+    for (const raw of lines) {
+      const line = clean(raw);
+      if (/^SUMMARY\s+BY\s+MATERIAL/i.test(line)) break;
+      const container = line.match(/^CONTAINER\s+\d+\s*[·.-]?\s*([A-Z]{4})\s*(\d{6}\/\d)/i);
+      if (container) {
+        containerNo = `${container[1].toUpperCase()}${container[2]}`;
+        materialIndex = 0;
+        continue;
       }
+      if (!containerNo || /^(?:ITEM\s+DESCRIPTION|TOTAL\s+NET|TARE\s+BIG|GROSS\s+WEIGHT)/i.test(line)) continue;
+      const match = line.match(/^(.+?)\s+((?:\d+\s+bags?(?:\s*\/\s*rest\s+loose)?|loose))\s+([\d,]+(?:\.\d+)?)\s*kg$/i);
+      if (!match) continue;
+      const grade = clean(match[1]), packing = clean(match[2]);
+      const bagMatch = packing.match(/^(\d+)\s+bags?/i), bagCount = bagMatch ? Number(bagMatch[1]) : 0;
+      const net = numberValue(match[3], "US"), tare = bagCount * 2, gross = net + tare;
+      if (!grade || !(net > 0)) continue;
+      materialIndex++;
+      rows.push(normalizeItem(grade, "", net, "KG", 0, "KG", 0, {
+        style: "US", gross, tare,
+        packageNo: `${containerNo}-${String(materialIndex).padStart(2, "0")}`,
+        packageCount: bagCount || 1, packingType: packing,
+        sourceGradeLocked: true, sourceLineNo: materialIndex,
+        memo: bagCount ? `Big bag tare ${tare} kg` : "Loose"
+      }));
     }
     return rows;
   }
 
-  /* Reconstruct MATERIAL values that are vertically merged across package rows. */
-  function parseMergedMaterialPackingRows(lines, text) {
-    const header = lines.findIndex(line => /PACKING\s*#/i.test(line)
-      && /MATERIAL/i.test(line) && /GROSS/i.test(line) && /TARE/i.test(line) && /NET/i.test(line));
-    if (header < 0 || !lines.slice(header + 1).some(line => /SUB\s*TOTAL\s+IN\s+KGS?/i.test(line))) return [];
-
-    const style = numberStyle(text);
-    const normalizedLine = value => clean(value)
-      .replace(/(\d)\s+([,.])\s*(\d)/g, "$1$2$3")
-      .replace(/(\d)\s+([,.])\s*(\d)/g, "$1$2$3");
-    const rowData = value => {
-      const line = normalizedLine(value);
-      const lnMatch = line.match(/^\s*(\d{1,3})\b/) …6906 tokens truncated…es: true });
+  /* VMET packing list: container weights are present, but the grade is on the P.O. */
+  function parseVmetContainerPackingRows(lines, text) {
+    const header = lines.slice(0, 35).join(" ");
+    if (!/PACKING\s+LIST/i.test(header) || !/VMET/i.test(text)
+      || !/DES?C?TRIPTION\s+QUANTITY\s*\/\s*KG\s+PACKAGES\s+NET\s+WEIGHT/i.test(header)) return [];
+    const rows = [];
+    lines.forEach(line => {
+      const match = clean(line).match(/^\s*(\d+)\s+Container:\s*([A-Z]{4}\d{7})\s+(ML-[A-Z0-9-]+)\s+([\d.,]+)\s+N\/?A\s+([\d\s.,]+)\s*$/i);
+      if (!match) return;
+      const quantity = numberValue(match[4], "US"), net = numberValue(match[5], "US");
+      if (!(quantity > 0 && net > 0)) return;
+      rows.push(normalizeItem("", `Container ${match[2]}`, net, "KG", 0,…8112 tokens truncated…es: true });
       const candidates = workbook.SheetNames.map(sheetName => parseMatrix(root.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: false }), name));
       parsed = candidates.sort((a, b) => b.items.length - a.items.length)[0];
       parsed.diagnostics.sheets = workbook.SheetNames.length;
@@ -633,4 +631,3 @@
   if (root.currentView || typeof currentView !== "undefined") root.render();
   document.documentElement.dataset.mesDocumentImportV4 = VERSION;
 })(typeof window !== "undefined" ? window : globalThis);
-

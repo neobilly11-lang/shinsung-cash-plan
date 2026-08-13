@@ -84,9 +84,11 @@
   window.analyzePackingRequestFile=async function(poNo,file){
     if(!file)return;$('progress').classList.add('on');
     try{
-      var parsed;if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPacking(file);else{var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);parsed={rows:mesPackingDocItems(lines)};}
+      var importer=window.MesDocumentImporterV4||window.__mesDocumentImporterV4;
+      if(!importer||typeof importer.importFile!=='function')throw Error('PACKING LIST 공용 분석기를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');
+      var documentData=await importer.importFile(file),parsed={rows:list(documentData.items).map(function(item){return{packageNo:item.packageNo||'',grade:item.matchedMarking||item.marking||'',gw:number(item.grossWeight||item.weight),nw:number(item.netWeight||item.weight),packingType:item.packingType||documentData.packing||'',memo:item.memo||'',packageCount:number(item.packageCount)||1};})};
       var po=poRows().find(function(row){return text(row.poNo)===text(poNo);}),defaults=stageRequestDefaultItems(po);
-      var items=list(parsed.rows).map(function(row,index){var base=defaults[index]||{};return{packageNo:row.packageNo||base.packingPackageNo||base.packageNo||'',grade:row.grade||base.grade||'',gw:number(row.gw||row.weight),nw:number(row.nw||row.weight),packingType:row.packingType||base.packingType||'',memo:row.memo||'',packageCount:number(row.packageCount)||1};});
+      var items=list(parsed.rows).map(function(row,index){var base=defaults[index]||(defaults.length===1?defaults[0]:{});return{packageNo:row.packageNo||base.packingPackageNo||base.packageNo||'',grade:row.grade||base.grade||'',gw:number(row.gw||row.weight),nw:number(row.nw||row.weight),packingType:row.packingType||base.packingType||'',memo:row.memo||'',packageCount:number(row.packageCount)||1};});
       if(!items.length)throw Error('강종과 중량을 찾지 못했습니다.');
       window.renderPackingRequestForm(po,items);toast('PACKING LIST 자동완성 완료 · 입항예정일을 확인하세요.');
     }catch(error){toast('PACKING LIST 자동완성 실패: '+error.message,true);}
@@ -124,7 +126,7 @@
   };
   window.openInboundStageConfirm=function(id){
     var row=inboundById(id);if(!row)return toast('입고요청 자료를 찾지 못했습니다.',true);
-    $('modalTitle').textContent=row.poNo+' · 입고예정확정';$('modalBody').innerHTML=inboundSummary(row)+"<form id='inboundStageConfirmForm' class='form-grid' onsubmit=\"saveInboundStageConfirm(event,this,decodeURIComponent('"+encoded(row.id)+"'))\"><label>입고확정일 <b class='stage-required'>필수</b><input name='confirmedDate' type='date' required value='"+esc(row.confirmedDate||row.requestDate||nowDate())+"'></label><label>입고확정시간 <b class='stage-required'>필수<…342 tokens truncated…pos'],function(shared){var request=list(shared.purchaseRequests).find(function(item){return text(item.id)===text(row.id)||text(item.poNo)===text(row.poNo);});if(request)Object.assign(request,{confirmedInboundDate:value.confirmedDate,confirmedInboundTime:value.confirmedTime,inboundConfirmedAt:confirmedAt,containerSize:container,vehicleNo:text(value.vehicleNo),contact:text(value.contact),status:'CONFIRMED',confirmedAt:stamp,updatedAt:stamp,confirmOperatorName:currentUserName()});list(shared.pos).filter(function(item){return text(item.inboundRequestId)===text(row.id)&&!item.inboundRequestSuperseded;}).forEach(function(item){Object.assign(item,{inboundRequestStatus:'CONFIRMED',inboundConfirmedAt:confirmedAt,inboundContainerSize:container,containerSize:container,inboundVehicleNo:text(value.vehicleNo),vehicleNo:text(value.vehicleNo),inboundContact:text(value.contact),contact:text(value.contact),expectedArrivalDate:value.confirmedDate,purchaseStatus:'입고예정확정',updatedAt:stamp,updatedByName:currentUserName()});});});
+    $('modalTitle').t…460 tokens truncated…pos'],function(shared){var request=list(shared.purchaseRequests).find(function(item){return text(item.id)===text(row.id)||text(item.poNo)===text(row.poNo);});if(request)Object.assign(request,{confirmedInboundDate:value.confirmedDate,confirmedInboundTime:value.confirmedTime,inboundConfirmedAt:confirmedAt,containerSize:container,vehicleNo:text(value.vehicleNo),contact:text(value.contact),status:'CONFIRMED',confirmedAt:stamp,updatedAt:stamp,confirmOperatorName:currentUserName()});list(shared.pos).filter(function(item){return text(item.inboundRequestId)===text(row.id)&&!item.inboundRequestSuperseded;}).forEach(function(item){Object.assign(item,{inboundRequestStatus:'CONFIRMED',inboundConfirmedAt:confirmedAt,inboundContainerSize:container,containerSize:container,inboundVehicleNo:text(value.vehicleNo),vehicleNo:text(value.vehicleNo),inboundContact:text(value.contact),contact:text(value.contact),expectedArrivalDate:value.confirmedDate,purchaseStatus:'입고예정확정',updatedAt:stamp,updatedByName:currentUserName()});});});
     if(ok){closeModal();openView('inboundRequest');toast('입고예정이 확정되었습니다.');}
   };
 
@@ -172,4 +174,3 @@
     document.head.appendChild(opsScript);
   }
 })();
-
