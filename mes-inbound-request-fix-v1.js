@@ -109,7 +109,7 @@
   function buttonHtml(row){
     var existing=requestForPo(row.poNo),encoded=encodeURIComponent(row.poNo);
     var action=existing?'openPackingRequestDirect':'openInboundRequestBuilder';
-    var label=existing?'입고요청완료':'입고요청';
+    var label=existing?'입고요청완료 · 수정':'입고요청';
     return "<button class='btn inbound-request-action "+(existing?'done':'')+"' data-inbound-request-state='"+(existing?'completed':'waiting')+"' onclick='event.stopPropagation();"+action+"(decodeURIComponent(\""+encoded+"\"))'>"+label+"</button>";
   }
   function decoratePurchaseButtons(){
