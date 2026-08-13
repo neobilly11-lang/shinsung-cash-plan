@@ -247,7 +247,7 @@
   }
   function requestSourcePos(request,item,index,used){
     var candidates=safe(state.pos).filter(function(pos){return pos.status!=='CANCELLED'&&pos.poNo===request.poNo;});
-    var packageNo=normalizeText(item.packageNo).toLowerCase(),match=candidates.find(function(pos){
+    var packageNo=normalizeText(item.internalPackageNo||item.packageNo).toLowerCase(),match=candidates.find(function(pos){
       return !used.has(pos.id)&&packageNo&&normalizeText(pos.packageNo).toLowerCase()===packageNo;
     });
     if(!match){
@@ -267,7 +267,8 @@
         rows.push({
           id:source&&source.id||('request:'+request.id+':'+index),
           sourcePosId:source&&source.id||'',requestId:request.id,requestNo:request.requestNo||'',
-          packageNo:item.packageNo||source&&source.packageNo||((request.requestNo||request.poNo)+'-'+(index+1)),
+          packageNo:item.internalPackageNo||source&&source.packageNo||item.packageNo||((request.requestNo||request.poNo)+'-'+(index+1)),
+          packingPackageNo:item.packageNo||source&&source.packingPackageNo||'',
           poNo:request.poNo,company:request.company||source&&source.company||'',grade:item.grade||source&&source.grade||'',
           planWeight:nw,receivedWeight:source&&source.receivedAt?round2(source.netWeight||source.weight||nw):0,
           grossWeight:gw,receivedAt:source&&source.receivedAt||'',status:source&&source.receiptStatus||'WAITING',
@@ -343,4 +344,3 @@
   };
   document.documentElement.dataset.mesPackingPriceFixV1='ready';
 })();
-
