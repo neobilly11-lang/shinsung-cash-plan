@@ -53,7 +53,8 @@
   function fallbackRequest(poNo,rows,poMap){
     var first=rows.slice().sort(function(a,b){return timeValue(b).localeCompare(timeValue(a));})[0]||{},po=poMap.get(key(poNo))||{};
     var stamp=first.inboundRequestedAt||first.updatedAt||first.createdAt||'';
-    var datePart=text(first.expectedArrivalDate||first.inboundRequestDate||(stamp&&stamp.slice(0,10)));
+    var arrivalPart=text(first.arrivalPlanDate||first.expectedArrivalDate);
+    var datePart=text(first.inboundRequestDate||(first.inboundRequestedAt&&first.inboundRequestedAt.slice(0,10)));
     var timePart=text(first.inboundRequestTime||(stamp&&stamp.slice(11,16)));
     return {
       id:text(first.inboundRequestId)||('recovered-inbound-'+key(poNo)),
@@ -61,6 +62,7 @@
       poNo:po.poNo||text(poNo),
       company:text(first.company||po.company),
       importType:text(first.importType||first.type)||'OVERSEAS',
+      arrivalPlanDate:arrivalPart,
       requestDate:datePart,
       requestTime:timePart,
       containerSize:text(first.inboundContainerSize||first.containerSize),
@@ -101,7 +103,8 @@
       existing.id=existing.id||newest.inboundRequestId;
       existing.requestNo=existing.requestNo||newest.inboundRequestNo;
       existing.status=existing.status||newest.inboundRequestStatus||'REQUESTED';
-      existing.requestDate=existing.requestDate||newest.expectedArrivalDate||text(newest.inboundRequestedAt).slice(0,10);
+      existing.arrivalPlanDate=existing.arrivalPlanDate||newest.arrivalPlanDate||newest.expectedArrivalDate;
+      existing.requestDate=existing.requestDate||newest.inboundRequestDate||text(newest.inboundRequestedAt).slice(0,10);
       existing.requestTime=existing.requestTime||text(newest.inboundRequestedAt).slice(11,16);
     });
     var rows=Array.from(byPo.values()).map(function(row){return decorateRequest(row,poMap);}).sort(function(a,b){return timeValue(b).localeCompare(timeValue(a));});
