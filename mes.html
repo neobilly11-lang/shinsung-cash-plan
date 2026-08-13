@@ -699,12 +699,12 @@ function decoratePurchaseRequestButtons(){
   document.querySelectorAll("#content .table-wrap tbody tr:not(.total-row)").forEach(function(tr,index){
     var row=rows[index];if(!row||tr.querySelector(".inbound-request-action"))return;
     var cell=tr.lastElementChild,request=poRequest(row.poNo);
-    cell.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
+    cell.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청완료":"입고요청")+"</button>");
   });
   document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
     var row=rows[index];if(!row||card.querySelector(".inbound-request-action"))return;
     var request=poRequest(row.poNo);
-    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
+    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청완료":"입고요청")+"</button>");
   });
 }
 window.openInboundRequestBuilder=function(poNo){
@@ -944,14 +944,18 @@ function decoratePurchaseButtonsFixed(){
     var row=rows[index];if(!row)return;
     var old=tr.querySelector(".inbound-request-action");if(old)old.remove();
     var existing=typeof poRequest==="function"&&poRequest(row.poNo);
-    var html="<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>";
+    var action=existing?"openPackingRequestDirect":"openInboundRequestBuilder";
+    var label=existing?"입고요청완료":"입고요청";
+    var html="<button class='btn inbound-request-action "+(existing?"completed":"")+"' onclick='event.stopPropagation();"+action+"(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+label+"</button>";
     if(tr.lastElementChild)tr.lastElementChild.insertAdjacentHTML("beforeend",html);
   });
   document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
     var row=rows[index];if(!row)return;
     var old=card.querySelector(".inbound-request-action");if(old)old.remove();
     var existing=typeof poRequest==="function"&&poRequest(row.poNo);
-    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>");
+    var action=existing?"openPackingRequestDirect":"openInboundRequestBuilder";
+    var label=existing?"입고요청완료":"입고요청";
+    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action "+(existing?"completed":"")+"' onclick='event.stopPropagation();"+action+"(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+label+"</button>");
   });
   var actions=document.querySelector("#content .dashboard-head .actions");
   if(actions&&!actions.querySelector(".purchase-mode-actions")){
@@ -1048,7 +1052,7 @@ document.documentElement.dataset.mesShippingRequestV2="loaded";
 </script>
 
 
-<style id="mesFullDetailDesktopV1">
+\n<style id="mesInboundRequestCompleteButtonV1">.inbound-request-action.completed{background:#e3f6ee!important;border-color:#75c9ac!important;color:#087452!important}</style>\n<style id="mesFullDetailDesktopV1">
 @media (min-width: 761px){
   #modal .modal-card.wide-modal{
     width:min(96vw,1880px);
