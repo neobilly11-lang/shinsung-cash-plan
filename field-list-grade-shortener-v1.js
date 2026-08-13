@@ -61,3 +61,26 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
   else schedule();
 })();
+
+(function receiptGradeFallbackV2(){
+  'use strict';
+  if(window.__receiptGradeFallbackV2||typeof window.renderReceipt!=='function')return;
+  window.__receiptGradeFallbackV2=true;
+  var baseRenderReceipt=window.renderReceipt;
+  window.renderReceipt=function(){
+    baseRenderReceipt.apply(this,arguments);
+    try{
+      var source=typeof state==='object'&&state?state:(window.state||{});
+      var packageNo=typeof currentReceiptPackage!=='undefined'?currentReceiptPackage:'';
+      var row=(Array.isArray(source.pos)?source.pos:[]).find(function(item){return item&&item.packageNo===packageNo;});
+      if(!row)return;
+      var grade=String(row.grade||row.sourceGrade||row.mainGrade||row.detailGrade||'강종 미지정').trim();
+      var cards=Array.from(document.querySelectorAll('#receiptSummary > div'));
+      var card=cards.find(function(item){return /강종/.test(item.querySelector('small')?.textContent||'');})||cards[3];
+      var value=card?.querySelector('b');
+      if(value)value.textContent=grade;
+      document.documentElement.dataset.receiptGradeFallbackV2='ready';
+    }catch(error){console.warn('receipt grade fallback',error);}
+  };
+  try{renderReceipt=window.renderReceipt;}catch(_){ }
+})();

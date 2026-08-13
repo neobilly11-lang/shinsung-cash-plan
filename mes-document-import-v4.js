@@ -1,17 +1,17 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-8";
+  const VERSION = "20260813-9";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
   const HEADER_ALIASES = {
-    marking: ["MARKING", "GRADE", "COMMODITY", "COMODOTY", "ITEM NAME", "MATERIAL", "ALLOY", "품명", "강종", "상세강종"],
+    marking: ["MARKING", "GRADE", "COMMODITY", "COMODOTY", "ITEM NAME", "MATERIAL", "MATERIALS", "ALLOY", "품명", "강종", "상세강종"],
     description: ["DESCRIPTION", "ITEM DESCRIPTION", "DESCRIPTION OF GOODS", "PRODUCT DESCRIPTION", "SCRAP TYPE", "설명", "품목설명"],
-    quantity: ["QTY", "QTY KG", "QTY KGS", "QTY LB", "QTY LBS", "QUANTITY", "WEIGHT", "NET WEIGHT", "NET", "NW", "N/W", "중량", "확정중량"],
+    quantity: ["QTY", "QTY KG", "QTY KGS", "QTY LB", "QTY LBS", "QUANTITY", "WEIGHT", "NET WEIGHT", "NETT WEIGHT", "NET", "NETT", "NW", "N/W", "중량", "확정중량"],
     gross: ["GROSS WEIGHT", "GROSS", "GW", "G/W"],
     tare: ["TARE WEIGHT", "TARE"],
-    net: ["NET WEIGHT", "NET", "NW", "N/W"],
+    net: ["NET WEIGHT", "NETT WEIGHT", "NET", "NETT", "NW", "N/W"],
     price: ["UNIT PRICE", "PRICE", "USD PRICE", "USD/KG", "USD/LB", "USD/TON", "PRICE PER TON", "PRICE PER KG", "PRICE PER LB", "단가"],
     amount: ["TOTAL VALUE", "TOTAL AMOUNT", "AMOUNT", "VALUE", "TOTAL USD", "합계금액", "총금액"],
     unit: ["UNIT", "UOM", "단위"],
@@ -345,11 +345,41 @@
     return rows;
   }
 
+  /* Parse package-detail tables whose columns are: No. | Material | Nett | Gross. */
+  function parseMaterialNettGrossRows(lines, text) {
+    const headerText = lines.slice(0, 90).join(" ");
+    if (!/\bMATERIALS?\b/i.test(headerText) || !/\bNETT?(?:\s+WEIGHT)?\b/i.test(headerText) || !/\bGROSS(?:\s+WEIGHT)?\b/i.test(headerText)) return [];
+    if (!/JUMBO\s+BAG|PACKING\s+LIST|PACKING\s+DETAIL/i.test(headerText)) return [];
+
+    const style = numberStyle(text), rows = [];
+    let currentBag = "";
+    lines.forEach(rawLine => {
+      const line = clean(rawLine).replace(/(\d)\s+([,.])\s*(\d)/g, "$1$2$3");
+      const bagMatch = line.match(/JUMBO\s+BAG\s+NO\.?\s*([A-Z0-9-]+)/i);
+      if (bagMatch) currentBag = clean(bagMatch[1]);
+      if (/^(?:NO\.?\s+)?MATERIALS?\b|\bNETT?\s+GROSS\b|^TOTAL\b/i.test(line)) return;
+      const match = line.match(/^\s*(\d{1,3}[A-Z]?)\s+(.+?)\s+([\d.,]+)\s+([\d.,]+)\s*$/i);
+      if (!match) return;
+      const rowCode = match[1].toUpperCase(), material = clean(match[2]);
+      const net = numberValue(match[3], style), gross = numberValue(match[4], style);
+      if (!material || !/[A-Z]/i.test(material) || !(net > 0 && gross >= net)) return;
+      const tare = round2(gross - net);
+      if (tare > Math.max(100, gross * 0.2)) return;
+      const packageNo = `JUMBO-${rowCode || currentBag}`;
+      rows.push(normalizeItem(material, "", net, "KG", 0, "KG", 0, {
+        style, gross, tare, packageNo, packageCount: 1, sourceGradeLocked: true,
+        sourceLineNo: Number.parseInt(rowCode, 10) || 0,
+        memo: currentBag ? `Jumbo Bag No. ${currentBag}` : ""
+      }));
+    });
+    return rows;
+  }
+
   function dedupeItems(groups) {
     const out = [], seen = new Set();
     groups.flat().forEach(item => {
       if (!item || !item.marking || item.weight <= 0) return;
-      const key = `${compact(item.marking)}|${round2(item.weight)}|${round2(item.amount)}`;
+      const key = `${compact(item.marking)}|${round2(item.weight)}|${round2(item.amount)}|${compact(item.packageNo)}`;
       if (seen.has(key)) return;
       seen.add(key);
       out.push(item);
@@ -401,7 +431,7 @@
 
   function parseText(text, fileName) {
     const lines = String(text || "").split(/\r?\n/).map(clean).filter(Boolean);
-    const groups = [parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseGenericRows(lines, text)];
+    const groups = [parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseGenericRows(lines, text)];
     const best = groups.slice().sort((a, b) => b.length - a.length)[0] || [];
     const items = dedupeItems([best]);
     return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
@@ -498,7 +528,7 @@
     return meta;
   }
 
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, compact, headerKey };
+  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, compact, headerKey };
   root.MesDocumentImporterV4 = core;
   globalThis.MesDocumentImporterV4 = core;
   globalThis.__mesDocumentImporterV4 = core;
@@ -763,13 +793,14 @@
       if (duplicate) safe(shared.pos).filter(item => item.poNo === value.orderNo && item.status !== "CANCELLED").forEach(item => { item.status = "CANCELLED"; item.cancelledAt = createdAt; item.cancelledByName = currentUserName(); });
       itemValues.forEach(item => {
         const normalized = normalizeItem(item.sourceGrade, item.description, item.quantity, item.unit, item.sourcePrice, item.priceUnit, item.amount, { packageCount: item.packageCount });
-        const count = normalized.packageCount, eachNet = round2(normalized.weight / count), eachGross = round2(normalized.grossWeight / count);
-        for (let index = 0; index < count; index++) shared.pos.push({
+        const count = normalized.packageCount;
+        shared.pos.push({
           id: crypto.randomUUID(), poNo: value.orderNo, company: value.partner, packageNo: nextPackage(), grade: item.sourceGrade,
           description: item.description, productType: item.productType || inferType(item.description, item.sourceGrade), mainGrade: item.mainGrade || item.sourceGrade,
-          subGrade: item.subGrade || "", detailGrade: item.detailGrade || item.description || "", weight: eachNet, netWeight: eachNet, grossWeight: eachGross,
+          subGrade: item.subGrade || "", detailGrade: item.detailGrade || item.description || "", weight: normalized.weight, netWeight: normalized.netWeight || normalized.weight, grossWeight: normalized.grossWeight,
+          packageCount: count, plannedPackageCount: count,
           sourceQuantity: normalized.quantity, sourceUnit: normalized.unit, unitPrice: normalized.price, sourceUnitPrice: normalized.sourcePrice,
-          priceUnit: normalized.priceUnit, purchaseAmount: round2(normalized.amount / count), contractDate: value.contractDate, expectedArrivalDate: value.planDate,
+          priceUnit: normalized.priceUnit, purchaseAmount: normalized.amount, contractDate: value.contractDate, expectedArrivalDate: value.planDate,
           type: value.kind, currency: value.currency, exchangeRate: Number(value.rate) || 1, address: value.address, tel: value.tel, fax: value.fax, email: value.email,
           soNo: value.soNo, a10No: value.a10No, shipment: value.shipment, loadingTerm: value.loadingTerm, paymentTerm: value.paymentTerm,
           packing: value.packing, purchaseNote: value.note, sourceFile: value.sourceFile, purchaseStatus: "구매확정", status: "CONFIRMED",
