@@ -2659,7 +2659,7 @@ function packageInboundRequest(row){
   return null;
 }
 function waitingRequestedPackage(row){
-  return !!row&&!row.receivedAt&&row.receiptStatus!=="RECEIVED"&&packageUsed(row.packageNo)===0&&!!packageInboundRequest(row);
+  return !!row&&row.status!=="CANCELLED"&&!row.receivedAt&&row.receiptStatus!=="RECEIVED"&&packageUsed(row.packageNo)===0&&!!packageInboundRequest(row);
 }
 importWaitingPackages=function requestedImportWaitingPackages(){
   return state.pos.filter(waitingRequestedPackage).sort(function(a,b){
@@ -3067,5 +3067,6 @@ document.documentElement.dataset.productTypeManagerV1="loaded";
 
 
 </script>
+<script src="import-package-split-v1.js?v=20260813-2"></script>
 </body>
 </html>
