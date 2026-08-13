@@ -130,7 +130,7 @@ function rememberSyncedState(){lastSyncedState=stateClone(state)}
 function openFastCacheDb(){if(fastCacheDbPromise)return fastCacheDbPromise;fastCacheDbPromise=new Promise((resolve,reject)=>{if(!globalThis.indexedDB)return reject(Error('IndexedDB unavailable'));const request=indexedDB.open(FAST_CACHE_DB,1);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(FAST_CACHE_STORE))db.createObjectStore(FAST_CACHE_STORE)};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||Error('cache open failed'))});return fastCacheDbPromise}
 async function writeFastCache(){const snapshot={revision,state:stateClone(state),savedAt:Date.now()};try{const serialized=JSON.stringify(snapshot);if(serialized.length<=4800000)localStorage.setItem(FAST_CACHE_KEY,serialized);else localStorage.removeItem(FAST_CACHE_KEY)}catch(_){}try{const db=await openFastCacheDb();await new Promise((resolve,reject)=>{const tx=db.transaction(FAST_CACHE_STORE,'readwrite');tx.objectStore(FAST_CACHE_STORE).put(snapshot,'main');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||Error('cache write failed'));tx.onabort=()=>reject(tx.error||Error('cache write aborted'))})}catch(_){}}
 async function indexedFastCache(){try{const db=await openFastCacheDb();return await new Promise((resolve,reject)=>{const tx=db.transaction(FAST_CACHE_STORE,'readonly'),request=tx.objectStore(FAST_CACHE_STORE).get('main');request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(request.error||Error('cache read failed'))})}catch(_){return null}}
-async function applyFastCache(){if(fastCacheApplied)return false;fastCacheApplied=true;let cached=null;try{cached=JSON.parse(localStorage.getItem(FAST_CACHE_KEY)||'null')}catch(_){}if(!cached?.state)cached=await indexedFastCache();if(!cached?.state)return false;state=defaults(cached.state);applyWorkflowDraftDeletionTombstones();revision=num(cached.revision);rememberSyncedState();E('server').textContent='● 저장된 화면 표시 · 최신자료 확인 중';E('server').style.color='#ffe08a';renderAll();return true}
+async function applyFastCache(){if(fastCacheApplied)return false;fastCacheApplied=true;let cached=null;try{cached=JSON.parse(localStorage.getItem(FAST_CACHE_KEY)||'null')}catch(_){}if(!cached?.state)cached=await Promise.race([indexedFastCache(),new Promise(resolve=>setTimeout(()=>resolve(null),1200))]);if(!cached?.state)return false;state=defaults(cached.state);applyWorkflowDraftDeletionTombstones();revision=num(cached.revision);rememberSyncedState();E('server').textContent='● 저장된 화면 표시 · 최신자료 확인 중';E('server').style.color='#ffe08a';renderAll();return true}
 async function fetchWithTimeout(url,options={},timeoutMs=10000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(Error('서버 응답 시간 초과')),timeoutMs);try{return await fetch(url,{...options,signal:controller.signal})}catch(error){if(controller.signal.aborted)throw Error('서버 응답 시간 초과');throw error}finally{clearTimeout(timer)}}
 function stateTopLevelChanges(){if(!lastSyncedState)return{...state};const changes={};for(const key of Object.keys(state)){if(JSON.stringify(state[key])!==JSON.stringify(lastSyncedState[key]))changes[key]=state[key]}return changes}
 let saveProgressDepth=0,saveProgressStartedAt=0,saveProgressTimer=null;
@@ -3001,7 +3001,83 @@ document.documentElement.dataset.subgradeSelectionCompatV1='ready';
 })();
 
 </script>
+<script id="partyNameListShortenerV1">
+(function partyNameListShortenerV1(){
+  'use strict';
 
-<script src="party-name-list-shortener-v1.js?v=20260813-1"></script>
+  var LIMIT=10;
+  var LIST_SCOPES='table tbody,[id$="List"],[id$="Rows"],[id$="Grid"],.cards,.list-grid,.result-list';
+  var scheduled=false;
+
+  function safeArray(value){return Array.isArray(value)?value:[]}
+  function textLength(value){return Array.from(String(value||'')).length}
+  function shortName(value){
+    var chars=Array.from(String(value||'').trim());
+    return chars.length>LIMIT?chars.slice(0,LIMIT).join('')+'…':chars.join('');
+  }
+  function currentState(){
+    try{return typeof state==='object'&&state?state:(window.state||{})}
+    catch(_){return window.state||{}}
+  }
+  function partyNames(){
+    var source=currentState();
+    var names=[];
+    safeArray(source.companies).forEach(function(value){names.push(value)});
+    safeArray(source.pos).forEach(function(row){names.push(row&&row.company)});
+    safeArray(source.salesOrders).forEach(function(row){names.push(row&&row.customer)});
+    safeArray(source.shipments).forEach(function(row){names.push(row&&row.customer)});
+    safeArray(source.domesticReceipts).forEach(function(row){names.push(row&&row.supplier)});
+    safeArray(source.workWaits).forEach(function(row){names.push(row&&row.company)});
+    return Array.from(new Set(names.map(function(value){return String(value||'').trim()}).filter(function(value){return textLength(value)>LIMIT})))
+      .sort(function(a,b){return textLength(b)-textLength(a)});
+  }
+  function listTextNodes(){
+    var nodes=[];
+    document.querySelectorAll(LIST_SCOPES).forEach(function(scope){
+      if(scope.closest('.modal.on,.view.on')||scope.closest('#content')||scope.tagName==='TBODY'){
+        var walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);
+        var node;
+        while((node=walker.nextNode())){
+          var parent=node.parentElement;
+          if(!parent||parent.closest('script,style,textarea,input,select,option,datalist'))continue;
+          nodes.push(node);
+        }
+      }
+    });
+    return nodes;
+  }
+  function apply(){
+    scheduled=false;
+    var names=partyNames();
+    document.documentElement.dataset.partyNameListShortenerV1='ready';
+    if(!names.length)return;
+    listTextNodes().forEach(function(node){
+      var original=node.nodeValue||'';
+      var changed=original;
+      var matched='';
+      names.forEach(function(name){
+        if(changed.indexOf(name)!==-1){changed=changed.split(name).join(shortName(name));matched=matched||name}
+      });
+      if(changed!==original){
+        node.nodeValue=changed;
+        var owner=node.parentElement;
+        if(owner&&!owner.title)owner.title=matched;
+      }
+    });
+  }
+  function schedule(){
+    if(scheduled)return;
+    scheduled=true;
+    requestAnimationFrame(apply);
+  }
+
+  window.shortListPartyName=shortName;
+  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
+  else schedule();
+})();
+
+
+</script>
 </body>
 </html>
