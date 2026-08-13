@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-6";
+  const VERSION = "20260813-7";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -418,6 +418,8 @@
 
   const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, compact, headerKey };
   root.MesDocumentImporterV4 = core;
+  globalThis.MesDocumentImporterV4 = core;
+  globalThis.__mesDocumentImporterV4 = core;
   if (typeof module !== "undefined" && module.exports) module.exports = core;
   if (typeof document === "undefined") return;
 
@@ -689,6 +691,8 @@
     });
     if (ok) { closeModal(); openView("purchase"); toast(`${value.orderNo} P.O 저장완료 · 구매계획과 현장관리 공용서버에 등록했습니다.`); }
   };
+
+  root.__mesOpenDirectPo = openDirectPo;
 
   root.openMesDocumentPoRegistration = function () {
     byId("modalTitle").textContent = "거래처 P.O·INVOICE 파일로 등록";
