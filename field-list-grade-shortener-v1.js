@@ -84,3 +84,72 @@
   };
   try{renderReceipt=window.renderReceipt;}catch(_){ }
 })();
+
+(function directReceiptGradeFallbackV3(){
+  'use strict';
+  if(window.__directReceiptGradeFallbackV3||typeof window.renderImportReceiptDirect!=='function')return;
+  window.__directReceiptGradeFallbackV3=true;
+
+  function sourceState(){
+    try{return typeof state==='object'&&state?state:(window.state||{});}
+    catch(_){return window.state||{};}
+  }
+  function receiptGrade(row){
+    if(!row)return '강종 미지정';
+    return String(
+      row.grade||row.sourceGrade||row.mainGrade||row.material||row.description||
+      row.confirmedGrade||row.finalGrade||row.detailGrade||row.subGrade||'강종 미지정'
+    ).trim()||'강종 미지정';
+  }
+  function packageRow(packageNo){
+    var rows=Array.isArray(sourceState().pos)?sourceState().pos:[];
+    return rows.find(function(row){return row&&String(row.packageNo||'')===String(packageNo||'');});
+  }
+  function refreshDirectReceiptGradeRows(){
+    document.querySelectorAll('#importReceiptDirectList [data-workflow-choice^="import:"]').forEach(function(label){
+      var key=String(label.getAttribute('data-workflow-choice')||'');
+      var row=packageRow(key.slice(7));
+      var content=label.querySelector('.workflow-check-content');
+      if(!row||!content)return;
+      var br=content.querySelector('br');
+      if(!br){br=document.createElement('br');content.appendChild(br);}
+      while(br.nextSibling)br.nextSibling.remove();
+      content.appendChild(document.createTextNode(
+        receiptGrade(row)+' · '+(typeof kg==='function'?kg(row.weight):String(row.weight||0)+' kg')+
+        ' · P.O '+String(row.poNo||'-')
+      ));
+      label.dataset.receiptGrade=receiptGrade(row);
+    });
+    document.documentElement.dataset.directReceiptGradeFallbackV3='ready';
+  }
+
+  var baseDirectFilter=typeof window.directImportFilteredPackages==='function'?window.directImportFilteredPackages:null;
+  if(baseDirectFilter){
+    window.directImportFilteredPackages=function(){
+      var rows=baseDirectFilter.apply(this,arguments);
+      var input=document.getElementById('importReceiptDirectSearch');
+      var query=String(input?.value||'').trim().toLowerCase();
+      if(!query)return rows;
+      var waiting=typeof importWaitingPackages==='function'?importWaitingPackages():[];
+      var po=typeof selectedImportPoNo!=='undefined'?selectedImportPoNo:'';
+      return waiting.filter(function(row){
+        if(po&&row.poNo!==po)return false;
+        return [row.packageNo,row.poNo,row.company,receiptGrade(row),row.grade,row.sourceGrade,row.mainGrade,
+          row.material,row.description,row.confirmedGrade,row.finalGrade,row.subGrade,row.detailGrade]
+          .some(function(value){return String(value||'').toLowerCase().includes(query);});
+      });
+    };
+    try{directImportFilteredPackages=window.directImportFilteredPackages;}catch(_){ }
+  }
+
+  var baseDirectRender=window.renderImportReceiptDirect;
+  window.renderImportReceiptDirect=function(){
+    var result=baseDirectRender.apply(this,arguments);
+    refreshDirectReceiptGradeRows();
+    return result;
+  };
+  try{renderImportReceiptDirect=window.renderImportReceiptDirect;}catch(_){ }
+  try{if(document.getElementById('importReceiptDirectList'))refreshDirectReceiptGradeRows();}catch(error){
+    console.warn('direct receipt grade fallback',error);
+  }
+})();

@@ -81,7 +81,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <section id="masters" class="view"><p class="eyebrow">별도 수정 화면</p><h1>저장된 기준정보 수정</h1><button class="btn" onclick="show('home')">← 홈으로 돌아가기</button><div id="masterEditInfo" class="msg"></div><div id="masterList"></div></section>
   <section id="incomplete" class="view"><p class="eyebrow">입고 대비 검수현황</p><h1>검수 미완료 목록</h1><button class="btn" onclick="show('home')">← 홈으로 돌아가기</button><p style="color:var(--muted)">입고 중량 전체가 아직 검수 확정되지 않은 사내입고를 표시합니다.</p><div id="incompleteList"></div></section>
   <section id="incompleteDetail" class="view"><p class="eyebrow">사내입고별 검수내역</p><h1 id="incompleteDetailTitle">검수 상세</h1><button class="btn" onclick="show('incomplete')">← 미완료 목록으로</button><div id="incompleteDetailBody"></div></section>
-  <section id="today" class="view"><p class="eyebrow">오늘 작업현황</p><h1>오늘 검수·작업대기 완료 목록</h1><button class="btn" onclick="show('home')">← 홈으로 돌아가기</button><p style="color:var(--muted)">오늘 검수 확정한 사내입고와 오늘 완료 처리한 재선별·쇼트·산처리·절단작업을 함께 표시합니다.</p><div id="todayCompletedList"></div></section>
+  <section id="today" class="view"><p class="eyebrow">오늘 작업현황</p><h1>오늘 검수·작업대기 완료 목록</h1><button class="btn" onclick="show('home')">← 홈으로 돌아가기</button><p style="color:var(--muted)">오늘 검수 확정한 사내입고와 오늘 완료 처리한 재검수·쇼트·산처리·절단작업을 함께 표시합니다.</p><div id="todayCompletedList"></div></section>
   <section id="todayMovesView" class="view"><p class="eyebrow">오늘 작업현황</p><h1>오늘 재고 이동 내역</h1><button class="btn" onclick="show('home')">← 홈으로 돌아가기</button><p style="color:var(--muted)">오늘 저장된 완료 포장 재고 이동만 표시합니다.</p><div id="todayMoveList"></div></section>
   <section id="todayRepackView" class="view"><p class="eyebrow">오늘 작업현황</p><h1>오늘 포장완료 내역</h1><button class="btn" onclick="show('home')">← 업무수행으로 돌아가기</button><p style="color:var(--muted)">오늘 확정한 포장완료 이동 내역만 표시합니다.</p><div id="todayRepackList"></div></section>
   <section id="po" class="view"><p class="eyebrow">입고 등록</p><h1>P.O·사내입고 입력</h1><div class="actions"><button class="btn" onclick="downloadTemplate()">P.O 엑셀 양식 다운로드</button><label class="file btn warn">P.O 엑셀 업로드<input type="file" accept=".xlsx,.xls" onchange="importExcel(this.files[0]);this.value=''"></label><label class="file btn primary">P.O PDF 자동등록<input type="file" accept="application/pdf,.pdf" onchange="importPoPdf(this.files[0]);this.value=''"></label></div><div class="card"><p style="color:var(--muted);margin-top:0">PDF의 P.O번호·거래처·강종·KG/LBS/TON 중량을 자동 인식하고 KG으로 환산해 사내입고번호를 생성합니다.</p><div class="form"><label>P.O 넘버<input id="poNo"></label><label>거래처명 검색<input id="company" list="companyList" placeholder="등록된 거래처 검색"></label><datalist id="companyList"></datalist><label>강종명<input id="grade"></label><label>중량(kg)<input id="weight" type="number" inputmode="decimal"></label></div><button class="btn primary" style="width:100%;margin-top:12px" onclick="addPackage()">사내입고번호 자동생성·등록</button><div id="poMsg" class="msg"></div></div><div class="tablewrap"><table><thead><tr><th>선택</th><th>P.O</th><th>거래처</th><th>강종</th><th>사내입고번호</th><th>최초중량</th></tr></thead><tbody id="poRows"></tbody></table></div></section>
@@ -94,8 +94,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <section id="repack" class="view"><p class="eyebrow">포장완료·포장대기·작업대기</p><h1>쉬운 포장·재고 이동</h1><div class="card"><b>① 새 완료포장 번호 생성·등록</b><p>실제로 새 포장을 만들 때만 완료번호를 생성합니다. 서로 다른 P.O·사내입고번호의 같은 강종을 이 완료번호 하나에 계속 합칠 수 있습니다.</p><div class="form" style="margin-top:12px"><label>새 완료번호<input id="completionNo" readonly></label><label>품종<select id="bagType"><option value="">품종 선택</option><option>NI</option><option>TI</option><option>STS</option><option>CO</option><option>MO</option><option>CU</option><option>OTHER</option></select></label><label>강종 검색<input id="bagMain" list="mainGradeList" oninput="syncBagProductType();renderBagSubGrades()"></label><label>소강종 선택<select id="bagSub"></select></label><label>상세강종<input id="bagDetail" placeholder="필요할 때 직접 입력"></label><label>마대 혹은 팩킹무게(kg)<input id="packagingWeight" type="number" inputmode="decimal" value="3"></label></div><button class="btn primary" style="width:100%;margin-top:12px" onclick="createBag()">새 완료번호 생성·등록</button><div id="bagMsg" class="msg"></div></div><div class="card"><b>② 검수확정 강종별 재고 이동</b><p>검수 저장 후 강종별 카드가 자동으로 나타납니다. 다른 자료를 불러올 때만 아래 번호 검색 또는 QR을 사용하세요.</p><div class="form" style="margin-top:12px"><label class="wide">사내입고번호 또는 완료번호 검색<input id="repackPackageNo" placeholder="예: P000001 또는 A-20260727-1" onkeydown="if(event.key==='Enter')prepareRepackPackage(this.value)"></label><button class="btn" onclick="prepareRepackPackage(E('repackPackageNo').value)">번호 불러오기</button><button class="btn warn" onclick="startRepackQr()">QR 촬영</button></div><div id="sourceInfo" class="msg"></div><div id="packingSourceChoices"></div><details class="legacy-packing-tools"><summary>완료재고를 다른 완료번호로 다시 합치기 · 고급 기능</summary><div class="form"><label class="wide">완료포장할 완료번호 검색<input id="bagSearch" list="bagSearchList" placeholder="완료번호 또는 강종 검색" oninput="selectBagFromSearch(this.value)"><datalist id="bagSearchList"></datalist></label><label class="wide">또는 최근 완료번호에서 선택<select id="bagSelect" onchange="selectBagFromList()"></select></label></div><div class="repack-entry"><label>불러온 사내입고번호 및 완료번호<select id="sourcePackage" onchange="fillAvailableWeight()"></select></label><label>완료포장 이동중량(kg)<input id="inputWeight" type="number" inputmode="decimal"></label><div id="liveWeights" class="live-weights"></div><button class="btn primary" onclick="addInput()">포장완료 이동 확정</button></div><div id="bagSummary" class="summary" style="margin-top:12px"></div></details></div><div class="card"><b>③ 완성된 포장의 창고 위치 이동</b><div class="form" style="margin-top:12px"><label class="wide">이동장소 검색·선택<input id="moveLocation" list="locationList" placeholder="저장된 장소 검색"></label><datalist id="locationList"></datalist><button class="btn primary" onclick="moveBagStock()">재고 이동 저장</button></div><div id="moveInfo" class="msg"></div><div id="movementList"></div></div><div class="card" style="border:3px solid var(--lime)"><b>④ 출하품 반품입고</b><p>출하됐던 강종·완료번호·거래처를 찾아 완료재고로 다시 등록합니다.</p><button class="btn lime" style="width:100%" onclick="openReturnReceipt()">반품입고 등록</button></div><div id="bagInputs"></div></section>
   <section id="returnReceipt" class="view"><button class="btn" onclick="show('repack')">← 재포장·재고이동으로</button><p class="eyebrow">출하품을 완료재고로 복구</p><h1>반품입고 등록</h1><div class="card"><label>출하품 검색<input id="returnSearch" placeholder="강종 · 완료번호 · 거래처 · S.O 검색" oninput="renderReturnReceipt()"></label><p id="returnSearchCount" style="color:var(--muted);font-weight:900"></p></div><div id="returnShipmentList"></div><div id="returnSelection" class="card"><p>반품할 출하품을 위 목록에서 선택하세요.</p></div><div id="returnReceiptMsg" class="msg"></div></section>
   <section id="loss" class="view"><p class="eyebrow">검수 종료 처리</p><h1>남은재고 로스처리</h1><button id="lossBackButton" class="btn" onclick="leaveLossProcessing()">← 검수 화면으로</button><div id="lossSummary" class="summary" style="margin-top:12px"></div><div class="card"><label>로스 처리 사유<textarea id="lossReason" placeholder="로스 사유와 확인 내용을 입력하세요"></textarea></label><button class="btn danger" style="width:100%;margin-top:12px" onclick="confirmLoss()">남은 중량 전부 로스 확정·검수 종료</button><button id="lossSkipButton" class="btn" style="display:none;width:100%;margin-top:10px" onclick="skipAutomaticLoss()">추가 검수 예정 · 로스처리 없이 포장완료로 이동</button><div id="lossMsg" class="msg"></div></div></section>
-  <section id="workWaitCreate" class="view"><p class="eyebrow">검수중 작업대기 등록</p><h1>상세작업 등록</h1><button class="btn" onclick="show('inspection')">← 검수 화면으로</button><div id="workWaitSource" class="summary" style="margin-top:12px"></div><div class="card"><b>작업 종류</b><div class="work-type-stats" style="margin-top:12px"><button data-work-type="재선별" onclick="selectWorkType('재선별')">재선별</button><button data-work-type="쇼트" onclick="selectWorkType('쇼트')">쇼트</button><button data-work-type="산처리" onclick="selectWorkType('산처리')">산처리</button><button data-work-type="절단작업" onclick="selectWorkType('절단작업')">절단작업</button></div><input id="workType" type="hidden"><div class="form" style="margin-top:12px"><label>작업대기 중량(kg)<input id="workWeight" type="number" inputmode="decimal"></label><label class="wide">작업대기 장소 검색<input id="workLocation" list="workLocationList" placeholder="등록된 작업대기 장소 선택"></label><datalist id="workLocationList"></datalist></div><label style="margin-top:12px">상세작업지침<textarea id="workInstruction" placeholder="작업 방법·주의사항·완료 기준을 입력하세요"></textarea></label><button class="btn primary" style="width:100%;margin-top:12px" onclick="saveWorkWait()">작업대기 저장·QR 생성</button><div id="workWaitCreateMsg" class="msg"></div></div></section>
-  <section id="workWaits" class="view"><p class="eyebrow">작업대기 별도관리</p><h1>작업대기 목록</h1><div class="work-type-stats"><button data-workwait-filter="" onclick="selectWorkWaitListType('')"><span>전체 대기</span><b id="wwAll">0</b></button><button data-workwait-filter="재선별" onclick="selectWorkWaitListType('재선별')"><span>재선별</span><b id="wwReinspect">0</b></button><button data-workwait-filter="쇼트" onclick="selectWorkWaitListType('쇼트')"><span>쇼트</span><b id="wwShot">0</b></button><button data-workwait-filter="산처리" onclick="selectWorkWaitListType('산처리')"><span>산처리</span><b id="wwAcid">0</b></button><button data-workwait-filter="절단작업" onclick="selectWorkWaitListType('절단작업')"><span>절단작업</span><b id="wwCut">0</b></button></div><div class="actions"><button class="btn warn" onclick="openScanMode('work')">작업대기 QR 촬영</button><button class="btn primary" onclick="printWorkWaitLabels()">작업대기 QR A4 출력</button></div><div class="card"><label>작업대기 검색<input id="workWaitSearch" placeholder="사내입고번호·거래처·강종·작업종류 검색" oninput="renderWorkWaits()"></label></div><div id="workWaitList"></div></section>
+  <section id="workWaitCreate" class="view"><p class="eyebrow">검수중 작업대기 등록</p><h1>상세작업 등록</h1><button class="btn" onclick="show('inspection')">← 검수 화면으로</button><div id="workWaitSource" class="summary" style="margin-top:12px"></div><div class="card"><b>작업 종류</b><div class="work-type-stats" style="margin-top:12px"><button data-work-type="재검수" onclick="selectWorkType('재검수')">재검수</button><button data-work-type="쇼트" onclick="selectWorkType('쇼트')">쇼트</button><button data-work-type="산처리" onclick="selectWorkType('산처리')">산처리</button><button data-work-type="절단작업" onclick="selectWorkType('절단작업')">절단작업</button></div><input id="workType" type="hidden"><div class="form" style="margin-top:12px"><label>작업대기 중량(kg)<input id="workWeight" type="number" inputmode="decimal"></label><label class="wide">작업대기 장소 검색<input id="workLocation" list="workLocationList" placeholder="등록된 작업대기 장소 선택"></label><datalist id="workLocationList"></datalist></div><label style="margin-top:12px">상세작업지침<textarea id="workInstruction" placeholder="작업 방법·주의사항·완료 기준을 입력하세요"></textarea></label><button class="btn primary" style="width:100%;margin-top:12px" onclick="saveWorkWait()">작업대기 저장·QR 생성</button><div id="workWaitCreateMsg" class="msg"></div></div></section>
+  <section id="workWaits" class="view"><p class="eyebrow">작업대기 별도관리</p><h1>작업대기 목록</h1><div class="work-type-stats"><button data-workwait-filter="" onclick="selectWorkWaitListType('')"><span>전체 대기</span><b id="wwAll">0</b></button><button data-workwait-filter="재검수" onclick="selectWorkWaitListType('재검수')"><span>재검수</span><b id="wwReinspect">0</b></button><button data-workwait-filter="쇼트" onclick="selectWorkWaitListType('쇼트')"><span>쇼트</span><b id="wwShot">0</b></button><button data-workwait-filter="산처리" onclick="selectWorkWaitListType('산처리')"><span>산처리</span><b id="wwAcid">0</b></button><button data-workwait-filter="절단작업" onclick="selectWorkWaitListType('절단작업')"><span>절단작업</span><b id="wwCut">0</b></button></div><div class="actions"><button class="btn warn" onclick="openScanMode('work')">작업대기 QR 촬영</button><button class="btn primary" onclick="printWorkWaitLabels()">작업대기 QR A4 출력</button></div><div class="card"><label>작업대기 검색<input id="workWaitSearch" placeholder="사내입고번호·거래처·강종·작업종류 검색" oninput="renderWorkWaits()"></label></div><div id="workWaitList"></div></section>
   <section id="workWaitDetail" class="view"><p class="eyebrow">작업대기 QR 상세</p><h1 id="workWaitDetailTitle">작업대기 상세</h1><button class="btn" onclick="show('workWaits')">← 작업대기 목록으로</button><div id="workWaitDetailBody"></div><div id="workWaitDetailMsg" class="msg"></div></section>
   <section id="drafts" class="view"><p class="eyebrow">확정 전 임시저장</p><h1>검수 임시보관 목록</h1><div class="card"><label>임시보관 검색<input id="draftSearch" placeholder="사내입고번호·거래처·강종 검색" oninput="renderDrafts()"></label></div><div id="draftList"></div></section>
   <section id="inventory" class="view"><p class="eyebrow">강종·이동장소별 완료재고</p><h1>재고 조회</h1><button class="dash-card stock-total" style="width:100%" onclick="renderInventory()"><small>현재 완료재고 총중량</small><b id="inventoryTotal">0 kg</b></button><div class="card"><div class="form"><label class="wide">완료재고 검색<input id="stockSearch" list="inventoryLocationList" autocomplete="off" placeholder="강종·완료번호·사내입고번호·장소 검색" oninput="renderInventory()"><datalist id="inventoryLocationList"></datalist></label><label>보기<select id="stockAgeFilter" onchange="renderInventory()"><option value="">전체 재고</option><option value="long">입고 후 60일 이상</option><option value="unassigned">이동장소 미지정만</option></select></label></div></div><h2>강종별 재고량</h2><div id="stockByGrade"></div><h2>이동장소별 재고량</h2><div id="stockByLocation"></div><h2>완료재고 상세</h2><div id="stockDetail"></div></section>
@@ -201,7 +201,8 @@ function ensureInspectorMasterUi(){state.inspectors=safeArray(state.inspectors);
 function safeArray(value){return Array.isArray(value)?value:[]}
 function knownInspectors(){return[...new Set([...safeArray(state.inspectors),...safeArray(state.splits).map(x=>x?.inspector),...safeArray(state.inspectionDrafts).map(x=>x?.inspector),...safeArray(state.inspectionHandovers).flatMap(x=>[x?.worker1,x?.worker2])].map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'))}
 function allMainGrades(){return[...new Set([...safeArray(state.mainGrades),...safeArray(state.gradeMasters).map(x=>x?.main),...safeArray(state.splits).map(x=>x?.mainGrade),...safeArray(state.bags).map(x=>x?.mainGrade)].filter(Boolean))]}
-function allSubGrades(){return[...new Set([...safeArray(state.subGrades),...safeArray(state.gradeMasters).map(x=>x?.sub),...safeArray(state.splits).map(x=>x?.subGrade),...safeArray(state.bags).map(x=>x?.subGrade)].filter(Boolean))]}
+function masterText(value,...keys){if(typeof value==='string'||typeof value==='number')return String(value).trim();if(!value||typeof value!=='object')return'';for(const key of keys){const text=String(value[key]??'').trim();if(text)return text}return''}
+function allSubGrades(){const values=[...safeArray(state.subGrades).map(x=>masterText(x,'sub','subGrade','name','value','label')),...safeArray(state.gradeMasters).map(x=>masterText(x,'sub','subGrade','minorGrade','name')),...safeArray(state.splits).map(x=>masterText(x?.subGrade,'name','value','label')),...safeArray(state.bags).map(x=>masterText(x?.subGrade,'name','value','label')),...safeArray(state.workWaits).map(x=>masterText(x?.subGrade,'name','value','label')),...safeArray(state.selectionGuides).flatMap(x=>safeArray(x?.rows).map(row=>masterText(row?.subGrade,'name','value','label')))];const cleaned=[...new Set(values.map(x=>String(x||'').trim()).filter(Boolean))];return cleaned.length?cleaned:['SOLID','SOLIDS','TURNING','TURNINGS','VS','VT','AS']}
 function normalizedGradeChoice(value){return String(value||'').trim().toLocaleLowerCase().replace(/[\s._\-/]+/g,' ')}
 function installGradeClearButton(inputId,clearHandler,label='선택 지우기 · 다른 강종 입력'){const input=E(inputId);if(!input)return null;input.removeAttribute('list');const buttonId=inputId+'Clear';let button=E(buttonId);if(!button){button=document.createElement('button');button.type='button';button.id=buttonId;button.className='grade-clear';button.textContent='× '+label;button.onclick=()=>globalThis[clearHandler]?.();input.insertAdjacentElement('afterend',button)}const pickerIds={grade:'poGradePicker',finalMain:'inspectionMainGradePicker',bagMain:'bagMainGradePicker',editFinalMain:'editMainGradePicker',domesticPackageGrade:'domesticGradePicker',completedSupplierGradeSearch:'completedSupplierGradePicker',completedConfirmedGradeSearch:'completedConfirmedGradePicker',soGrade:'soGradePicker',claimGrade:'claimGradePicker'};if(pickerIds[inputId])installGradePickerFooter(pickerIds[inputId],inputId,clearHandler,label);return button}
 function installGradePickerFooter(pickerId,inputId,clearHandler,label='선택 지우기 · 다른 강종 입력'){const picker=E(pickerId);if(!picker)return null;let footer=picker.querySelector(':scope > .grade-picker-footer');if(!footer){footer=document.createElement('div');footer.className='grade-picker-footer';const clear=document.createElement('button');clear.type='button';clear.className='grade-clear';clear.textContent='× '+label;clear.onpointerdown=event=>event.preventDefault();clear.onclick=()=>globalThis[clearHandler]?.();const close=document.createElement('button');close.type='button';close.className='grade-picker-close';close.textContent='검색창 닫기';close.onpointerdown=event=>event.preventDefault();close.onclick=()=>closeGradePicker(pickerId,inputId);footer.append(clear,close);picker.appendChild(footer)}return footer}
@@ -210,7 +211,7 @@ function hideGradePickerLater(pickerId,inputId){setTimeout(()=>{const picker=E(p
 function closeGradePicker(pickerId,inputId){E(pickerId)?.classList.remove('on');E(inputId)?.blur()}
 function inspectionMainGradeMatches(query=''){const q=normalizedGradeChoice(query),values=allMainGrades().map(value=>({value,normalized:normalizedGradeChoice(value)}));if(!q)return values.sort((a,b)=>a.value.localeCompare(b.value,'ko')).slice(0,12).map(x=>x.value);return values.filter(x=>x.normalized.includes(q)||q.includes(x.normalized)).sort((a,b)=>Number(b.normalized===q)-Number(a.normalized===q)||Number(b.normalized.startsWith(q))-Number(a.normalized.startsWith(q))||a.value.localeCompare(b.value,'ko')).slice(0,12).map(x=>x.value)}
 function productTypeForMainGrade(value){const normalized=normalizedGradeChoice(value),typeKey=Object.keys(state.gradeTypes||{}).find(key=>normalizedGradeChoice(key)===normalized),direct=typeKey?state.gradeTypes[typeKey]:'';if(direct)return direct;const master=safeArray(state.gradeMasters).find(x=>normalizedGradeChoice(x?.main)===normalized&&(x?.productType||x?.type));if(master)return master.productType||master.type;const used=[...safeArray(state.splits),...safeArray(state.bags)].find(x=>normalizedGradeChoice(x?.mainGrade)===normalized&&x?.productType);return used?.productType||''}
-function linkedInspectionSubGrades(main){const normalized=normalizedGradeChoice(main);return[...new Set(safeArray(state.gradeMasters).filter(x=>normalizedGradeChoice(x?.main)===normalized).map(x=>x?.sub).filter(Boolean))]}
+function linkedInspectionSubGrades(main){const normalized=normalizedGradeChoice(main),linked=[...safeArray(state.gradeMasters).filter(x=>normalizedGradeChoice(masterText(x,'main','mainGrade','grade','name'))===normalized).map(x=>masterText(x,'sub','subGrade','minorGrade')),...safeArray(state.selectionGuides).flatMap(x=>safeArray(x?.rows).filter(row=>normalizedGradeChoice(masterText(row,'mainGrade','main','grade'))===normalized).map(row=>masterText(row,'subGrade','sub','minorGrade'))),...safeArray(state.splits).filter(x=>normalizedGradeChoice(masterText(x,'mainGrade','main'))===normalized).map(x=>masterText(x?.subGrade,'name','value','label')),...safeArray(state.bags).filter(x=>normalizedGradeChoice(masterText(x,'mainGrade','main'))===normalized).map(x=>masterText(x?.subGrade,'name','value','label'))];return[...new Set(linked.map(x=>String(x||'').trim()).filter(Boolean))]}
 function handleInspectionMainGradeInput(){const input=E('finalMain'),committed=input?.dataset.committedMain||'';if(committed&&normalizedGradeChoice(committed)!==normalizedGradeChoice(input.value)){delete input.dataset.committedMain;E('finalType').value='';renderSubGrades('')}syncProductType();renderSubGrades();updateInspectionBatchTotal();renderInspectionMainGradeChoices()}
 function ensureInspectionGradePickerUi(){const form=E('finalMain')?.closest('.form');if(form&&!E('inspectionMainGradePicker'))form.insertAdjacentHTML('afterend','<div id="inspectionMainGradePicker" class="guide-choice-group inspection-grade-picker"><span class="guide-choice-title">최종강종 검색결과 · 버튼을 한 번 눌러 선택</span><div id="inspectionMainGradeChoices" class="guide-choice-list grade-choice-list"></div></div>');const input=E('finalMain');installGradeClearButton('finalMain','clearInspectionMainGrade');if(input&&input.dataset.mobileGradePicker!=='1'){input.dataset.mobileGradePicker='1';input.removeAttribute('list');input.addEventListener('input',handleInspectionMainGradeInput);input.addEventListener('focus',renderInspectionMainGradeChoices);input.addEventListener('blur',()=>hideGradePickerLater('inspectionMainGradePicker','finalMain'));input.addEventListener('change',commitInspectionMainGradeSelection);input.addEventListener('keydown',event=>{if(event.key==='Enter'){const match=inspectionMainGradeMatches(input.value)[0];if(match){event.preventDefault();chooseInspectionMainGrade(match)}}})}}
 function renderInspectionMainGradeChoices(){ensureInspectionGradePickerUi();const picker=E('inspectionMainGradePicker'),target=E('inspectionMainGradeChoices'),input=E('finalMain');if(!picker||!target||!input)return;const query=input.value.trim(),matches=inspectionMainGradeMatches(query),selected=normalizedGradeChoice(query),active=document.activeElement===input;picker.classList.toggle('on',active);target.innerHTML=matches.length?matches.map(value=>`<button type="button" class="${normalizedGradeChoice(value)===selected?'recommended':''}" data-inspection-main-grade="${esc(value)}" onpointerdown="event.preventDefault()" onclick="chooseInspectionMainGrade(this.dataset.inspectionMainGrade)">${esc(value)}${productTypeForMainGrade(value)?`<small>품종 ${esc(productTypeForMainGrade(value))}</small>`:''}</button>`).join(''):'<span class="guide-choice-empty">일치하는 저장 강종이 없습니다. 검색어를 바꾸거나 직접 입력하세요.</span>'}
@@ -226,7 +227,7 @@ function selectionGuideMasterRows(){const q=String(E('masterGuideSearch')?.value
 function renderMasters(){ensureInspectorMasterUi();const mains=allMainGrades(),subs=allSubGrades(),inspectors=safeArray(state.inspectors);E('companyList').innerHTML=state.companies.map(x=>`<option value="${esc(x)}"></option>`).join('');E('mainGradeList').innerHTML=mains.map(x=>`<option value="${esc(x)}"></option>`).join('');E('locationList').innerHTML=state.locations.map(x=>`<option value="${esc(x)}"></option>`).join('');E('inspectorList').innerHTML=inspectors.map(x=>`<option value="${esc(x)}"></option>`).join('');const legacyWaitingList=document.getElementById('waitingLocationList');if(legacyWaitingList)legacyWaitingList.innerHTML=state.waitingLocations.map(x=>`<option value="${esc(x)}"></option>`).join('');E('workLocationList').innerHTML=state.workWaitLocations.map(x=>`<option value="${esc(x)}"></option>`).join('');E('masterList').innerHTML=`<div class="master-columns">${companyEditRows()}${masterEditRows('main',mains)}${masterEditRows('sub',subs)}</div><div class="master-locations"><b>재고 이동장소:</b> ${state.locations.map(esc).join(', ')||'없음'}<br><b>포장대기 장소:</b> ${state.waitingLocations.map(esc).join(', ')||'없음'}<br><b>작업대기 장소:</b> ${state.workWaitLocations.map(esc).join(', ')||'없음'}</div>${packagingMaterialMasterRows()}${selectionGuideMasterRows()}`}
 async function renameCompany(index){const oldName=state.companies[index],newName=String(E(`edit-company-${index}`)?.value||'').trim();if(!oldName)return msg('masterInfo','거래처 수정 대상을 찾을 수 없습니다.',true);if(!newName)return msg('masterInfo','변경할 거래처명을 입력하세요.',true);if(newName===oldName)return msg('masterInfo','기존 거래처명과 같습니다.',true);const backup=JSON.parse(JSON.stringify(state));state.companies=[...new Set(state.companies.map(x=>x===oldName?newName:x))];state.pos.forEach(p=>{if(p.company===oldName)p.company=newName});try{await saveState();msg('masterInfo',`거래처 "${oldName}"을(를) "${newName}"(으)로 수정했습니다. 기존 P.O 내역에도 반영되었습니다.`)}catch(e){state=defaults(backup);renderAll();msg('masterInfo','거래처 수정 실패: '+e.message,true)}}
 async function renameMaster(kind,index){const isMain=kind==='main',label=isMain?'강종':'소강종',list=isMain?allMainGrades():allSubGrades(),oldName=list[index],input=E(`edit-${kind}-${index}`),newName=String(input?.value||'').trim(),oldType=isMain?String(state.gradeTypes[oldName]||''):'',newType=isMain?String(E(`edit-type-${index}`)?.value||''):'';if(!oldName||!input)return msg('masterInfo',label+' 수정 대상을 찾을 수 없습니다.',true);if(!newName)return msg('masterInfo','변경할 '+label+' 이름을 입력하세요.',true);if(isMain&&!newType)return msg('masterInfo','강종의 품종을 선택하세요.',true);if(newName===oldName&&(!isMain||newType===oldType))return msg('masterInfo','기존 설정과 같습니다.',true);const backup=JSON.parse(JSON.stringify(state)),gradeChanges=new Map();if(isMain){state.mainGrades=[...new Set(list.map(x=>x===oldName?newName:x))];const types={...state.gradeTypes};delete types[oldName];types[newName]=newType;state.gradeTypes=types;state.gradeMasters.forEach(x=>{if(x.main===oldName){x.main=newName;x.type=newType}})}else{state.subGrades=[...new Set(list.map(x=>x===oldName?newName:x))];state.gradeMasters.forEach(x=>{if(x.sub===oldName)x.sub=newName})}state.splits.forEach(s=>{const before=s.grade||gradeLabel(s.mainGrade,s.subGrade,s.detailGrade,s.productType);let changed=false;if(isMain&&s.mainGrade===oldName){s.mainGrade=newName;s.productType=newType;changed=true}if(!isMain&&s.subGrade===oldName){s.subGrade=newName;changed=true}if(changed){const after=gradeLabel(s.mainGrade,s.subGrade,s.detailGrade,s.productType);if(after){s.grade=after;gradeChanges.set(before,after)}}else if(!s.mainGrade&&!s.subGrade&&s.grade===oldName){s.grade=gradeLabel(newName,'','',newType);gradeChanges.set(before,s.grade)}});const rewrite=value=>gradeChanges.get(value)||(value===oldName?gradeLabel(newName,'','',newType):value);state.bags.forEach(x=>x.grade=rewrite(x.grade));state.inputs.forEach(x=>x.grade=rewrite(x.grade));try{await saveState();msg('masterInfo',`${isMain?newType+' · ':''}${label} "${oldName}"을(를) "${newName}"(으)로 수정했습니다. 기존 검수·재포장 내역에도 반영되었습니다.`)}catch(e){state=defaults(backup);renderAll();msg('masterInfo',label+' 수정 실패: '+e.message,true)}}
-function renderSubGrades(selected=''){const linked=linkedInspectionSubGrades(E('finalMain')?.value),values=[...new Set([...linked,...allSubGrades()])],choice=selected||linked.length===1?selected||linked[0]:'';E('finalSub').innerHTML='<option value="">소강종 선택</option>'+values.map(x=>`<option value="${esc(x)}" ${x===choice?'selected':''}>${esc(x)}</option>`).join('')}
+function renderSubGrades(selected=''){const target=E('finalSub');if(!target)return;const keep=String(selected||target.value||'').trim(),linked=linkedInspectionSubGrades(E('finalMain')?.value),values=[...new Set([...linked,...allSubGrades(),keep].map(x=>String(x||'').trim()).filter(Boolean))],choice=keep||(linked.length===1?linked[0]:'');target.innerHTML='<option value="">소강종 선택</option>'+values.map(x=>`<option value="${esc(x)}" ${x===choice?'selected':''}>${esc(x)}</option>`).join('');target.value=choice}
 function syncProductType(){E('finalType').value=productTypeForMainGrade(E('finalMain').value)||''}
 function renderBagSubGrades(selected=''){E('bagSub').innerHTML='<option value="">소강종 선택</option>'+allSubGrades().map(x=>`<option value="${esc(x)}" ${x===selected?'selected':''}>${esc(x)}</option>`).join('')}
 function syncBagProductType(){E('bagType').value=productTypeForMainGrade(E('bagMain').value)||''}
@@ -296,7 +297,7 @@ const TUTORIALS=[
     {title:'출하 후 관리',picture:[['📄','최종 PACKING LIST'],['📉','재고차감'],['⚠️','클레임']],rule:'출하확정 후 최종 PACKING LIST를 확인·공유하고 출하재고 상세에서 클레임을 등록해요.',tip:'업무관리에서 임시·최종 PACKING LIST 목록을 다시 열고 다운로드할 수 있어요.'}
   ]},
   {icon:'🛠️',title:'5 · 작업대기',action:'작업대기 관리 열기',steps:[
-    {title:'작업 종류 선택',picture:[['🔁','재선별'],['✨','쇼트·산처리'],['✂️','절단작업']],rule:'바로 확정할 수 없는 재고는 재선별, 쇼트, 산처리, 절단작업 중 하나로 작업대기 등록해요.',tip:'사용 불가 중량은 작업대기 대신 남은재고 로스처리를 사용해요.'},
+    {title:'작업 종류 선택',picture:[['🔁','재검수'],['✨','쇼트·산처리'],['✂️','절단작업']],rule:'바로 확정할 수 없는 재고는 재검수, 쇼트, 산처리, 절단작업 중 하나로 작업대기 등록해요.',tip:'사용 불가 중량은 작업대기 대신 남은재고 로스처리를 사용해요.'},
     {title:'중량·장소·지침',picture:[['⚖️','작업중량'],['📍','대기장소'],['📝','상세지침']],rule:'남은 중량 안에서 작업량을 입력하고 검색한 대기장소와 구체적인 작업지침을 저장해요.',tip:'현장 작업자가 QR만 보고 이해할 수 있도록 적어요.'},
     {title:'QR 출력·작업완료',picture:[['🏷️','작업 QR'],['📱','지침 확인'],['✅','작업완료']],rule:'작업대기 QR을 부착하고 작업자가 촬영해 지침을 확인한 뒤 완료 처리해요.',tip:'완료되면 검수를 다시 진행할 수 있고 현황판 대기 건수가 줄어요.'}
   ]},
@@ -407,18 +408,18 @@ function openLossProcessing(afterInspection=false,splitIds=[]){const p=state.pos
 function leaveLossProcessing(){if(automaticLossRequired)return msg('lossMsg','검수확정 후 남은 중량 처리 방법을 먼저 선택하세요.',true);show('inspection')}
 function skipAutomaticLoss(){if(!automaticLossRequired)return show('inspection');const p=state.pos.find(x=>x.packageNo===currentPackage),remain=p?packageRemain(p):0;continuePackingAfterLoss(`${p?.packageNo||currentPackage} 남은 ${kg(remain)}은 추가 검수 예정으로 유지하고 포장완료 화면으로 이동했습니다.`)}
 async function confirmLoss(){const p=state.pos.find(x=>x.packageNo===currentPackage),weight=p?packageRemain(p):0,reason=E('lossReason').value.trim(),cut=currentInspectionWorkTask()?.type==='절단작업';if(!p||weight<=0)return msg('lossMsg','로스 처리할 남은 중량이 없습니다.',true);if(!reason)return msg('lossMsg','로스 처리 사유를 입력하세요.',true);const backup=JSON.parse(JSON.stringify(state)),createdAt=new Date().toISOString(),loss={id:crypto.randomUUID(),packageNo:p.packageNo,weight,reason,lossType:cut?'CUTTING':'INSPECTION',workWaitId:activeInspectionWorkTaskId||'',status:'CONFIRMED',createdAt};state.losses.push(loss);p.inspectionStatus='COMPLETE';state.inspectionDrafts=state.inspectionDrafts.filter(x=>x.packageNo!==p.packageNo||x.status!=='TEMP');completeActiveInspectionWorkTask(createdAt,[],cut?'절단로스처리':'남은재고 로스처리');state.auditLogs.push({id:crypto.randomUUID(),action:cut?'CUTTING_LOSS':'INSPECTION_LOSS',packageNo:p.packageNo,weight,reason,createdAt});try{await saveState();automaticLossRequired=false;pendingLossPackingSplitIds=[];E('lossSkipButton').style.display='none';E('lossBackButton').style.display='';openScanMode('inspect');showScanQueue('waiting');const notice=`${p.packageNo} 남은 ${kg(weight)} ${cut?'절단':''}로스처리 완료`;showFlowToast(notice);msg('scanMsg',notice+' · 직전 검수대기 목록으로 이동했습니다.')}catch(e){state=defaults(backup);renderAll();msg('lossMsg','로스 처리 실패: '+e.message,true)}}
-function canonicalWorkType(value=''){const compact=String(value||'').trim().replace(/\s+/g,'');if(compact.includes('재선별'))return'재선별';if(compact.includes('쇼트'))return'쇼트';if(compact.includes('산처리')||compact.includes('산세'))return'산처리';if(compact.includes('절단'))return'절단작업';return String(value||'').trim()}
-function preferredWorkWaitLocation(type){const canonical=canonicalWorkType(type),terms={재선별:['재선별','검수'],쇼트:['쇼트'],산처리:['산처리','산세'],절단작업:['절단작업','절단']}[canonical]||[canonical],locations=safeArray(state.workWaitLocations).map(value=>String(value||'').trim()).filter(Boolean);return locations.find(location=>terms.some(term=>location.replace(/\s+/g,'').includes(term.replace(/\s+/g,''))))||''}
+function canonicalWorkType(value=''){const compact=String(value||'').trim().replace(/\s+/g,'');if(compact.includes('재검수'))return'재검수';if(compact.includes('쇼트'))return'쇼트';if(compact.includes('산처리')||compact.includes('산세'))return'산처리';if(compact.includes('절단'))return'절단작업';return String(value||'').trim()}
+function preferredWorkWaitLocation(type){const canonical=canonicalWorkType(type),terms={재검수:['재검수','검수'],쇼트:['쇼트'],산처리:['산처리','산세'],절단작업:['절단작업','절단']}[canonical]||[canonical],locations=safeArray(state.workWaitLocations).map(value=>String(value||'').trim()).filter(Boolean);return locations.find(location=>terms.some(term=>location.replace(/\s+/g,'').includes(term.replace(/\s+/g,''))))||''}
 function selectWorkType(type){const canonical=canonicalWorkType(type),location=preferredWorkWaitLocation(canonical);E('workType').value=canonical;document.querySelectorAll('[data-work-type]').forEach(x=>x.classList.toggle('on',canonicalWorkType(x.dataset.workType)===canonical));if(location&&E('workLocation')){E('workLocation').value=location;E('workWaitLocationPicker')?.classList.remove('on');msg('workWaitCreateMsg',`${canonical} 작업대기 장소를 ${location}(으)로 자동 선택했습니다.`)}else if(E('workLocation')){E('workLocation').value='';msg('workWaitCreateMsg',`${canonical}과 이름이 맞는 작업대기 장소가 없습니다. 기준정보의 장소를 검색해 선택하세요.`,true)}}
 let workWaitSaving=false,currentWorkWaitOperationId='',currentWorkWaitOperationPackage='';
 function openWorkWaitCreate(){const p=state.pos.find(x=>x.packageNo===currentPackage),remain=p?packageRemain(p):0;if(!p||remain<=0)return msg('inspectMsg','작업대기로 이동할 남은 중량이 없습니다.',true);currentWorkWaitOperationId='workwait-'+crypto.randomUUID();currentWorkWaitOperationPackage=p.packageNo;E('workWaitSource').innerHTML=`<div><small>사내입고번호</small><b>${esc(p.packageNo)}</b></div><div><small>거래처</small><b>${esc(p.company)}</b></div><div><small>거래처 강종</small><b>${esc(p.grade)}</b></div><div><small>미작업 중량</small><b>${kg(remain)}</b></div>`;E('workType').value='';E('workWeight').value=remain;E('workLocation').value='';E('workInstruction').value='';document.querySelectorAll('[data-work-type]').forEach(x=>x.classList.remove('on'));show('workWaitCreate')}
-async function saveWorkWait(){if(workWaitSaving)return;const p=state.pos.find(x=>x.packageNo===currentPackage),type=canonicalWorkType(E('workType').value),weight=num(E('workWeight').value),location=E('workLocation').value.trim(),instruction=E('workInstruction').value.trim(),remain=p?packageRemain(p):0,existing=state.workWaits.find(x=>x.packageNo===p?.packageNo&&x.status==='WAITING');if(!p)return msg('workWaitCreateMsg','사내입고번호를 다시 선택하세요.',true);if(!['재선별','쇼트','산처리','절단작업'].includes(type))return msg('workWaitCreateMsg','작업 종류를 선택하세요.',true);if(weight<=0||weight>remain)return msg('workWaitCreateMsg','작업대기 중량은 미작업 잔량 '+kg(remain)+' 이하여야 합니다.',true);if(!state.workWaitLocations.includes(location))return msg('workWaitCreateMsg','기준정보에 저장한 작업대기 장소를 선택하세요.',true);if(!instruction)return msg('workWaitCreateMsg','상세작업지침을 입력하세요.',true);const operationId=currentWorkWaitOperationPackage===p.packageNo&&currentWorkWaitOperationId?currentWorkWaitOperationId:'workwait-'+crypto.randomUUID(),sameOperation=state.workWaits.find(x=>x.id===operationId||x.operationId===operationId);currentWorkWaitOperationId=operationId;currentWorkWaitOperationPackage=p.packageNo;if(sameOperation){currentWorkWaitId=sameOperation.id;show('workWaitDetail');return msg('workWaitDetailMsg',p.packageNo+' '+canonicalWorkType(sameOperation.type)+' 작업대기는 이미 저장되어 중복 생성하지 않았습니다.')}if(existing&&existing.id!==activeInspectionWorkTaskId)return msg('workWaitCreateMsg','이 사내입고는 이미 작업대기 중입니다. 기존 작업을 먼저 완료하세요.',true);const now=new Date().toISOString(),task={id:operationId,operationId,packageNo:p.packageNo,company:p.company,originalGrade:p.grade,type,weight,location,instruction,status:'WAITING',operatorName:currentUserName(),createdAt:now},backup=JSON.parse(JSON.stringify(state)),button=document.querySelector('#workWaitCreate button[onclick="saveWorkWait()"]');workWaitSaving=true;if(button)button.disabled=true;if(existing){existing.status='DONE';existing.completedAt=now;existing.completedByName=currentUserName();existing.completionReason=existing.type+' 중 '+type+' 작업대기로 전환';task.previousWorkWaitId=existing.id}state.workWaits.push(task);state.auditLogs.push({id:'audit-'+operationId,action:existing?'WORK_WAIT_TRANSFER':'WORK_WAIT_CREATE',packageNo:p.packageNo,workWaitId:task.id,previousWorkWaitId:existing?.id||'',type,weight,operatorName:currentUserName(),createdAt:now});try{await saveState();activeInspectionWorkTaskId='';currentWorkWaitId=task.id;currentWorkWaitOperationId='';currentWorkWaitOperationPackage='';show('workWaitDetail');msg('workWaitDetailMsg',p.packageNo+' '+type+' 작업대기를 한 건으로 저장하고 QR을 생성했습니다.')}catch(e){state=defaults(backup);renderAll();msg('workWaitCreateMsg','작업대기 저장 실패: '+e.message,true)}finally{workWaitSaving=false;if(button)button.disabled=false}}
+async function saveWorkWait(){if(workWaitSaving)return;const p=state.pos.find(x=>x.packageNo===currentPackage),type=canonicalWorkType(E('workType').value),weight=num(E('workWeight').value),location=E('workLocation').value.trim(),instruction=E('workInstruction').value.trim(),remain=p?packageRemain(p):0,existing=state.workWaits.find(x=>x.packageNo===p?.packageNo&&x.status==='WAITING');if(!p)return msg('workWaitCreateMsg','사내입고번호를 다시 선택하세요.',true);if(!['재검수','쇼트','산처리','절단작업'].includes(type))return msg('workWaitCreateMsg','작업 종류를 선택하세요.',true);if(weight<=0||weight>remain)return msg('workWaitCreateMsg','작업대기 중량은 미작업 잔량 '+kg(remain)+' 이하여야 합니다.',true);if(!state.workWaitLocations.includes(location))return msg('workWaitCreateMsg','기준정보에 저장한 작업대기 장소를 선택하세요.',true);if(!instruction)return msg('workWaitCreateMsg','상세작업지침을 입력하세요.',true);const operationId=currentWorkWaitOperationPackage===p.packageNo&&currentWorkWaitOperationId?currentWorkWaitOperationId:'workwait-'+crypto.randomUUID(),sameOperation=state.workWaits.find(x=>x.id===operationId||x.operationId===operationId);currentWorkWaitOperationId=operationId;currentWorkWaitOperationPackage=p.packageNo;if(sameOperation){currentWorkWaitId=sameOperation.id;show('workWaitDetail');return msg('workWaitDetailMsg',p.packageNo+' '+canonicalWorkType(sameOperation.type)+' 작업대기는 이미 저장되어 중복 생성하지 않았습니다.')}if(existing&&existing.id!==activeInspectionWorkTaskId)return msg('workWaitCreateMsg','이 사내입고는 이미 작업대기 중입니다. 기존 작업을 먼저 완료하세요.',true);const now=new Date().toISOString(),task={id:operationId,operationId,packageNo:p.packageNo,company:p.company,originalGrade:p.grade,type,weight,location,instruction,status:'WAITING',operatorName:currentUserName(),createdAt:now},backup=JSON.parse(JSON.stringify(state)),button=document.querySelector('#workWaitCreate button[onclick="saveWorkWait()"]');workWaitSaving=true;if(button)button.disabled=true;if(existing){existing.status='DONE';existing.completedAt=now;existing.completedByName=currentUserName();existing.completionReason=existing.type+' 중 '+type+' 작업대기로 전환';task.previousWorkWaitId=existing.id}state.workWaits.push(task);state.auditLogs.push({id:'audit-'+operationId,action:existing?'WORK_WAIT_TRANSFER':'WORK_WAIT_CREATE',packageNo:p.packageNo,workWaitId:task.id,previousWorkWaitId:existing?.id||'',type,weight,operatorName:currentUserName(),createdAt:now});try{await saveState();activeInspectionWorkTaskId='';currentWorkWaitId=task.id;currentWorkWaitOperationId='';currentWorkWaitOperationPackage='';show('workWaitDetail');msg('workWaitDetailMsg',p.packageNo+' '+type+' 작업대기를 한 건으로 저장하고 QR을 생성했습니다.')}catch(e){state=defaults(backup);renderAll();msg('workWaitCreateMsg','작업대기 저장 실패: '+e.message,true)}finally{workWaitSaving=false;if(button)button.disabled=false}}
 function workWaitQrTarget(task){const u=new URL(location.href);u.search='?work='+encodeURIComponent(task.id);u.hash='workWaitDetail';return u.href}
 function workWaitQrUrl(task,size=260){return`https://api.qrserver.com/v1/create-qr-code/?format=png&margin=8&size=${size}x${size}&data=${encodeURIComponent(workWaitQrTarget(task))}`}
 function workWaitWorker(x){return String(x?.completedByName||x?.updatedByName||x?.operatorName||x?.createdByName||'미지정').trim()||'미지정'}
 function completeActiveInspectionWorkTask(completedAt=new Date().toISOString(),splitIds=[],reason='검수확정 저장'){const task=activeInspectionWorkTask();if(!task)return null;task.status='DONE';task.completedAt=completedAt;task.completedByName=currentUserName();task.completionReason=reason;task.resultSplitIds=safeArray(splitIds);const auditId='audit-work-complete-'+task.id,existingAudit=state.auditLogs.find(row=>row.id===auditId),audit={id:auditId,action:task.type==='절단작업'?'CUTTING_INSPECTION_COMPLETE':'REINSPECTION_COMPLETE',packageNo:task.packageNo,workWaitId:task.id,type:task.type,splitIds:safeArray(splitIds),operatorName:currentUserName(),createdAt:completedAt};if(existingAudit)Object.assign(existingAudit,audit);else state.auditLogs.push(audit);return task}
-function workWaitActionLabel(x){const type=canonicalWorkType(x?.type);if(type==='재선별')return'재선별 시작';if(type==='절단작업')return'절단 검수 시작';if(type==='쇼트')return'쇼트 작업입력';if(type==='산처리')return'산처리 작업입력';return'작업 시작'}
-function startWorkWaitTask(id){const task=state.workWaits.find(x=>x.id===id);if(!task||task.status!=='WAITING')return openWorkWaitDetail(id);const type=canonicalWorkType(task.type),p=state.pos.find(row=>row.packageNo===task.packageNo);if(!p){showFlowToast('연결된 사내입고 자료가 없습니다.');currentWorkWaitId=id;show('workWaitDetail');return msg('workWaitDetailMsg','작업을 시작할 사내입고 자료를 찾을 수 없습니다.',true)}if(type==='재선별'&&packageRemain(p)<=0){showFlowToast('일반 재선별 가능한 입고 잔량이 없습니다.');currentWorkWaitId=id;show('workWaitDetail');return msg('workWaitDetailMsg',`${task.packageNo}의 일반 검수 잔량은 없습니다. 절단작업은 작업대기 중량을 별도 재고로 사용합니다.`,true)}if(type==='절단작업'&&num(task.weight)<=0){showFlowToast('절단작업 중량이 없습니다.');currentWorkWaitId=id;show('workWaitDetail');return msg('workWaitDetailMsg','절단검수를 시작할 작업대기 중량이 없습니다.',true)}task.type=type;if(type==='재선별'||type==='절단작업'){openInspection(task.packageNo,task.id);showFlowToast(`${task.packageNo} ${type==='절단작업'?'절단 검수':'재선별'} 시작`);return}if(type==='쇼트'||type==='산처리'){openWorkProcess(id);showFlowToast(`${task.packageNo} ${type} 작업입력 시작`);return}currentWorkWaitId=id;show('workWaitDetail');msg('workWaitDetailMsg','작업종류를 확인할 수 없어 상세화면을 열었습니다.',true)}
+function workWaitActionLabel(x){const type=canonicalWorkType(x?.type);if(type==='재검수')return'재검수 시작';if(type==='절단작업')return'절단 검수 시작';if(type==='쇼트')return'쇼트 작업입력';if(type==='산처리')return'산처리 작업입력';return'작업 시작'}
+function startWorkWaitTask(id){const task=state.workWaits.find(x=>x.id===id);if(!task||task.status!=='WAITING')return openWorkWaitDetail(id);const type=canonicalWorkType(task.type),p=state.pos.find(row=>row.packageNo===task.packageNo);if(!p){showFlowToast('연결된 사내입고 자료가 없습니다.');currentWorkWaitId=id;show('workWaitDetail');return msg('workWaitDetailMsg','작업을 시작할 사내입고 자료를 찾을 수 없습니다.',true)}if(type==='재검수'&&packageRemain(p)<=0){showFlowToast('일반 재검수 가능한 입고 잔량이 없습니다.');currentWorkWaitId=id;show('workWaitDetail');return msg('workWaitDetailMsg',`${task.packageNo}의 일반 검수 잔량은 없습니다. 절단작업은 작업대기 중량을 별도 재고로 사용합니다.`,true)}if(type==='절단작업'&&num(task.weight)<=0){showFlowToast('절단작업 중량이 없습니다.');currentWorkWaitId=id;show('workWaitDetail');return msg('workWaitDetailMsg','절단검수를 시작할 작업대기 중량이 없습니다.',true)}task.type=type;if(type==='재검수'||type==='절단작업'){openInspection(task.packageNo,task.id);showFlowToast(`${task.packageNo} ${type==='절단작업'?'절단 검수':'재검수'} 시작`);return}if(type==='쇼트'||type==='산처리'){openWorkProcess(id);showFlowToast(`${task.packageNo} ${type} 작업입력 시작`);return}currentWorkWaitId=id;show('workWaitDetail');msg('workWaitDetailMsg','작업종류를 확인할 수 없어 상세화면을 열었습니다.',true)}
 function ensureWorkProcessUi(){if(E('workProcess'))return;const detail=E('workWaitDetail');if(!detail)return;detail.insertAdjacentHTML('afterend',`<section id="workProcess" class="view"><p class="eyebrow">작업대기 · 작업결과 입력</p><h1 id="workProcessTitle">작업결과 입력</h1><button class="btn" onclick="show('workWaitDetail')">← 작업대기 상세로</button><div id="workProcessSummary" class="summary" style="margin-top:12px"></div><div class="card"><div class="photogrid"><label id="workAfterPhotoLabel" class="photo"><input id="workAfterPhoto" type="file" accept="image/*" onchange="photoChosen('workAfterPhotoLabel',this)">＋ 작업후 물품사진 필수</label><label id="workAnalyzerPhotoLabel" class="photo"><input id="workAnalyzerPhoto" type="file" accept="image/*" onchange="photoChosen('workAnalyzerPhotoLabel',this)">＋ 분석치 사진 필수</label></div><div class="form" style="margin-top:12px"><label>가공시간 · 시<select id="workDurationHours"></select></label><label>가공시간 · 분<select id="workDurationMinutes"></select></label></div><label style="margin-top:12px">특이사항 메모<textarea id="workResultNote" placeholder="작업 후 특이사항과 확인 내용을 입력하세요"></textarea></label><button id="workProcessSave" class="btn primary" style="width:100%;margin-top:12px" onclick="saveWorkProcess()">작업결과 저장·완료</button><div id="workProcessMsg" class="msg"></div></div></section>`);enableMobilePhotoUploads(E('workProcess'))}
 function renderWorkProcess(){ensureWorkProcessUi();const x=state.workWaits.find(t=>t.id===currentWorkWaitId);if(!x){E('workProcessSummary').innerHTML='<div>작업대기 자료를 찾을 수 없습니다.</div>';return}E('workProcessTitle').textContent=x.packageNo+' '+x.type+' 작업결과';E('workProcessSummary').innerHTML=`<div><small>작업종류</small><b>${esc(x.type)}</b></div><div><small>거래처·강종</small><b>${esc(x.company)} · ${esc(x.originalGrade)}</b></div><div><small>작업중량</small><b>${kg(x.weight)}</b></div><div><small>작업자</small><b>${esc(workWaitWorker(x))}</b></div>`;E('workDurationHours').innerHTML=Array.from({length:25},(_,i)=>`<option value="${i}">${i}시간</option>`).join('');E('workDurationMinutes').innerHTML=Array.from({length:60},(_,i)=>`<option value="${i}">${i}분</option>`).join('');E('workAfterPhoto').value='';E('workAnalyzerPhoto').value='';E('workResultNote').value='';E('workAfterPhotoLabel').classList.remove('ok');E('workAnalyzerPhotoLabel').classList.remove('ok');E('workProcessSave').textContent=x.type+' 결과 저장·작업완료';E('workProcessMsg').className='msg'}
 function openWorkProcess(id){const task=state.workWaits.find(x=>x.id===id);if(!task||task.status!=='WAITING')return openWorkWaitDetail(id);if(!['쇼트','산처리'].includes(task.type))return startWorkWaitTask(id);currentWorkWaitId=id;ensureWorkProcessUi();show('workProcess')}
@@ -426,7 +427,7 @@ async function saveWorkProcess(){if(workProcessSaving)return;const x=state.workW
 function workWaitResultHtml(x){const r=x.workResult;if(!r)return x.status==='DONE'?`<div class="msg on">완료 사유: ${esc(x.completionReason||'작업완료')}</div>`:'';const time=`${num(r.durationHours)}시간 ${num(r.durationMinutes)}분`;return`<section class="card" style="background:#f2f8f5"><h2>${esc(x.type)} 작업완료 결과</h2><div class="summary"><div><small>가공시간</small><b>${esc(time)}</b></div><div><small>완료 작업자</small><b>${esc(x.completedByName||r.operatorName||workWaitWorker(x))}</b></div><div><small>완료시간</small><b>${esc(String(x.completedAt||r.completedAt||'').replace('T',' ').slice(0,16))}</b></div></div>${r.note?`<p><b>특이사항:</b> ${esc(r.note)}</p>`:'<p>특이사항 없음</p>'}<div class="photos-view"><figure><button class="photo-open" onclick="openPhoto(${JSON.stringify(photoUrl(r.afterPhoto)).replace(/"/g,'&quot;')},${JSON.stringify(x.packageNo).replace(/"/g,'&quot;')},'${esc(x.type)} 작업후 물품사진')"><img src="${photoUrl(r.afterPhoto)}" loading="lazy" alt="${esc(x.type)} 작업후 물품사진"></button><figcaption>작업후 물품사진<small>누르면 크게 보기</small></figcaption></figure><figure><button class="photo-open" onclick="openPhoto(${JSON.stringify(photoUrl(r.analyzerPhoto)).replace(/"/g,'&quot;')},${JSON.stringify(x.packageNo).replace(/"/g,'&quot;')},'${esc(x.type)} 분석치 사진')"><img src="${photoUrl(r.analyzerPhoto)}" loading="lazy" alt="${esc(x.type)} 분석치 사진"></button><figcaption>분석치 사진<small>누르면 크게 보기</small></figcaption></figure></div></section>`}
 function showWorkWaitFilter(status){workWaitStatusFilter=status||'';filterWorkWaitType='';show('workWaits')}
 function selectWorkWaitListType(type){filterWorkWaitType=canonicalWorkType(type||'');workWaitStatusFilter='WAITING';if(E('workWaitSearch'))E('workWaitSearch').value='';renderWorkWaits();setTimeout(()=>E('workWaitList')?.scrollIntoView({behavior:'smooth',block:'start'}),60)}
-function renderWorkWaits(){const q=String(E('workWaitSearch')?.value||'').trim().toLowerCase(),waiting=state.workWaits.filter(x=>x.status==='WAITING'),count=t=>waiting.filter(x=>canonicalWorkType(x.type)===canonicalWorkType(t)).length;E('wwAll').textContent=waiting.length;E('wwReinspect').textContent=count('재선별');E('wwShot').textContent=count('쇼트');E('wwAcid').textContent=count('산처리');E('wwCut').textContent=count('절단작업');E('workWaits')?.querySelectorAll('[data-workwait-filter]').forEach(button=>button.classList.toggle('on',canonicalWorkType(button.dataset.workwaitFilter)===filterWorkWaitType));const list=state.workWaits.filter(x=>(!workWaitStatusFilter||x.status===workWaitStatusFilter)&&(!filterWorkWaitType||canonicalWorkType(x.type)===filterWorkWaitType)&&(!q||[x.packageNo,x.company,x.originalGrade,x.type,x.location,x.instruction,workWaitWorker(x)].some(v=>String(v||'').toLowerCase().includes(q)))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))),heading=`<div class="msg on" style="margin:0 0 10px"><b>${filterWorkWaitType?esc(filterWorkWaitType)+' 작업대기만 표시':'전체 작업대기 표시'}</b> · ${list.length}건</div>`;E('workWaitList').innerHTML=heading+(list.length?list.map(x=>`<article class="donecard"><div class="actions" style="justify-content:space-between"><span class="status-chip ${x.status==='DONE'?'':'warn'}">${x.status==='DONE'?'작업완료':'작업대기'}</span><div class="actions"><button type="button" class="btn" onclick="openWorkWaitDetail('${x.id}')">상세·QR</button>${x.status==='WAITING'?`<button type="button" class="btn primary" data-work-wait-action="${esc(x.id)}" onclick="startWorkWaitTask(this.dataset.workWaitAction)">${workWaitActionLabel(x)}</button>`:''}</div></div><h2>${esc(x.packageNo)} · ${esc(canonicalWorkType(x.type))}</h2><p><b>${esc(x.company)} · ${esc(x.originalGrade)} · ${kg(x.weight)}</b></p><p>${esc(x.location)} · ${esc(x.instruction)}</p><p class="record-user-badge">👤 ${x.status==='DONE'?'완료 작업자':'작업대기 등록자'} ${esc(workWaitWorker(x))}</p>${x.status==='DONE'&&x.completedAt?`<p>완료 ${esc(String(x.completedAt).replace('T',' ').slice(0,16))}</p>`:''}</article>`).join(''):`<div class="card">${filterWorkWaitType?esc(filterWorkWaitType)+' ':''}조건에 맞는 작업대기 자료가 없습니다.</div>`);bindWorkWaitMobileActions()}
+function renderWorkWaits(){const q=String(E('workWaitSearch')?.value||'').trim().toLowerCase(),waiting=state.workWaits.filter(x=>x.status==='WAITING'),count=t=>waiting.filter(x=>canonicalWorkType(x.type)===canonicalWorkType(t)).length;E('wwAll').textContent=waiting.length;E('wwReinspect').textContent=count('재검수');E('wwShot').textContent=count('쇼트');E('wwAcid').textContent=count('산처리');E('wwCut').textContent=count('절단작업');E('workWaits')?.querySelectorAll('[data-workwait-filter]').forEach(button=>button.classList.toggle('on',canonicalWorkType(button.dataset.workwaitFilter)===filterWorkWaitType));const list=state.workWaits.filter(x=>(!workWaitStatusFilter||x.status===workWaitStatusFilter)&&(!filterWorkWaitType||canonicalWorkType(x.type)===filterWorkWaitType)&&(!q||[x.packageNo,x.company,x.originalGrade,x.type,x.location,x.instruction,workWaitWorker(x)].some(v=>String(v||'').toLowerCase().includes(q)))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))),heading=`<div class="msg on" style="margin:0 0 10px"><b>${filterWorkWaitType?esc(filterWorkWaitType)+' 작업대기만 표시':'전체 작업대기 표시'}</b> · ${list.length}건</div>`;E('workWaitList').innerHTML=heading+(list.length?list.map(x=>`<article class="donecard"><div class="actions" style="justify-content:space-between"><span class="status-chip ${x.status==='DONE'?'':'warn'}">${x.status==='DONE'?'작업완료':'작업대기'}</span><div class="actions"><button type="button" class="btn" onclick="openWorkWaitDetail('${x.id}')">상세·QR</button>${x.status==='WAITING'?`<button type="button" class="btn primary" data-work-wait-action="${esc(x.id)}" onclick="startWorkWaitTask(this.dataset.workWaitAction)">${workWaitActionLabel(x)}</button>`:''}</div></div><h2>${esc(x.packageNo)} · ${esc(canonicalWorkType(x.type))}</h2><p><b>${esc(x.company)} · ${esc(x.originalGrade)} · ${kg(x.weight)}</b></p><p>${esc(x.location)} · ${esc(x.instruction)}</p><p class="record-user-badge">👤 ${x.status==='DONE'?'완료 작업자':'작업대기 등록자'} ${esc(workWaitWorker(x))}</p>${x.status==='DONE'&&x.completedAt?`<p>완료 ${esc(String(x.completedAt).replace('T',' ').slice(0,16))}</p>`:''}</article>`).join(''):`<div class="card">${filterWorkWaitType?esc(filterWorkWaitType)+' ':''}조건에 맞는 작업대기 자료가 없습니다.</div>`);bindWorkWaitMobileActions()}
 function openWorkWaitDetail(id){const task=state.workWaits.find(x=>x.id===id);if(!task)return;currentWorkWaitId=id;show('workWaitDetail')}
 function renderWorkWaitDetail(){const x=state.workWaits.find(t=>t.id===currentWorkWaitId);if(!x){E('workWaitDetailBody').innerHTML='<div class="card">작업대기 자료를 찾을 수 없습니다.</div>';return}E('workWaitDetailTitle').textContent=x.packageNo+' '+x.type;E('workWaitDetailBody').innerHTML=`<article class="donecard"><div class="summary"><div><small>거래처</small><b>${esc(x.company)}</b></div><div><small>거래처 강종</small><b>${esc(x.originalGrade)}</b></div><div><small>작업대기 중량</small><b>${kg(x.weight)}</b></div><div><small>작업장소</small><b>${esc(x.location)}</b></div><div><small>${x.status==='DONE'?'완료 작업자':'작업대기 등록자'}</small><b>${esc(workWaitWorker(x))}</b></div></div><h2>상세작업지침</h2><p style="white-space:pre-wrap">${esc(x.instruction)}</p><div class="qrcard" style="max-width:320px;margin:16px auto"><img src="${workWaitQrUrl(x)}" alt="${esc(x.packageNo)} 작업대기 QR"><b>${esc(x.packageNo)}</b><span>${esc(x.type)} · ${kg(x.weight)}</span></div>${x.status==='WAITING'?`<button class="btn primary" style="width:100%" onclick="startWorkWaitTask('${x.id}')">${workWaitActionLabel(x)}</button>`:`<p class="status-chip">작업완료 ${esc(String(x.completedAt||'').replace('T',' ').slice(0,16))}</p>`}${workWaitResultHtml(x)}</article>`}
 async function completeWorkWait(id){const x=state.workWaits.find(t=>t.id===id);if(!x||x.status!=='WAITING')return;const backup=JSON.parse(JSON.stringify(state));x.status='DONE';x.completedAt=new Date().toISOString();try{await saveState();currentWorkWaitId=id;renderWorkWaitDetail();msg('workWaitDetailMsg',x.packageNo+' '+x.type+' 작업을 완료 처리했습니다. 다시 검수하려면 사내입고 QR을 촬영하세요.')}catch(e){state=defaults(backup);renderAll();msg('workWaitDetailMsg','작업완료 저장 실패: '+e.message,true)}}
@@ -465,7 +466,7 @@ function selectedCompletionTargetForGrade(grade){const selected=state.bags.find(
 function setSimplePackingMove(no,grade,mode=''){activeSimplePackingMoveKey=simplePackingKey(no,grade);simplePackingMoveMode=mode;currentPackingSourceNo=no;renderPackingSourceChoices();const rows=packingSourceGradeRows(no).filter(row=>row.available>0),index=rows.findIndex(row=>row.grade===grade),targetId=mode==='complete'?`simpleCompletionSearch-${index}`:mode==='waiting'?`simpleWaitingLocation-${index}`:mode==='work'?`simpleWorkType-${index}`:'';if(targetId)focusPackingField(targetId)}
 function clearSimplePackingMove(){activeSimplePackingMoveKey='';simplePackingMoveMode='';renderPackingSourceChoices()}
 function syncSimpleChoice(selectId,inputId){const select=E(selectId),input=E(inputId);if(select&&input&&select.value)input.value=select.value;const index=String(selectId).split('-').pop(),next=String(selectId).startsWith('simpleCompletionSelect-')?`simpleCompletionWeight-${index}`:String(selectId).startsWith('simpleWaitingLocationSelect-')?`simpleWaitingWeight-${index}`:'';if(next)focusPackingField(next,30)}
-function simplePackingMovePanel(p,row,i){const key=simplePackingKey(p.packageNo,row.grade);if(activeSimplePackingMoveKey!==key)return'';const targets=completionTargetsForGrade(row.grade),recent=selectedCompletionTargetForGrade(row.grade),waiting=row.waiting?.to||'',work=activeWorkWaitForGrade(p.packageNo,row.grade),mode=simplePackingMoveMode;let form='';if(mode==='complete')form=`<div class="simple-move-form"><h3>완료포장으로 이동</h3><p>서로 다른 P.O·사내입고번호의 동일 강종도 같은 완료번호에 계속 합칠 수 있습니다.</p>${targets.length?`<div class="form"><label>완료번호 검색<input id="simpleCompletionSearch-${i}" list="simpleCompletionList-${i}" value="${esc(bagCode(recent))}" placeholder="완료번호 검색"><datalist id="simpleCompletionList-${i}">${targets.map(b=>`<option value="${esc(bagCode(b))}">${esc(b.grade)} · N/W ${kg(bagNetWeight(b))}</option>`).join('')}</datalist></label><label>최근 완료번호에서 선택<select id="simpleCompletionSelect-${i}" onchange="syncSimpleChoice(this.id,'simpleCompletionSearch-${i}')"><option value="">완료번호 선택</option>${targets.map(b=>`<option value="${esc(bagCode(b))}" ${b.id===recent?.id?'selected':''}>${esc(bagCode(b))} · N/W ${kg(bagNetWeight(b))}</option>`).join('')}</select></label><label>이동 중량(kg)<input id="simpleCompletionWeight-${i}" type="number" inputmode="decimal" value="${row.available}"></label></div><button class="btn primary" style="width:100%;margin-top:10px" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" data-index="${i}" onclick="confirmSimpleCompletionMove(this.dataset.no,this.dataset.grade,this.dataset.index)">이동확정</button>`:`<div class="msg err">이 강종으로 등록된 완료번호가 없습니다. 위의 ‘완료번호 생성’에서 먼저 새 포장의 완료번호를 등록하세요.</div><button class="btn primary" style="width:100%" data-split-id="${esc(row.split.id)}" onclick="chooseInspectionResultForPacking(this.dataset.splitId)">완료번호 생성 입력칸으로 이동</button>`}</div>`;if(mode==='waiting')form=`<div class="simple-move-form"><h3>포장대기로 이동</h3><div class="form"><label>포장대기장 번호 검색·직접입력<input id="simpleWaitingLocation-${i}" list="simpleWaitingLocationList-${i}" value="${esc(waiting)}" placeholder="예: 포장대기 A-01"><datalist id="simpleWaitingLocationList-${i}">${state.waitingLocations.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></label><label>저장된 장소에서 선택<select id="simpleWaitingLocationSelect-${i}" onchange="syncSimpleChoice(this.id,'simpleWaitingLocation-${i}')"><option value="">장소 선택</option>${state.waitingLocations.map(x=>`<option value="${esc(x)}" ${x===waiting?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>이동 중량(kg)<input id="simpleWaitingWeight-${i}" type="number" inputmode="decimal" value="${row.available}"></label></div><button class="btn warn" style="width:100%;margin-top:10px" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" data-index="${i}" onclick="confirmSimpleWaitingMove(this.dataset.no,this.dataset.grade,this.dataset.index)">이동 확정</button></div>`;if(mode==='work')form=`<div class="simple-move-form"><h3>작업대기로 이동</h3><div class="form"><label>작업명 입력·선택<input id="simpleWorkType-${i}" list="simpleWorkTypeList-${i}" value="${esc(work?.type||'')}" placeholder="예: 재선별"><datalist id="simpleWorkTypeList-${i}">${['재선별','쇼트','산처리','절단작업'].map(x=>`<option value="${x}"></option>`).join('')}</datalist></label><label>대기장소 입력·선택<input id="simpleWorkLocation-${i}" list="simpleWorkLocationList-${i}" value="${esc(work?.location||'')}" placeholder="작업대기 장소"><datalist id="simpleWorkLocationList-${i}">${state.workWaitLocations.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></label><label>이동 중량(kg)<input id="simpleWorkWeight-${i}" type="number" inputmode="decimal" value="${row.available}"></label><label>상세 작업지침(선택)<input id="simpleWorkInstruction-${i}" value="${esc(work?.instruction||'')}" placeholder="필요한 작업 내용을 입력"></label></div><button class="btn danger" style="width:100%;margin-top:10px" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" data-index="${i}" onclick="confirmSimpleWorkMove(this.dataset.no,this.dataset.grade,this.dataset.index)">이동완료</button></div>`;return`<div class="simple-move-panel"><div class="simple-move-types"><button class="btn primary" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade,'complete')">완료포장으로 이동</button><button class="btn warn" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade,'waiting')">포장대기로 이동</button><button class="btn danger" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade,'work')">작업대기로 이동</button></div>${form}<button class="btn" style="width:100%;margin-top:9px" onclick="clearSimplePackingMove()">재고 이동 닫기</button></div>`}
+function simplePackingMovePanel(p,row,i){const key=simplePackingKey(p.packageNo,row.grade);if(activeSimplePackingMoveKey!==key)return'';const targets=completionTargetsForGrade(row.grade),recent=selectedCompletionTargetForGrade(row.grade),waiting=row.waiting?.to||'',work=activeWorkWaitForGrade(p.packageNo,row.grade),mode=simplePackingMoveMode;let form='';if(mode==='complete')form=`<div class="simple-move-form"><h3>완료포장으로 이동</h3><p>서로 다른 P.O·사내입고번호의 동일 강종도 같은 완료번호에 계속 합칠 수 있습니다.</p>${targets.length?`<div class="form"><label>완료번호 검색<input id="simpleCompletionSearch-${i}" list="simpleCompletionList-${i}" value="${esc(bagCode(recent))}" placeholder="완료번호 검색"><datalist id="simpleCompletionList-${i}">${targets.map(b=>`<option value="${esc(bagCode(b))}">${esc(b.grade)} · N/W ${kg(bagNetWeight(b))}</option>`).join('')}</datalist></label><label>최근 완료번호에서 선택<select id="simpleCompletionSelect-${i}" onchange="syncSimpleChoice(this.id,'simpleCompletionSearch-${i}')"><option value="">완료번호 선택</option>${targets.map(b=>`<option value="${esc(bagCode(b))}" ${b.id===recent?.id?'selected':''}>${esc(bagCode(b))} · N/W ${kg(bagNetWeight(b))}</option>`).join('')}</select></label><label>이동 중량(kg)<input id="simpleCompletionWeight-${i}" type="number" inputmode="decimal" value="${row.available}"></label></div><button class="btn primary" style="width:100%;margin-top:10px" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" data-index="${i}" onclick="confirmSimpleCompletionMove(this.dataset.no,this.dataset.grade,this.dataset.index)">이동확정</button>`:`<div class="msg err">이 강종으로 등록된 완료번호가 없습니다. 위의 ‘완료번호 생성’에서 먼저 새 포장의 완료번호를 등록하세요.</div><button class="btn primary" style="width:100%" data-split-id="${esc(row.split.id)}" onclick="chooseInspectionResultForPacking(this.dataset.splitId)">완료번호 생성 입력칸으로 이동</button>`}</div>`;if(mode==='waiting')form=`<div class="simple-move-form"><h3>포장대기로 이동</h3><div class="form"><label>포장대기장 번호 검색·직접입력<input id="simpleWaitingLocation-${i}" list="simpleWaitingLocationList-${i}" value="${esc(waiting)}" placeholder="예: 포장대기 A-01"><datalist id="simpleWaitingLocationList-${i}">${state.waitingLocations.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></label><label>저장된 장소에서 선택<select id="simpleWaitingLocationSelect-${i}" onchange="syncSimpleChoice(this.id,'simpleWaitingLocation-${i}')"><option value="">장소 선택</option>${state.waitingLocations.map(x=>`<option value="${esc(x)}" ${x===waiting?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>이동 중량(kg)<input id="simpleWaitingWeight-${i}" type="number" inputmode="decimal" value="${row.available}"></label></div><button class="btn warn" style="width:100%;margin-top:10px" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" data-index="${i}" onclick="confirmSimpleWaitingMove(this.dataset.no,this.dataset.grade,this.dataset.index)">이동 확정</button></div>`;if(mode==='work')form=`<div class="simple-move-form"><h3>작업대기로 이동</h3><div class="form"><label>작업명 입력·선택<input id="simpleWorkType-${i}" list="simpleWorkTypeList-${i}" value="${esc(work?.type||'')}" placeholder="예: 재검수"><datalist id="simpleWorkTypeList-${i}">${['재검수','쇼트','산처리','절단작업'].map(x=>`<option value="${x}"></option>`).join('')}</datalist></label><label>대기장소 입력·선택<input id="simpleWorkLocation-${i}" list="simpleWorkLocationList-${i}" value="${esc(work?.location||'')}" placeholder="작업대기 장소"><datalist id="simpleWorkLocationList-${i}">${state.workWaitLocations.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></label><label>이동 중량(kg)<input id="simpleWorkWeight-${i}" type="number" inputmode="decimal" value="${row.available}"></label><label>상세 작업지침(선택)<input id="simpleWorkInstruction-${i}" value="${esc(work?.instruction||'')}" placeholder="필요한 작업 내용을 입력"></label></div><button class="btn danger" style="width:100%;margin-top:10px" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" data-index="${i}" onclick="confirmSimpleWorkMove(this.dataset.no,this.dataset.grade,this.dataset.index)">이동완료</button></div>`;return`<div class="simple-move-panel"><div class="simple-move-types"><button class="btn primary" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade,'complete')">완료포장으로 이동</button><button class="btn warn" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade,'waiting')">포장대기로 이동</button><button class="btn danger" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade,'work')">작업대기로 이동</button></div>${form}<button class="btn" style="width:100%;margin-top:9px" onclick="clearSimplePackingMove()">재고 이동 닫기</button></div>`}
 function renderPackingSourceChoices(){const target=E('packingSourceChoices');if(!target)return;const p=state.pos.find(x=>x.packageNo===currentPackingSourceNo),allRows=packingSourceGradeRows(),rows=allRows.filter(row=>row.available>0);if(!p){target.innerHTML='';return}target.innerHTML=`<div class="simple-packing-help"><b>쉬운 재고 이동</b><br>아직 목적지가 정해지지 않은 검수확정 중량만 표시합니다. 완료포장·포장대기·작업대기로 이동하면 즉시 차감되고 전량 이동된 강종은 이 목록에서 사라집니다.</div><div class="card" style="border:3px solid var(--amber)"><div class="actions" style="justify-content:space-between;align-items:center"><b>불러온 사내입고번호 ${esc(p.packageNo)}</b><span class="status-chip">이동대기 강종 ${rows.length}개</span></div><p>${esc(p.company)} · 거래처 강종 ${esc(p.grade)}</p>${rows.length?rows.map((row,i)=>{const status=row.allocated>0?'일부 이동 · 미배정 잔량':'이동 전',recent=selectedCompletionTargetForGrade(row.grade);return`<article class="packing-source-choice"><div class="simple-packing-header"><div><span class="status-chip">${esc(status)}</span><h3>${esc(row.grade)}</h3><p>검수확정 ${kg(row.total)} · 완료포장 ${kg(row.packed)} · 포장/작업대기 ${kg(row.allocated)} · <b>이동 가능 ${kg(row.available)}</b></p>${recent?`<span class="simple-packing-number">최근 완료번호 ${esc(bagCode(recent))}</span>`:'<p class="simple-move-status">등록된 동일 강종 완료번호 없음</p>'}</div><button class="btn primary" data-no="${esc(p.packageNo)}" data-grade="${esc(row.grade)}" onclick="setSimplePackingMove(this.dataset.no,this.dataset.grade)">재고 이동</button></div>${simplePackingMovePanel(p,row,i)}</article>`}).join(''):'<div class="msg on">이 사내입고의 검수확정 재고는 모두 목적지로 이동되어 재고이동 목록에서 제외되었습니다.</div>'}</div>`}
 function cancelSimpleGradeDestinations(no,grade,except=''){if(except!=='waiting')state.waitingMoves.filter(x=>x.packageNo===no&&x.grade===grade&&x.status!=='CANCELLED').forEach(x=>{x.status='CANCELLED';x.cancelledAt=new Date().toISOString()});if(except!=='work')state.workWaits.filter(x=>x.packageNo===no&&x.status==='WAITING'&&(x.grade===grade||x.originalGrade===grade)).forEach(x=>{x.status='DONE';x.completedAt=new Date().toISOString();x.completedByPackingMove=true})}
 async function confirmSimpleCompletionMove(no,grade,index){const row=packingSourceGradeRows(no).find(x=>x.grade===grade),code=String(E('simpleCompletionSearch-'+index)?.value||'').trim().toUpperCase(),target=completionTargetsForGrade(grade).find(b=>String(bagCode(b)).toUpperCase()===code),weight=num(E('simpleCompletionWeight-'+index)?.value);if(!row||row.available<=0)return msg('sourceInfo','완료포장으로 이동할 미배정 잔량이 없습니다.',true);if(!target)return msg('sourceInfo','동일 강종의 완료번호를 검색하거나 선택하세요.',true);if(weight<=0||weight>row.available)return msg('sourceInfo','이동 중량은 미배정 잔량 '+kg(row.available)+' 이하여야 합니다.',true);const backup=JSON.parse(JSON.stringify(state)),createdAt=new Date().toISOString(),input={id:crypto.randomUUID(),bagId:target.id,completionNo:bagCode(target),packageNo:no,sourceType:'PACKAGE',sourceBagId:'',sourceCompletionNo:'',grade,weight,status:'CONFIRMED',createdAt};state.inputs.push(input);state.auditLogs.push({id:crypto.randomUUID(),action:'SIMPLE_PACKING_COMPLETE_MOVE',packageNo:no,grade,completionNo:bagCode(target),weight,createdAt});try{await saveState();activeSimplePackingMoveKey='';simplePackingMoveMode='';currentPackingSourceNo=no;E('bagSelect').value=target.id;renderRepack(target.id);renderPackingSourceChoices();msg('sourceInfo',`${no} · ${grade} ${kg(weight)}을 ${bagCode(target)} 완료포장으로 이동하고 검수확정 가용중량에서 자동 차감했습니다. 현재 N/W ${kg(bagNetWeight(target))} · G/W ${kg(bagGrossWeight(target))}`)}catch(e){state=defaults(backup);renderAll();msg('sourceInfo','완료포장 이동 실패: '+e.message,true)}}
@@ -682,9 +683,7 @@ function renderPackingListPreview(){const list=state.packingLists.find(x=>x.id==
 function domesticPackingSheet(list,order,rows){const total=packingListTotals(rows),date=order.shipDate||String(list.createdAt||'').slice(0,10),data=[['', '', '(주) 신성금속','','','','',''],['','','경상남도 함안군 칠원읍 원서로 205-29','','','','',''],['','','Tel : 055-582-1105  Fax : 055-582-1106  E-mail : brian@shinsungmetal.net','','','','',''],[],['','출고 목록','','','','','',''],['','','','','','Date. '+date,'',''],['','','','','','기사님 연락처 :',order.driverPhone||'',order.vehicleNo||''],[],['','업 체',order.customer||list.customer,'','','전 화',order.customerPhone||'',''],['','주 소',order.customerAddress||'','','','팩 스',order.customerFax||'',''],[],['','No','강종','포장','총중량 (kg)','감량 (kg)','실량 (kg)','패킹 번호'],...rows.map(x=>['',x.no,x.grade,x.packing,x.gross,x.tare,x.net,x.completionNo]),['','','','','','','',''],['','Grand Total','','',total.gross,total.tare,total.net,'']],ws=XLSX.utils.aoa_to_sheet(data),grandRow=14+rows.length;ws['!cols']=[{wch:3},{wch:12},{wch:28},{wch:20},{wch:16},{wch:14},{wch:16},{wch:20}];ws['!merges']=[XLSX.utils.decode_range('C1:H1'),XLSX.utils.decode_range('C2:H2'),XLSX.utils.decode_range('C3:H3'),XLSX.utils.decode_range('B5:H5'),XLSX.utils.decode_range('C9:E9'),XLSX.utils.decode_range('G9:H9'),XLSX.utils.decode_range('C10:E10'),XLSX.utils.decode_range('G10:H10'),XLSX.utils.decode_range(`B${grandRow}:D${grandRow}`)];return ws}
 function overseasPackingSheet(list,order,rows){const total=packingListTotals(rows),date=order.shipDate||String(list.createdAt||'').slice(0,10),data=[['SS','PACKING LIST','','','','Sales No.',order.soNo||list.soNo],['','','','','','PO No.',order.poNo||''],['','','','','','Page No.','1/1 PAGE'],['','','','','','date of preparation',date],[],['Consignee',order.customer||list.customer,'','','Port',order.port||'',''],['Cont No.',order.containerNo||'','','','Seal No.',order.sealNo||'',''],['Department',order.department||'Shipment management','','','Cont size',order.containerSize||'',''],['Shipper',order.shipper||'SHIN SUNG METAL','','','','',''],[],['ITEM','Packing No','Packing','Gross Weight(Kg)','Loss Weight(Kg)','Net Weight(Kg)','Remark'],...rows.map(x=>[x.grade,x.completionNo,x.packing,x.gross,x.tare,x.net,x.remark]),['Grand Total',rows.length+' PACKAGES','',total.gross,total.tare,total.net,'']],ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:25},{wch:22},{wch:16},{wch:20},{wch:18},{wch:18},{wch:22}];ws['!merges']=[XLSX.utils.decode_range('B1:E4'),XLSX.utils.decode_range('B6:D6'),XLSX.utils.decode_range('F6:G6'),XLSX.utils.decode_range('B7:D7'),XLSX.utils.decode_range('F7:G7'),XLSX.utils.decode_range('B8:D8'),XLSX.utils.decode_range('F8:G8'),XLSX.utils.decode_range('B9:D9')];return ws}
 function downloadPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;if(!window.XLSX)return alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');const order=packingListOrder(list),rows=packingListPreviewRows(list),type=packingListTemplateType(list),ws=type==='OVERSEAS'?overseasPackingSheet(list,order,rows):domesticPackingSheet(list,order,rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'PACKING');XLSX.writeFile(wb,`${String(list.packingListNo||'PACKING-LIST').replace(/[\\/:*?"<>|]/g,'_')}_${type==='OVERSEAS'?'해외':'국내'}.xlsx`)}
-function printPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;const order=packingListOrder(list),rows=packingListPreviewRows(list),html=packingListTemplateType(list)==='OVERSEAS'?overseasPackingListHtml(list,order,rows):domesticPackingListHtml(list,order,rows),popup=open('','_blank','width=960,height=900');if(!popup)return alert('팝업이 차단되었습니다. 브라우저의 팝업을 허용하세요.');popup.document.write(`<html><head><title>${esc(list.packingListNo)}</title><style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,'Malgun Gothic',sans-serif;margin:0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #222;padding:6px;text-align:center;font-size:11px}.tablewrap{width:100%}h1{margin:8px 0}</style></head><body>${html}
-
-</body></html>`);popup.document.close();setTimeout(()=>popup.print(),300)}
+function printPackingList(id){const list=state.packingLists.find(x=>x.id===id&&x.status!=='CANCELLED');if(!list)return;const order=packingListOrder(list),rows=packingListPreviewRows(list),html=packingListTemplateType(list)==='OVERSEAS'?overseasPackingListHtml(list,order,rows):domesticPackingListHtml(list,order,rows),popup=open('','_blank','width=960,height=900');if(!popup)return alert('팝업이 차단되었습니다. 브라우저의 팝업을 허용하세요.');popup.document.write(`<html><head><title>${esc(list.packingListNo)}</title><style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,'Malgun Gothic',sans-serif;margin:0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #222;padding:6px;text-align:center;font-size:11px}.tablewrap{width:100%}h1{margin:8px 0}</style></head><body>${html}</body></html>`);popup.document.close();setTimeout(()=>popup.print(),300)}
 function openShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(!list){currentShipmentId=shipmentId;show('shipmentDetail');return msg('claimMsg','이전 출하자료에는 저장된 PACKING LIST가 없습니다.',true)}openPackingListPreview(list.id,'shipments')}
 function shareShipmentPackingList(shipmentId){const shipment=state.shipments.find(x=>x.id===shipmentId),list=shipment&&state.packingLists.find(x=>x.id===shipment.packingListId&&x.status==='FINAL');if(list)sharePackingList(list.id)}
 function openShipmentClaim(shipmentId){currentShipmentId=shipmentId;show('shipmentDetail');setTimeout(()=>E('claimContent')?.scrollIntoView({behavior:'smooth',block:'center'}),50)}
@@ -1331,7 +1330,7 @@ function workWaitPackingSplits(task){if(!task)return[];const active=state.splits
 function workWaitPackingButtonHtml(task){return`<button type="button" class="btn primary work-wait-packing-button" data-work-wait-packing="${esc(task.id)}" onclick="openWorkWaitPacking(this.dataset.workWaitPacking)">포장확정</button>`}
 function decorateWorkWaitPackingList(){const target=E('workWaitList');if(!target)return;state.workWaits.filter(task=>task.status==='DONE').forEach(task=>{const detailButton=[...target.querySelectorAll('button')].find(button=>button.getAttribute('onclick')===`openWorkWaitDetail('${task.id}')`),actions=detailButton?.parentElement;if(actions&&!actions.querySelector(`[data-work-wait-packing="${task.id}"]`))actions.insertAdjacentHTML('beforeend',workWaitPackingButtonHtml(task))})}
 function decorateWorkWaitPackingDetail(){const task=state.workWaits.find(row=>row.id===currentWorkWaitId&&row.status==='DONE'),article=E('workWaitDetailBody')?.querySelector('article');if(task&&article&&!article.querySelector('[data-work-wait-packing]'))article.insertAdjacentHTML('beforeend',`<div class="card" style="margin-top:12px;border:2px solid var(--green)"><b>작업완료 재고 포장</b><p>작업완료된 강종·소강종·중량을 쉬운 포장·재고이동 화면으로 자동 불러옵니다.</p>${workWaitPackingButtonHtml(task)}</div>`)}
-function openWorkWaitPacking(id){const task=state.workWaits.find(row=>row.id===id&&row.status==='DONE'),splits=workWaitPackingSplits(task);if(!task)return;if(!splits.length){currentWorkWaitPackingId='';currentWorkWaitId=task.id;show('workWaitDetail');return msg('workWaitDetailMsg','작업완료 자료와 연결된 검수확정 강종을 찾을 수 없습니다. 먼저 재선별에서 최종강종·소강종을 확정 저장하세요.',true)}currentWorkWaitPackingId=id;const first=splits[0],available=unassignedConfirmedWeight(task.packageNo,first.grade),packingWeight=Math.min(available,num(task.weight)||available);currentPackingSourceNo=task.packageNo;show('repack');prefillRepackFromInspection(first);E('repackPackageNo').value=task.packageNo;E('inputWeight').value=packingWeight||'';E('inputWeight').dataset.prefillPackage=task.packageNo;E('inputWeight').dataset.prefillGrade=first.grade;E('inputWeight').dataset.prefillWeight=String(packingWeight);renderPackingSourceChoices();updateRepackPreview();const gradeCount=[...new Set(splits.map(split=>split.grade))].length;msg('bagMsg',`${task.packageNo} · ${task.type} 작업완료 자료를 불러왔습니다. ${gradeCount}개 강종의 품종·강종·소강종과 작업완료 중량 ${kg(packingWeight)}을 확인한 뒤 새 완료번호를 생성하세요.`);E('completionNo')?.closest('.card')?.scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>E('bagMain')?.focus({preventScroll:true}),180)}
+function openWorkWaitPacking(id){const task=state.workWaits.find(row=>row.id===id&&row.status==='DONE'),splits=workWaitPackingSplits(task);if(!task)return;if(!splits.length){currentWorkWaitPackingId='';currentWorkWaitId=task.id;show('workWaitDetail');return msg('workWaitDetailMsg','작업완료 자료와 연결된 검수확정 강종을 찾을 수 없습니다. 먼저 재검수에서 최종강종·소강종을 확정 저장하세요.',true)}currentWorkWaitPackingId=id;const first=splits[0],available=unassignedConfirmedWeight(task.packageNo,first.grade),packingWeight=Math.min(available,num(task.weight)||available);currentPackingSourceNo=task.packageNo;show('repack');prefillRepackFromInspection(first);E('repackPackageNo').value=task.packageNo;E('inputWeight').value=packingWeight||'';E('inputWeight').dataset.prefillPackage=task.packageNo;E('inputWeight').dataset.prefillGrade=first.grade;E('inputWeight').dataset.prefillWeight=String(packingWeight);renderPackingSourceChoices();updateRepackPreview();const gradeCount=[...new Set(splits.map(split=>split.grade))].length;msg('bagMsg',`${task.packageNo} · ${task.type} 작업완료 자료를 불러왔습니다. ${gradeCount}개 강종의 품종·강종·소강종과 작업완료 중량 ${kg(packingWeight)}을 확인한 뒤 새 완료번호를 생성하세요.`);E('completionNo')?.closest('.card')?.scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>E('bagMain')?.focus({preventScroll:true}),180)}
 const renderWorkWaitsBeforePackingConfirm=renderWorkWaits;
 renderWorkWaits=function renderWorkWaitsWithPackingConfirm(){const result=renderWorkWaitsBeforePackingConfirm.apply(this,arguments);decorateWorkWaitPackingList();return result};
 const renderWorkWaitDetailBeforePackingConfirm=renderWorkWaitDetail;
@@ -1360,7 +1359,7 @@ function stampInspectionSettlementPackingInputs(){if(inspectionSettlementAction!
 const saveStateBeforeInspectionSettlementStamp=saveState;
 saveState=function saveStateWithInspectionSettlementStamp(options={}){stampInspectionSettlementPackingInputs();return saveStateBeforeInspectionSettlementStamp(options)};
 const saveWorkWaitBeforeInspectionSettlement=saveWorkWait;
-saveWorkWait=async function saveWorkWaitForInspectionSettlement(){if(inspectionSettlementAction!=='WORK')return saveWorkWaitBeforeInspectionSettlement.apply(this,arguments);if(workWaitSaving)return;const rows=selectedInspectionSettlementRows(),p=state.pos.find(row=>row.packageNo===currentPackage),type=canonicalWorkType(E('workType').value),location=E('workLocation').value.trim(),instruction=E('workInstruction').value.trim(),total=rows.reduce((sum,row)=>sum+row.remaining,0);if(!p||!rows.length)return msg('workWaitCreateMsg','강종 처리 선택화면에서 작업대기 행을 다시 선택하세요.',true);if(!['재선별','쇼트','산처리','절단작업'].includes(type))return msg('workWaitCreateMsg','작업 종류를 선택하세요.',true);if(!state.workWaitLocations.includes(location))return msg('workWaitCreateMsg','기준정보에 저장한 작업대기 장소를 선택하세요.',true);if(!instruction)return msg('workWaitCreateMsg','상세작업지침을 입력하세요.',true);const sourceIds=rows.flatMap(row=>row.splitIds).map(String).sort(),operationId=currentWorkWaitOperationId||('workwait-settlement-'+currentInspectionSettlementBatchId+'-'+sourceIds.join('-')),sameOperation=state.workWaits.find(row=>row.id===operationId||row.operationId===operationId);currentWorkWaitOperationId=operationId;currentWorkWaitOperationPackage=p.packageNo;if(sameOperation){E('workWeight').readOnly=false;finishInspectionSettlementAction(`${type} 작업대기는 이미 저장되어 중복 생성하지 않았습니다.`);return}const createdAt=new Date().toISOString(),gradeWeights=Object.fromEntries(rows.map(row=>[row.grade,row.remaining])),task={id:operationId,operationId,packageNo:p.packageNo,company:p.company,originalGrade:rows.map(row=>row.grade).join(' / '),grade:rows.length===1?rows[0].grade:'',settlementGrades:rows.map(row=>row.grade),settlementGradeWeights:gradeWeights,settlementSplitIds:sourceIds,sourceSplitId:rows[0].split.id,settlementBatchId:currentInspectionSettlementBatchId,type,weight:total,location,instruction,status:'WAITING',operatorName:currentUserName(),createdAt},backup=stateClone();workWaitSaving=true;state.workWaits.push(task);state.auditLogs.push({id:'audit-'+operationId,action:'INSPECTION_SETTLEMENT_WORK_WAIT',packageNo:p.packageNo,workWaitId:task.id,type,weight:total,grades:task.settlementGrades,settlementBatchId:currentInspectionSettlementBatchId,operatorName:currentUserName(),createdAt});try{await saveState();currentWorkWaitOperationId='';currentWorkWaitOperationPackage='';E('workWeight').readOnly=false;finishInspectionSettlementAction(`${type} 작업대기 한 건 등록 완료`)}catch(error){state=defaults(backup);renderAll();msg('workWaitCreateMsg','작업대기 저장 실패: '+error.message,true)}finally{workWaitSaving=false}};
+saveWorkWait=async function saveWorkWaitForInspectionSettlement(){if(inspectionSettlementAction!=='WORK')return saveWorkWaitBeforeInspectionSettlement.apply(this,arguments);if(workWaitSaving)return;const rows=selectedInspectionSettlementRows(),p=state.pos.find(row=>row.packageNo===currentPackage),type=canonicalWorkType(E('workType').value),location=E('workLocation').value.trim(),instruction=E('workInstruction').value.trim(),total=rows.reduce((sum,row)=>sum+row.remaining,0);if(!p||!rows.length)return msg('workWaitCreateMsg','강종 처리 선택화면에서 작업대기 행을 다시 선택하세요.',true);if(!['재검수','쇼트','산처리','절단작업'].includes(type))return msg('workWaitCreateMsg','작업 종류를 선택하세요.',true);if(!state.workWaitLocations.includes(location))return msg('workWaitCreateMsg','기준정보에 저장한 작업대기 장소를 선택하세요.',true);if(!instruction)return msg('workWaitCreateMsg','상세작업지침을 입력하세요.',true);const sourceIds=rows.flatMap(row=>row.splitIds).map(String).sort(),operationId=currentWorkWaitOperationId||('workwait-settlement-'+currentInspectionSettlementBatchId+'-'+sourceIds.join('-')),sameOperation=state.workWaits.find(row=>row.id===operationId||row.operationId===operationId);currentWorkWaitOperationId=operationId;currentWorkWaitOperationPackage=p.packageNo;if(sameOperation){E('workWeight').readOnly=false;finishInspectionSettlementAction(`${type} 작업대기는 이미 저장되어 중복 생성하지 않았습니다.`);return}const createdAt=new Date().toISOString(),gradeWeights=Object.fromEntries(rows.map(row=>[row.grade,row.remaining])),task={id:operationId,operationId,packageNo:p.packageNo,company:p.company,originalGrade:rows.map(row=>row.grade).join(' / '),grade:rows.length===1?rows[0].grade:'',settlementGrades:rows.map(row=>row.grade),settlementGradeWeights:gradeWeights,settlementSplitIds:sourceIds,sourceSplitId:rows[0].split.id,settlementBatchId:currentInspectionSettlementBatchId,type,weight:total,location,instruction,status:'WAITING',operatorName:currentUserName(),createdAt},backup=stateClone();workWaitSaving=true;state.workWaits.push(task);state.auditLogs.push({id:'audit-'+operationId,action:'INSPECTION_SETTLEMENT_WORK_WAIT',packageNo:p.packageNo,workWaitId:task.id,type,weight:total,grades:task.settlementGrades,settlementBatchId:currentInspectionSettlementBatchId,operatorName:currentUserName(),createdAt});try{await saveState();currentWorkWaitOperationId='';currentWorkWaitOperationPackage='';E('workWeight').readOnly=false;finishInspectionSettlementAction(`${type} 작업대기 한 건 등록 완료`)}catch(error){state=defaults(backup);renderAll();msg('workWaitCreateMsg','작업대기 저장 실패: '+error.message,true)}finally{workWaitSaving=false}};
 const confirmSimpleCompletionMoveBeforeInspectionSettlement=confirmSimpleCompletionMove;
 confirmSimpleCompletionMove=async function confirmSimpleCompletionMoveForInspectionSettlement(no,grade,index){const batchId=currentInspectionSettlementBatchId,action=inspectionSettlementAction,weight=num(E('simpleCompletionWeight-'+index)?.value),before=new Set(state.inputs.map(row=>row.id));if(action==='PACKING'&&!validateInspectionSettlementPackingWeight(grade,weight))return;inspectionSettlementPendingMove=action==='PACKING'?{kind:'COMPLETE',grade,weight}:null;try{await confirmSimpleCompletionMoveBeforeInspectionSettlement.apply(this,arguments)}finally{inspectionSettlementPendingMove=null}if(batchId&&action==='PACKING'&&state.inputs.some(row=>!before.has(row.id)&&row.settlementBatchId===batchId))finishInspectionSettlementAction('포장완료 등록 완료')};
 const addInputBeforeInspectionSettlement=addInput;
@@ -1467,7 +1466,7 @@ openInspection=function openInspectionWithWorkLoss(no,workWaitId=''){const resul
 const saveCuttingInspectionBeforeWorkLoss=saveCuttingInspection;
 saveCuttingInspection=async function saveCuttingInspectionWithWorkLoss(task){if(saving)return;const p=state.pos.find(row=>row.packageNo===task.packageNo),draft=state.inspectionDrafts.find(row=>row.packageNo===task.packageNo&&row.status==='TEMP'&&row.workWaitId===task.id),inspector=E('inspector').value.trim()||currentUserName(),rows=inspectionBatchRowsFromForm(),lossWeight=workWaitLossWeight(task),available=Math.max(0,num(task.weight)-lossWeight),total=rows.reduce((sum,row)=>sum+num(row.weight),0),grades=rows.map(row=>gradeLabel(row.mainGrade,row.subGrade,row.detailGrade,row.productType)),shape=E('shapePhoto').files[0],analyzer=E('analyzerPhoto').files[0],anomaly=E('anomalyPhoto').files[0],existing=draft?.photos||{},analyzerRequired=p?analyzerRequiredFor(p):true;if(!p)return msg('inspectMsg','절단작업의 사내입고번호를 다시 선택하세요.',true);if(!rows.length||rows.some(row=>!row.productType||!row.mainGrade||!row.subGrade))return msg('inspectMsg','모든 절단 분류행의 품종·최종 강종·소강종을 선택하세요.',true);if(rows.some(row=>num(row.weight)<=0))return msg('inspectMsg','모든 절단 분류행 중량은 0kg보다 커야 합니다.',true);if(Math.abs(total-available)>0.001)return msg('inspectMsg',`절단대기 ${kg(task.weight)} 중 작업중 로스 ${kg(lossWeight)}을 제외한 결과중량 ${kg(available)}과 강종 합계 ${kg(total)}이 일치해야 합니다.`,true);if(new Set(grades).size!==grades.length)return msg('inspectMsg','같은 절단 결과 강종·소강종이 중복되었습니다. 한 행으로 중량을 합쳐 입력하세요.',true);if(!shape&&!existing.shape)return msg('inspectMsg','절단 결과 형상 사진은 필수입니다.',true);if(analyzerRequired&&!analyzer&&!existing.analyzer)return msg('inspectMsg','절단 결과 최초 확인에는 분석기 사진이 필수입니다.',true);saving=true;E('inspectSave').disabled=true;const backup=stateClone();try{beginSaveProgress('절단 결과 저장 중','작업중 로스를 포함해 절단 원재고를 차감하고 결과 강종별 재고를 생성하고 있습니다.');const uploaded=await Promise.all([uploadPhoto(shape,p.packageNo,'cutting-shape'),uploadPhoto(analyzer,p.packageNo,'cutting-analyzer'),uploadPhoto(anomaly,p.packageNo,'cutting-anomaly')]),photos={shape:uploaded[0]||existing.shape||'',analyzer:uploaded[1]||existing.analyzer||'',anomaly:uploaded[2]||existing.anomaly||''},photoMemos=inspectionPhotoMemos(),batchId=crypto.randomUUID(),createdAt=new Date().toISOString(),memo=E('memo').value.trim(),consumeWeight=workLossInventoryMode(task)==='CONFIRMED_STOCK'?num(task.weight):available,source=consumeCuttingSourceSplits(task,consumeWeight),splits=rows.map((row,index)=>({id:crypto.randomUUID(),batchId,batchIndex:index,packageNo:p.packageNo,inspector,grade:grades[index],productType:row.productType,mainGrade:row.mainGrade,subGrade:row.subGrade,detailGrade:row.detailGrade,weight:num(row.weight),settlementOriginalWeight:num(row.weight),memo,photoMemos,photos,status:'CONFIRMED',cuttingResult:true,sourceWorkWaitId:task.id,sourceSplitIds:source.sourceIds,createdAt}));state.splits.push(...splits);task.cuttingSourceMode=source.mode;task.cuttingSourceSnapshot=source.before;task.workLossWeight=lossWeight;completeActiveInspectionWorkTask(createdAt,splits.map(split=>split.id),'절단 분류확정 저장');state.inspectionDrafts=state.inspectionDrafts.filter(row=>row.id!==draft?.id);state.auditLogs.push({id:crypto.randomUUID(),action:'CUTTING_RECLASSIFY',packageNo:p.packageNo,workWaitId:task.id,inputWeight:num(task.weight),resultWeight:total,lossWeight,resultGrades:splits.map(split=>({grade:split.grade,weight:split.weight})),sourceSplitIds:source.sourceIds,operatorName:currentUserName(),createdAt});inspectionSettlementAction='';await saveState();currentPackage=p.packageNo;activeInspectionWorkTaskId='';openInspectionSettlement(batchId);msg('inspectionSettlementMsg',`${splits.length}개 절단 결과 ${kg(total)}과 작업중 로스 ${kg(lossWeight)}을 저장했습니다. 강종행을 선택해 후속 처리를 진행하세요.`);showFlowToast('절단 분류·로스 저장완료')}catch(error){state=defaults(backup);renderAll();msg('inspectMsg','절단 결과 저장 실패: '+error.message,true)}finally{endSaveProgress();saving=false;E('inspectSave').disabled=false}};
 const saveInspectionBeforeWorkLoss=saveInspection;
-saveInspection=async function saveInspectionWithWorkLossValidation(){const task=activeInspectionWorkTask();if(task&&canonicalWorkType(task.type)==='재선별'){const expected=Math.max(0,num(task.weight)-workWaitLossWeight(task)),total=inspectionBatchRowsFromForm().reduce((sum,row)=>sum+num(row.weight),0);if(Math.abs(total-expected)>0.001)return msg('inspectMsg',`재선별 대기 ${kg(task.weight)} 중 작업중 로스 ${kg(workWaitLossWeight(task))}을 제외한 ${kg(expected)}을 최종강종으로 분류하세요. 현재 입력 ${kg(total)}입니다.`,true)}return saveInspectionBeforeWorkLoss.apply(this,arguments)};
+saveInspection=async function saveInspectionWithWorkLossValidation(){const task=activeInspectionWorkTask();if(task&&canonicalWorkType(task.type)==='재검수'){const expected=Math.max(0,num(task.weight)-workWaitLossWeight(task)),total=inspectionBatchRowsFromForm().reduce((sum,row)=>sum+num(row.weight),0);if(Math.abs(total-expected)>0.001)return msg('inspectMsg',`재검수 대기 ${kg(task.weight)} 중 작업중 로스 ${kg(workWaitLossWeight(task))}을 제외한 ${kg(expected)}을 최종강종으로 분류하세요. 현재 입력 ${kg(total)}입니다.`,true)}return saveInspectionBeforeWorkLoss.apply(this,arguments)};
 const ensureWorkProcessUiBeforeLoss=ensureWorkProcessUi;
 ensureWorkProcessUi=function ensureWorkProcessUiWithLoss(){ensureWorkProcessUiBeforeLoss.apply(this,arguments);if(E('workProcess')&&!E('workProcessLossWeight'))E('workResultNote').closest('label').insertAdjacentHTML('beforebegin',`<div class="form" style="margin-top:12px"><label>작업중 로스 중량(kg)<input id="workProcessLossWeight" type="number" inputmode="decimal" min="0" value="0"></label><label>로스 사유<input id="workProcessLossReason" placeholder="예: 쇼트·산처리 작업중 로스"></label></div>`)};
 const renderWorkProcessBeforeLoss=renderWorkProcess;
@@ -1476,9 +1475,9 @@ const saveWorkProcessBeforeLoss=saveWorkProcess;
 saveWorkProcess=async function saveWorkProcessWithLoss(){const task=state.workWaits.find(row=>row.id===currentWorkWaitId&&row.status==='WAITING'),weight=num(E('workProcessLossWeight')?.value),reason=String(E('workProcessLossReason')?.value||'').trim()||`${task?.type||'작업'} 작업중 로스`;if(!task)return saveWorkProcessBeforeLoss.apply(this,arguments);const previous=workWaitLossWeight(task),available=Math.max(0,num(task.weight)-previous);if(weight<0||weight>available+0.001)return msg('workProcessMsg',`작업중 로스는 ${kg(available)} 이하로 입력하세요.`,true);const backup=stateClone();if(weight>0){try{const mode=workLossInventoryMode(task);if(mode==='CONFIRMED_STOCK')reduceConfirmedWorkLoss(task,weight);const createdAt=new Date().toISOString();state.losses.push({id:crypto.randomUUID(),packageNo:task.packageNo,grade:task.grade||task.originalGrade,weight,reason,lossType:'WORK_PROCESS',workType:canonicalWorkType(task.type),workWaitId:task.id,inventoryLossMode:mode,status:'CONFIRMED',operatorName:currentUserName(),createdAt});task.workLossWeight=previous+weight;state.auditLogs.push({id:crypto.randomUUID(),action:'WORK_PROCESS_LOSS',packageNo:task.packageNo,workWaitId:task.id,workType:task.type,weight,reason,inventoryLossMode:mode,operatorName:currentUserName(),createdAt})}catch(error){state=defaults(backup);renderAll();return msg('workProcessMsg','작업중 로스 차감 실패: '+error.message,true)}}await saveWorkProcessBeforeLoss.apply(this,arguments);const saved=state.workWaits.find(row=>row.id===task.id);if(saved?.status!=='DONE'&&weight>0){state=defaults(backup);renderAll();return}if(saved?.workResult)saved.workResult.lossWeight=workWaitLossWeight(saved)};
 function ensureWorkLossSummaryUi(){if(E('workLossSummary'))return;E('workWaits')?.insertAdjacentHTML('afterend',`<section id="workLossSummary" class="view"><p class="eyebrow">작업대기 · 작업별 로스율</p><h1>작업별 로스량·로스율</h1><button class="btn" type="button" onclick="show('workWaits')">← 작업대기 목록으로</button><div id="workLossTypeCards" class="grid" style="margin-top:12px"></div><div id="workLossRecordList" style="margin-top:12px"></div></section>`)}
 function workLossTypeTotals(type){const tasks=state.workWaits.filter(task=>canonicalWorkType(task.type)===type),input=tasks.reduce((sum,task)=>sum+num(task.weight),0),loss=tasks.reduce((sum,task)=>sum+workWaitLossWeight(task),0);return{tasks,input,loss,rate:input>0?loss/input*100:0}}
-function renderWorkLossSummary(){ensureWorkLossSummaryUi();const types=['재선별','쇼트','산처리','절단작업'];E('workLossTypeCards').innerHTML=types.map(type=>{const total=workLossTypeTotals(type);return`<button type="button" class="homebtn ${workLossSummaryType===type?'green':''}" onclick="openWorkLossSummary('${type}')"><span>${esc(type)} · ${total.tasks.length}건</span><strong>${kg(total.loss)}</strong><small>작업중량 ${kg(total.input)} · 로스율 ${total.rate.toFixed(2)}%</small></button>`}).join('');const selected=workLossSummaryType||types[0],records=state.workWaits.filter(task=>canonicalWorkType(task.type)===selected&&workWaitLossWeight(task)>0).sort((a,b)=>String(b.completedAt||b.createdAt).localeCompare(String(a.completedAt||a.createdAt)));E('workLossRecordList').innerHTML=`<div class="card"><h2>${esc(selected)} 로스 상세</h2>${records.length?records.map(task=>`<article class="donecard"><h3>${esc(task.packageNo)} · ${esc(task.company)}</h3><div class="summary"><div><small>작업중량</small><b>${kg(task.weight)}</b></div><div><small>로스량</small><b>${kg(workWaitLossWeight(task))}</b></div><div><small>작업별 로스율</small><b>${workLossRate(task).toFixed(2)}%</b></div><div><small>작업자</small><b>${esc(workWaitWorker(task))}</b></div></div>${workWaitLossRecords(task).map(loss=>`<p>${esc(String(loss.createdAt||'').replace('T',' ').slice(0,16))} · ${kg(loss.weight)} · ${esc(loss.reason||'작업중 로스')}</p>`).join('')}</article>`).join(''):'<p>선택한 작업의 로스 기록이 없습니다.</p>'}</div>`}
-function openWorkLossSummary(type=''){workLossSummaryType=canonicalWorkType(type)||'재선별';show('workLossSummary');renderWorkLossSummary()}
-function decorateWorkWaitLosses(){ensureWorkLossSummaryUi();const list=E('workWaitList');if(list){const totals=['재선별','쇼트','산처리','절단작업'].map(type=>{const total=workLossTypeTotals(type);return`<button class="btn" type="button" onclick="openWorkLossSummary('${type}')">${type} 로스 ${kg(total.loss)} · ${total.rate.toFixed(2)}%</button>`}).join('');list.insertAdjacentHTML('afterbegin',`<div class="card work-loss-totals"><b>작업별 로스량 · 클릭하면 로스율 상세보기</b><div class="actions" style="margin-top:8px">${totals}</div></div>`);state.workWaits.forEach(task=>{const detail=[...list.querySelectorAll('button')].find(button=>button.getAttribute('onclick')===`openWorkWaitDetail('${task.id}')`),article=detail?.closest('article');if(article&&!article.querySelector('[data-work-loss-task]'))article.insertAdjacentHTML('beforeend',`<button class="btn danger" data-work-loss-task="${esc(task.id)}" type="button" onclick="openWorkLossSummary('${esc(canonicalWorkType(task.type))}')">로스량 ${workLossRateLabel(task)} · 상세보기</button>`)})}const detailTask=state.workWaits.find(task=>task.id===currentWorkWaitId),detailBody=E('workWaitDetailBody')?.querySelector('article');if(detailTask&&detailBody&&!detailBody.querySelector('[data-work-loss-detail]'))detailBody.insertAdjacentHTML('beforeend',`<button class="btn danger" data-work-loss-detail type="button" onclick="openWorkLossSummary('${esc(canonicalWorkType(detailTask.type))}')">로스량 ${workLossRateLabel(detailTask)} · 작업별 로스율 보기</button>`)}
+function renderWorkLossSummary(){ensureWorkLossSummaryUi();const types=['재검수','쇼트','산처리','절단작업'];E('workLossTypeCards').innerHTML=types.map(type=>{const total=workLossTypeTotals(type);return`<button type="button" class="homebtn ${workLossSummaryType===type?'green':''}" onclick="openWorkLossSummary('${type}')"><span>${esc(type)} · ${total.tasks.length}건</span><strong>${kg(total.loss)}</strong><small>작업중량 ${kg(total.input)} · 로스율 ${total.rate.toFixed(2)}%</small></button>`}).join('');const selected=workLossSummaryType||types[0],records=state.workWaits.filter(task=>canonicalWorkType(task.type)===selected&&workWaitLossWeight(task)>0).sort((a,b)=>String(b.completedAt||b.createdAt).localeCompare(String(a.completedAt||a.createdAt)));E('workLossRecordList').innerHTML=`<div class="card"><h2>${esc(selected)} 로스 상세</h2>${records.length?records.map(task=>`<article class="donecard"><h3>${esc(task.packageNo)} · ${esc(task.company)}</h3><div class="summary"><div><small>작업중량</small><b>${kg(task.weight)}</b></div><div><small>로스량</small><b>${kg(workWaitLossWeight(task))}</b></div><div><small>작업별 로스율</small><b>${workLossRate(task).toFixed(2)}%</b></div><div><small>작업자</small><b>${esc(workWaitWorker(task))}</b></div></div>${workWaitLossRecords(task).map(loss=>`<p>${esc(String(loss.createdAt||'').replace('T',' ').slice(0,16))} · ${kg(loss.weight)} · ${esc(loss.reason||'작업중 로스')}</p>`).join('')}</article>`).join(''):'<p>선택한 작업의 로스 기록이 없습니다.</p>'}</div>`}
+function openWorkLossSummary(type=''){workLossSummaryType=canonicalWorkType(type)||'재검수';show('workLossSummary');renderWorkLossSummary()}
+function decorateWorkWaitLosses(){ensureWorkLossSummaryUi();const list=E('workWaitList');if(list){const totals=['재검수','쇼트','산처리','절단작업'].map(type=>{const total=workLossTypeTotals(type);return`<button class="btn" type="button" onclick="openWorkLossSummary('${type}')">${type} 로스 ${kg(total.loss)} · ${total.rate.toFixed(2)}%</button>`}).join('');list.insertAdjacentHTML('afterbegin',`<div class="card work-loss-totals"><b>작업별 로스량 · 클릭하면 로스율 상세보기</b><div class="actions" style="margin-top:8px">${totals}</div></div>`);state.workWaits.forEach(task=>{const detail=[...list.querySelectorAll('button')].find(button=>button.getAttribute('onclick')===`openWorkWaitDetail('${task.id}')`),article=detail?.closest('article');if(article&&!article.querySelector('[data-work-loss-task]'))article.insertAdjacentHTML('beforeend',`<button class="btn danger" data-work-loss-task="${esc(task.id)}" type="button" onclick="openWorkLossSummary('${esc(canonicalWorkType(task.type))}')">로스량 ${workLossRateLabel(task)} · 상세보기</button>`)})}const detailTask=state.workWaits.find(task=>task.id===currentWorkWaitId),detailBody=E('workWaitDetailBody')?.querySelector('article');if(detailTask&&detailBody&&!detailBody.querySelector('[data-work-loss-detail]'))detailBody.insertAdjacentHTML('beforeend',`<button class="btn danger" data-work-loss-detail type="button" onclick="openWorkLossSummary('${esc(canonicalWorkType(detailTask.type))}')">로스량 ${workLossRateLabel(detailTask)} · 작업별 로스율 보기</button>`)}
 const renderWorkWaitsBeforeLoss=renderWorkWaits;
 renderWorkWaits=function renderWorkWaitsWithLoss(){const result=renderWorkWaitsBeforeLoss.apply(this,arguments);decorateWorkWaitLosses();return result};
 const renderWorkWaitDetailBeforeLoss=renderWorkWaitDetail;
@@ -2265,355 +2264,6 @@ setInterval(syncChangesFromMes,2500);
 addEventListener('focus',syncChangesFromMes);
 addEventListener('online',syncChangesFromMes);
 </script>
-<script id="photoStateTransportV3">
-/* 사진은 Storage에, 업무자료에는 짧은 경로만 저장한다. 대용량 legacy JSON 행은 다시 쓰지 않는다. */
-let photoStateSaveQueueV3=Promise.resolve();
-
-directRead=async function directReadViaV3(){return vercelRead()};
-directRevision=async function directRevisionViaV3(){return vercelRevision()};
-fastestServerRead=async function fastestServerReadViaV3(){
-  return {name:'Vercel 사진·업무자료 서버',value:await vercelRead()}
-};
-fastestRevision=async function fastestRevisionViaV3(){return vercelRevision()};
-saveDirect=async function disabledLegacyDirectWrite(){
-  throw Error('이전 대용량 직접 저장은 사용하지 않습니다.')
-};
-
-async function saveStatePhotoTransportV3(options={}){
-  const quiet=options?.quiet===true;
-  if(typeof stampPendingWorkUsers==='function')stampPendingWorkUsers();
-  if(typeof stampInspectionSettlementPackingInputs==='function')stampInspectionSettlementPackingInputs();
-  const pending=stateClone(state);
-  const base=stateClone(lastSyncedState||defaults({}));
-  if(!quiet)beginSaveProgress(
-    '사진·업무자료 저장 중',
-    '사진은 전용 저장소에 저장하고, 업무자료에는 짧은 사진 경로만 안전하게 저장합니다.'
-  );
-  try{
-    if(!cloudMode){
-      await loadState();
-      if(!cloudMode)throw Error('공용 서버에 연결되지 않았습니다. 인터넷 연결을 확인한 뒤 다시 눌러 주세요.')
-    }
-    let lastError=null;
-    for(let attempt=0;attempt<4;attempt++){
-      const changes=stateTopLevelChanges();
-      if(!Object.keys(changes).length){
-        if(!quiet)renderAll();
-        if(E('server'))E('server').textContent='● 사진·업무자료 저장됨';
-        return {revision}
-      }
-      try{
-        const response=await fetchWithTimeout('/api/scrap-state',{
-          method:'PATCH',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({changes,baseRevision:revision})
-        },45000);
-        const out=await responsePayload(response);
-        if(response.status===409){
-          if(!out.payload)throw Error(out.error||'최신 공용자료를 불러오지 못했습니다.');
-          const latest=defaults(out.payload);
-          revision=num(out.revision);
-          lastSyncedState=stateClone(latest);
-          state=mergePendingStateAfterConflict(latest,pending,base);
-          lastError=Error(out.error||'다른 사용자의 저장내용과 자동 병합 중입니다.');
-          if(E('saveProgressDetail'))E('saveProgressDetail').textContent=
-            '다른 사용자의 최신 자료와 현재 입력을 합친 뒤 자동으로 다시 저장합니다.';
-          await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
-          continue
-        }
-        if(!response.ok)throw Error(out.error||('저장 서버 HTTP '+response.status));
-        revision=num(out.revision);
-        serverTransport='vercel-v3';
-        cloudMode=true;
-        rememberSyncedState();
-        writeFastCache();
-        if(!quiet)renderAll();
-        if(E('server'))E('server').textContent='● 사진·업무자료 빠른 저장됨';
-        return out
-      }catch(error){
-        lastError=error;
-        if(attempt>=3)break;
-        if(E('saveProgressDetail'))E('saveProgressDetail').textContent=
-          '서버 응답이 잠시 지연되어 자동 재시도 중입니다. '+(attempt+1)+'/3';
-        await new Promise(resolve=>setTimeout(resolve,600*(attempt+1)))
-      }
-    }
-    throw Error('공용 서버 저장을 완료하지 못했습니다. 입력자료는 화면에 유지됩니다. 잠시 후 다시 눌러 주세요. ('+
-      (lastError?.message||'응답 없음')+')')
-  }finally{
-    if(!quiet)endSaveProgress()
-  }
-}
-
-saveState=function saveStateSerializedPhotoTransportV3(options={}){
-  const run=()=>saveStatePhotoTransportV3(options);
-  const task=photoStateSaveQueueV3.then(run,run);
-  photoStateSaveQueueV3=task.catch(()=>{});
-  return task
-};
-</script>
-
-<script id="photoStateTransportV4">
-/* 대용량 검수 변경자료는 Storage에 먼저 저장하고 API에는 짧은 경로만 전달한다. */
-const stateChangeUploadSlotV4=(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
-let photoStateSaveQueueV4=Promise.resolve();
-
-async function uploadStateChangesV4(changes){
-  const body=JSON.stringify(changes||{});
-  const path='_state-changes-v4/session-'+stateChangeUploadSlotV4+'.json';
-  const encoded=path.split('/').map(encodeURIComponent).join('/');
-  let lastError=null;
-  for(let attempt=0;attempt<4;attempt++){
-    try{
-      const response=await fetch(API+'/storage/v1/object/'+BUCKET+'/'+encoded,{
-        method:'POST',
-        headers:{
-          apikey:KEY,
-          Authorization:'Bearer '+KEY,
-          'Content-Type':'application/json; charset=utf-8',
-          'x-upsert':'true',
-          'Cache-Control':'no-store'
-        },
-        body
-      });
-      if(response.ok)return path;
-      lastError=Error('변경자료 저장 HTTP '+response.status+': '+(await response.text()).slice(0,180))
-    }catch(error){lastError=error}
-    if(attempt<3){
-      if(E('saveProgressDetail'))E('saveProgressDetail').textContent='대용량 검수자료를 안전하게 전송 중입니다. 자동 재시도 '+(attempt+1)+'/3';
-      await new Promise(resolve=>setTimeout(resolve,600*(attempt+1)))
-    }
-  }
-  throw lastError||Error('대용량 검수자료를 저장하지 못했습니다.')
-}
-
-async function saveStatePhotoTransportV4(options={}){
-  const quiet=options?.quiet===true;
-  if(typeof stampPendingWorkUsers==='function')stampPendingWorkUsers();
-  if(typeof stampInspectionSettlementPackingInputs==='function')stampInspectionSettlementPackingInputs();
-  const pending=stateClone(state);
-  const base=stateClone(lastSyncedState||defaults({}));
-  if(!quiet)beginSaveProgress(
-    '사진·검수자료 저장 중',
-    '사진과 대용량 검수자료를 공용 저장소에 나누어 안전하게 저장합니다.'
-  );
-  try{
-    if(!cloudMode){
-      await loadState();
-      if(!cloudMode)throw Error('공용 서버에 연결되지 않았습니다. 인터넷 연결을 확인한 뒤 다시 눌러 주세요.')
-    }
-    let lastError=null;
-    for(let attempt=0;attempt<4;attempt++){
-      const changes=stateTopLevelChanges();
-      if(!Object.keys(changes).length){
-        if(!quiet)renderAll();
-        if(E('server'))E('server').textContent='● 사진·업무자료 저장됨';
-        return {revision}
-      }
-      try{
-        const changesObjectPath=await uploadStateChangesV4(changes);
-        const response=await fetchWithTimeout('/api/scrap-state',{
-          method:'PATCH',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({changesObjectPath,baseRevision:revision})
-        },60000);
-        const out=await responsePayload(response);
-        if(response.status===409){
-          if(!out.payload)throw Error(out.error||'최신 공용자료를 불러오지 못했습니다.');
-          const latest=defaults(out.payload);
-          revision=num(out.revision);
-          lastSyncedState=stateClone(latest);
-          state=mergePendingStateAfterConflict(latest,pending,base);
-          lastError=Error(out.error||'다른 사용자의 저장내용과 자동 병합 중입니다.');
-          if(E('saveProgressDetail'))E('saveProgressDetail').textContent='다른 사용자의 최신 자료와 현재 입력을 합친 뒤 자동으로 다시 저장합니다.';
-          await new Promise(resolve=>setTimeout(resolve,300*(attempt+1)));
-          continue
-        }
-        if(!response.ok)throw Error(out.error||('저장 서버 HTTP '+response.status));
-        revision=num(out.revision);
-        serverTransport='vercel-v4';
-        cloudMode=true;
-        rememberSyncedState();
-        writeFastCache();
-        if(!quiet)renderAll();
-        if(E('server'))E('server').textContent='● 사진·검수자료 저장됨';
-        return out
-      }catch(error){
-        lastError=error;
-        if(attempt>=3)break;
-        if(E('saveProgressDetail'))E('saveProgressDetail').textContent='저장 응답이 지연되어 자동 재시도 중입니다. '+(attempt+1)+'/3';
-        await new Promise(resolve=>setTimeout(resolve,700*(attempt+1)))
-      }
-    }
-    throw Error('공용 서버 저장을 완료하지 못했습니다. 입력자료는 화면에 유지됩니다. 잠시 후 다시 눌러 주세요. ('+(lastError?.message||'응답 없음')+')')
-  }finally{
-    if(!quiet)endSaveProgress()
-  }
-}
-
-saveState=function saveStateSerializedPhotoTransportV4(options={}){
-  const run=()=>saveStatePhotoTransportV4(options);
-  const task=photoStateSaveQueueV4.then(run,run);
-  photoStateSaveQueueV4=task.catch(()=>{});
-  return task
-};
-</script>
-
-<style id="inspectionWorkflowCursorV4Style">
-.recent-completion-grade{margin:-2px 0 10px;padding:10px 12px;border:2px solid #8fd2c2;border-radius:10px;background:#eefbf7;color:#075e50;font-weight:900}
-.recent-completion-grade small{display:block;margin-bottom:3px;color:#47736b;font-size:12px}.workflow-focus-ring{outline:5px solid rgba(250,183,39,.42)!important;outline-offset:5px}
-</style>
-<script id="inspectionWorkflowCursorV4">
-(function(){
-"use strict";
-document.documentElement.dataset.inspectionWorkflowCursorV4Stage="started";
-var LEGACY_REINSPECTION="\uC7AC\uAC80\uC218";
-function workflowCenter(element,focus){
-  if(!element)return;
-  element.scrollIntoView({behavior:"smooth",block:"center",inline:"nearest"});
-  element.classList.add("workflow-focus-ring");
-  setTimeout(function(){element.classList.remove("workflow-focus-ring");},1300);
-  if(focus!==false){
-    try{element.focus({preventScroll:true});}catch(_){try{element.focus();}catch(__){}}
-  }
-}
-function firstUnprocessedSettlement(){
-  var rows=Array.from(document.querySelectorAll("#inspectionSettlementRows .packing-source-choice"));
-  return rows.find(function(row){
-    var box=row.querySelector("input[data-settlement-grade]");
-    return box&&!box.disabled;
-  });
-}
-function focusFirstUnprocessedSettlement(delay){
-  setTimeout(function(){
-    var row=firstUnprocessedSettlement();
-    if(!row)return;
-    var box=row.querySelector("input[data-settlement-grade]");
-    workflowCenter(row,false);
-    if(box){try{box.focus({preventScroll:true});}catch(_){box.focus();}}
-  },delay||140);
-}
-function createCompletionButton(){
-  return Array.from(document.querySelectorAll("#repack button")).find(function(button){
-    return String(button.getAttribute("onclick")||"").includes("createBag()");
-  });
-}
-function focusCreateCompletionButton(delay){
-  setTimeout(function(){workflowCenter(createCompletionButton(),true);},delay||150);
-}
-function focusFirstInventoryMove(delay){
-  setTimeout(function(){
-    var no=String(currentPackingSourceNo||E("repackPackageNo")?.value||"");
-    var button=Array.from(document.querySelectorAll("#packingSourceChoices button[data-no]")).find(function(item){
-      return !no||item.dataset.no===no;
-    });
-    workflowCenter(button,true);
-  },delay||140);
-}
-function decorateRecentCompletionGrade(){
-  document.querySelectorAll("select[id^='simpleCompletionSelect-']").forEach(function(select){
-    Array.from(select.options).forEach(function(option){
-      if(!option.value)return;
-      var bag=state.bags.find(function(row){return String(bagCode(row))===String(option.value);});
-      if(!bag)return;
-      option.textContent=bagCode(bag)+" · "+(bag.grade||"최종강종 미지정")+" · N/W "+kg(bagNetWeight(bag));
-    });
-    var bag=state.bags.find(function(row){return String(bagCode(row))===String(select.value);});
-    var id="recentCompletionGrade-"+String(select.id).split("-").pop();
-    var info=E(id);
-    if(!info){
-      info=document.createElement("div");
-      info.id=id;
-      info.className="recent-completion-grade";
-      select.closest("label")?.insertAdjacentElement("afterend",info);
-    }
-    if(info)info.innerHTML="<small>선택한 완료번호의 최종강종</small>"+esc(bag?.grade||"완료번호를 선택하세요");
-  });
-}
-var canonicalWorkTypeBeforeCursorV4=canonicalWorkType;
-canonicalWorkType=function(value){
-  var compact=String(value||"").trim().replace(/\s+/g,"");
-  if(compact.includes("재선별")||compact.includes(LEGACY_REINSPECTION))return"재선별";
-  return canonicalWorkTypeBeforeCursorV4(value);
-};
-var openInspectionSettlementBeforeCursorV4=openInspectionSettlement;
-openInspectionSettlement=function(){
-  var result=openInspectionSettlementBeforeCursorV4.apply(this,arguments);
-  focusFirstUnprocessedSettlement(180);
-  return result;
-};
-var returnToInspectionSettlementSelectionBeforeCursorV4=returnToInspectionSettlementSelection;
-returnToInspectionSettlementSelection=function(){
-  var result=returnToInspectionSettlementSelectionBeforeCursorV4.apply(this,arguments);
-  focusFirstUnprocessedSettlement(180);
-  return result;
-};
-var finishInspectionSettlementActionBeforeCursorV4=finishInspectionSettlementAction;
-finishInspectionSettlementAction=function(){
-  var result=finishInspectionSettlementActionBeforeCursorV4.apply(this,arguments);
-  if(E("inspectionSettlement")?.classList.contains("on"))focusFirstUnprocessedSettlement(200);
-  return result;
-};
-var startInspectionSettlementPackingBeforeCursorV4=startInspectionSettlementPacking;
-startInspectionSettlementPacking=function(){
-  var result=startInspectionSettlementPackingBeforeCursorV4.apply(this,arguments);
-  focusCreateCompletionButton(180);
-  return result;
-};
-var chooseInspectionResultForPackingBeforeCursorV4=chooseInspectionResultForPacking;
-chooseInspectionResultForPacking=function(){
-  var result=chooseInspectionResultForPackingBeforeCursorV4.apply(this,arguments);
-  focusCreateCompletionButton(170);
-  return result;
-};
-var closeCompletionQrBeforeCursorV4=closeCompletionQr;
-closeCompletionQr=function(){
-  pendingPackingFocusId="";
-  var result=closeCompletionQrBeforeCursorV4.apply(this,arguments);
-  if(currentPackingSourceNo)focusFirstInventoryMove(170);
-  return result;
-};
-var renderPackingSourceChoicesBeforeCursorV4=renderPackingSourceChoices;
-renderPackingSourceChoices=function(){
-  var result=renderPackingSourceChoicesBeforeCursorV4.apply(this,arguments);
-  decorateRecentCompletionGrade();
-  return result;
-};
-var syncSimpleChoiceBeforeCursorV4=syncSimpleChoice;
-syncSimpleChoice=function(){
-  var result=syncSimpleChoiceBeforeCursorV4.apply(this,arguments);
-  decorateRecentCompletionGrade();
-  return result;
-};
-var setSimplePackingMoveBeforeCursorV4=setSimplePackingMove;
-setSimplePackingMove=function(no,grade,mode){
-  var result=setSimplePackingMoveBeforeCursorV4.apply(this,arguments);
-  decorateRecentCompletionGrade();
-  if(mode==="complete"){
-    var rows=packingSourceGradeRows(no).filter(function(row){return row.available>0;});
-    var index=rows.findIndex(function(row){return row.grade===grade;});
-    var weight=E("simpleCompletionWeight-"+index);
-    if(weight)focusPackingField(weight.id,140);
-    else focusCreateCompletionButton(150);
-  }else if(!mode){
-    setTimeout(function(){
-      var key=simplePackingKey(no,grade);
-      var card=Array.from(document.querySelectorAll("#packingSourceChoices .packing-source-choice")).find(function(row){
-        return row.querySelector("button[data-no='"+CSS.escape(no)+"'][data-grade='"+CSS.escape(grade)+"']");
-      });
-      var complete=card&&Array.from(card.querySelectorAll("button")).find(function(button){
-        return String(button.textContent||"").trim()==="완료포장으로 이동";
-      });
-      workflowCenter(complete||card,true);
-    },120);
-  }
-  return result;
-};
-decorateRecentCompletionGrade();
-window.__inspectionWorkflowCursorV4Loaded=true;
-document.documentElement.dataset.inspectionWorkflowCursorV4Stage="loaded";
-})();
-</script>
 <style id="requestedImportReceiptsOnlyV1Style">
 .import-request-meta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
 .import-request-meta span{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid #b8ded4;border-radius:999px;background:#effbf7;color:#145f53;font-size:14px;font-weight:800}
@@ -2761,312 +2411,6 @@ if(E("importReceiptManagement")?.classList.contains("on"))renderImportReceiptMan
 document.documentElement.dataset.requestedImportReceiptsOnlyV1="loaded";
 })();
 </script>
-<style id="productTypeManagerV1Style">
-.product-type-create{border:3px solid #89cfc0;background:#effbf7}
-.product-type-create input{min-width:0}
-.product-type-editor{margin-bottom:16px;border:3px solid #89cfc0;background:#f7fffc}
-.product-type-row{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:10px;align-items:end;margin-top:10px}
-.product-type-row label{margin:0}
-@media(max-width:700px){
-  .product-type-row{grid-template-columns:1fr 1fr}
-  .product-type-row label{grid-column:1/-1}
-  .product-type-row .btn{width:100%;min-height:56px}
-}
-</style>
-<script id="productTypeManagerV1">
-(function(){
-"use strict";
-document.documentElement.dataset.productTypeManagerV1="started";
-var DEFAULT_PRODUCT_TYPES_V1=Array.isArray(PRODUCT_TYPES)?PRODUCT_TYPES.slice():["NI","TI","STS","CO","MO","CU","OTHER"];
-function cleanProductType(value){
-  var text=String(value==null?"":value).trim().replace(/\s+/g," ");
-  return /^[a-z0-9 ._+\-/]+$/i.test(text)?text.toUpperCase():text;
-}
-function uniqueProductTypes(values){
-  var seen=new Set(),result=[];
-  (Array.isArray(values)?values:[]).forEach(function(value){
-    var clean=cleanProductType(value),key=clean.toLocaleLowerCase();
-    if(clean&&!seen.has(key)){seen.add(key);result.push(clean)}
-  });
-  return result;
-}
-function managedProductTypes(){
-  var saved=Array.isArray(state?.productTypes)?state.productTypes:[];
-  var used=[
-    ...Object.values(state?.gradeTypes||{}),
-    ...(Array.isArray(state?.gradeMasters)?state.gradeMasters.flatMap(function(row){return[row?.productType,row?.type]}):[]),
-    ...(Array.isArray(state?.splits)?state.splits.map(function(row){return row?.productType}):[]),
-    ...(Array.isArray(state?.bags)?state.bags.map(function(row){return row?.productType}):[])
-  ];
-  return uniqueProductTypes([...(saved.length?saved:DEFAULT_PRODUCT_TYPES_V1),...used]);
-}
-function syncProductTypeConstant(){
-  var values=managedProductTypes();
-  state.productTypes=values.slice();
-  if(Array.isArray(PRODUCT_TYPES))PRODUCT_TYPES.splice(0,PRODUCT_TYPES.length,...values);
-  return values;
-}
-function productTypeOptionHtml(selected){
-  var current=cleanProductType(selected),values=syncProductTypeConstant();
-  if(current&&!values.some(function(value){return value.toLocaleLowerCase()===current.toLocaleLowerCase()}))values.push(current);
-  return '<option value="">품종 선택</option>'+values.map(function(value){
-    return '<option value="'+esc(value)+'" '+(value===current?'selected':'')+'>'+esc(value)+'</option>';
-  }).join('');
-}
-productTypeOptions=function dynamicProductTypeOptions(selected){return productTypeOptionHtml(selected)};
-function syncProductTypeSelects(){
-  var values=syncProductTypeConstant();
-  document.querySelectorAll('#masterType,#finalType,#bagType,[id^="inspectionType-"],[id^="edit-type-"],[data-product-type-select]').forEach(function(select){
-    var selected=cleanProductType(select.value);
-    var options=values.slice();
-    if(selected&&!options.includes(selected))options.push(selected);
-    select.innerHTML='<option value="">품종 선택</option>'+options.map(function(value){
-      return '<option value="'+esc(value)+'" '+(value===selected?'selected':'')+'>'+esc(value)+'</option>';
-    }).join('');
-  });
-}
-function ensureProductTypeManagerUi(){
-  var grid=document.querySelector('#management .master-create-grid'),main=grid?.querySelector('.master-create-item.main');
-  if(grid&&!E('masterProductType')){
-    var item=document.createElement('div');
-    item.className='master-create-item product-type-create';
-    item.innerHTML='<label>품종 추가<input id="masterProductType" placeholder="예: NI, TI, STS" autocomplete="off"></label><button class="btn primary" onclick="saveProductTypeMaster()">품종 저장</button>';
-    grid.insertBefore(item,main||grid.firstChild);
-  }
-  syncProductTypeSelects();
-}
-function productTypeInUse(value){
-  var target=cleanProductType(value);
-  if(Object.values(state.gradeTypes||{}).some(function(type){return cleanProductType(type)===target}))return true;
-  return ['gradeMasters','pos','splits','bags','inputs','salesOrders','workWaits'].some(function(key){
-    return (Array.isArray(state[key])?state[key]:[]).some(function(row){return cleanProductType(row?.productType||((key==='gradeMasters')?row?.type:''))===target});
-  });
-}
-function productTypeEditorHtml(){
-  var values=syncProductTypeConstant();
-  return '<section id="productTypeEditor" class="master-section product-type-editor"><b>저장된 품종 추가·수정</b>'+
-    '<p style="color:var(--muted)">품종명을 수정하면 해당 품종에 연결된 강종과 기존 검수·재고자료에도 함께 반영됩니다.</p>'+
-    (values.length?values.map(function(value,index){
-      return '<div class="product-type-row"><label>품종 이름<input id="edit-product-type-'+index+'" value="'+esc(value)+'" aria-label="품종 '+esc(value)+' 수정"></label>'+
-        '<button class="btn warn" onclick="renameProductType('+index+')">수정 저장</button>'+
-        '<button class="btn danger" onclick="removeProductType('+index+')">사용중지</button></div>';
-    }).join(''):'<p>저장된 품종이 없습니다.</p>')+'</section>';
-}
-function renderProductTypeEditor(){
-  var target=E('masterList');
-  if(!target)return;
-  E('productTypeEditor')?.remove();
-  target.insertAdjacentHTML('afterbegin',productTypeEditorHtml());
-}
-async function saveProductTypeMaster(){
-  var input=E('masterProductType'),name=cleanProductType(input?.value);
-  if(!name)return msg('masterInfo','저장할 품종 이름을 입력하세요.',true);
-  var current=managedProductTypes();
-  if(current.some(function(value){return value.toLocaleLowerCase()===name.toLocaleLowerCase()}))return msg('masterInfo',name+' 품종은 이미 저장되어 있습니다.',true);
-  var backup=JSON.parse(JSON.stringify(state));
-  state.productTypes=uniqueProductTypes([...current,name]);
-  if(input)input.value='';
-  syncProductTypeConstant();renderMasters();ensureProductTypeManagerUi();
-  msg('masterInfo',name+' 품종 화면 반영 완료 · 서버 저장 중');
-  try{await saveState();msg('masterInfo',name+' 품종 저장 완료')}
-  catch(error){state=defaults(backup);renderAll();msg('masterInfo','품종 저장 실패: '+error.message,true)}
-}
-function replaceProductTypeReferences(oldName,newName){
-  Object.keys(state.gradeTypes||{}).forEach(function(grade){
-    if(cleanProductType(state.gradeTypes[grade])===oldName)state.gradeTypes[grade]=newName;
-  });
-  ['pos','splits','bags','inputs','salesOrders','workWaits','shippingAreaMoves','packingLists','shipments','returnReceipts','claims','domesticReceipts'].forEach(function(key){
-    var walk=function(value){
-      if(Array.isArray(value)){value.forEach(walk);return}
-      if(!value||typeof value!=='object')return;
-      Object.keys(value).forEach(function(field){
-        if(field==='productType'&&cleanProductType(value[field])===oldName)value[field]=newName;
-        else if(value[field]&&typeof value[field]==='object')walk(value[field]);
-      });
-    };
-    walk(state[key]);
-  });
-  (Array.isArray(state.gradeMasters)?state.gradeMasters:[]).forEach(function(row){
-    if(cleanProductType(row.productType)===oldName)row.productType=newName;
-    if(cleanProductType(row.type)===oldName)row.type=newName;
-  });
-}
-async function renameProductType(index){
-  var values=managedProductTypes(),oldName=values[index],newName=cleanProductType(E('edit-product-type-'+index)?.value);
-  if(!oldName)return msg('masterEditInfo','수정할 품종을 찾지 못했습니다.',true);
-  if(!newName)return msg('masterEditInfo','변경할 품종 이름을 입력하세요.',true);
-  if(newName===oldName)return msg('masterEditInfo','기존 품종 이름과 같습니다.',true);
-  if(values.some(function(value,i){return i!==index&&value.toLocaleLowerCase()===newName.toLocaleLowerCase()}))return msg('masterEditInfo',newName+' 품종이 이미 있습니다.',true);
-  var backup=JSON.parse(JSON.stringify(state));
-  state.productTypes=values.map(function(value){return value===oldName?newName:value});
-  replaceProductTypeReferences(oldName,newName);
-  syncProductTypeConstant();renderMasters();ensureProductTypeManagerUi();
-  msg('masterEditInfo','품종 '+oldName+' → '+newName+' 화면 반영 완료 · 서버 저장 중');
-  try{await saveState();msg('masterEditInfo','품종 '+oldName+'을(를) '+newName+'(으)로 수정했습니다. 연결된 강종·기존자료에도 반영되었습니다.')}
-  catch(error){state=defaults(backup);renderAll();msg('masterEditInfo','품종 수정 실패: '+error.message,true)}
-}
-async function removeProductType(index){
-  var values=managedProductTypes(),name=values[index];
-  if(!name)return;
-  if(productTypeInUse(name))return msg('masterEditInfo',name+' 품종을 사용하는 강종 또는 기존자료가 있어 사용중지할 수 없습니다. 먼저 다른 품종으로 수정하세요.',true);
-  if(!confirm(name+' 품종을 사용중지할까요?'))return;
-  var backup=JSON.parse(JSON.stringify(state));
-  state.productTypes=values.filter(function(_,i){return i!==index});
-  syncProductTypeConstant();renderMasters();ensureProductTypeManagerUi();
-  try{await saveState();msg('masterEditInfo',name+' 품종을 사용중지했습니다.')}
-  catch(error){state=defaults(backup);renderAll();msg('masterEditInfo','품종 사용중지 실패: '+error.message,true)}
-}
-var renderMastersBeforeProductTypeV1=renderMasters;
-renderMasters=function renderMastersWithProductTypes(){
-  syncProductTypeConstant();
-  var result=renderMastersBeforeProductTypeV1.apply(this,arguments);
-  ensureProductTypeManagerUi();syncProductTypeSelects();renderProductTypeEditor();
-  return result;
-};
-var renderAllBeforeProductTypeV1=renderAll;
-renderAll=function renderAllWithProductTypes(){
-  syncProductTypeConstant();
-  var result=renderAllBeforeProductTypeV1.apply(this,arguments);
-  ensureProductTypeManagerUi();syncProductTypeSelects();
-  if(E('masters')?.classList.contains('on'))renderProductTypeEditor();
-  return result;
-};
-var showBeforeProductTypeV1=show;
-show=function showWithProductTypes(id){
-  var result=showBeforeProductTypeV1.apply(this,arguments);
-  if(id==='management'){ensureProductTypeManagerUi();syncProductTypeSelects()}
-  if(id==='masters'){renderMasters();renderProductTypeEditor()}
-  return result;
-};
-Object.assign(window,{
-  managedProductTypes:managedProductTypes,
-  saveProductTypeMaster:saveProductTypeMaster,
-  renameProductType:renameProductType,
-  removeProductType:removeProductType,
-  renderProductTypeEditor:renderProductTypeEditor
-});
-ensureProductTypeManagerUi();syncProductTypeSelects();
-document.documentElement.dataset.productTypeManagerV1="loaded";
-})();
-</script>
-<script id="partyNameListShortenerV1">
-(function partyNameListShortenerV1(){
-  'use strict';
-
-  var LIMIT=10;
-  var LIST_SCOPES='table tbody,[id$="List"],[id$="Rows"],[id$="Grid"],.cards,.list-grid,.result-list,.donecard,.qrcard,.stock-detail-card,.po-group-card,.workwait-card,.request-card';
-  var scheduled=false;
-
-  function safeArray(value){return Array.isArray(value)?value:[]}
-  function textLength(value){return Array.from(String(value||'')).length}
-  function shortName(value){
-    var chars=Array.from(String(value||'').trim());
-    return chars.length>LIMIT?chars.slice(0,LIMIT).join('')+'…':chars.join('');
-  }
-  function currentState(){
-    try{return typeof state==='object'&&state?state:(window.state||{})}
-    catch(_){return window.state||{}}
-  }
-  function partyNames(){
-    var source=currentState();
-    var names=[];
-    safeArray(source.companies).forEach(function(value){names.push(value)});
-    safeArray(source.pos).forEach(function(row){names.push(row&&row.company)});
-    safeArray(source.salesOrders).forEach(function(row){names.push(row&&row.customer)});
-    safeArray(source.shipments).forEach(function(row){names.push(row&&row.customer)});
-    safeArray(source.domesticReceipts).forEach(function(row){names.push(row&&row.supplier)});
-    safeArray(source.workWaits).forEach(function(row){names.push(row&&row.company)});
-    function collect(value,depth){
-      if(depth>4||value==null)return;
-      if(Array.isArray(value)){value.forEach(function(item){collect(item,depth+1)});return}
-      if(typeof value!=='object')return;
-      Object.keys(value).forEach(function(key){
-        var child=value[key];
-        if(/^(company|companyName|customer|customerName|supplier|supplierName|buyer|buyerName|seller|sellerName)$/i.test(key)&&typeof child==='string')names.push(child);
-        else if(child&&typeof child==='object')collect(child,depth+1);
-      });
-    }
-    collect(source,0);
-    return Array.from(new Set(names.map(function(value){return String(value||'').trim()}).filter(function(value){return textLength(value)>LIMIT})))
-      .sort(function(a,b){return textLength(b)-textLength(a)});
-  }
-  function listTextNodes(){
-    var nodes=[];
-    document.querySelectorAll(LIST_SCOPES).forEach(function(scope){
-      if(scope.closest('.modal.on,.view.on')||scope.closest('#content')||scope.tagName==='TBODY'){
-        var walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);
-        var node;
-        while((node=walker.nextNode())){
-          var parent=node.parentElement;
-          if(!parent||parent.closest('script,style,textarea,input,select,option,datalist'))continue;
-          nodes.push(node);
-        }
-      }
-    });
-    return nodes;
-  }
-  function apply(){
-    scheduled=false;
-    var names=partyNames();
-    document.documentElement.dataset.partyNameListShortenerV1='ready';
-    if(!names.length)return;
-    listTextNodes().forEach(function(node){
-      var original=node.nodeValue||'';
-      var changed=original;
-      var matched='';
-      names.forEach(function(name){
-        if(changed.indexOf(name)!==-1){changed=changed.split(name).join(shortName(name));matched=matched||name}
-      });
-      if(changed!==original){
-        node.nodeValue=changed;
-        var owner=node.parentElement;
-        if(owner&&!owner.title)owner.title=matched;
-      }
-    });
-  }
-  function schedule(){
-    if(scheduled)return;
-    scheduled=true;
-    requestAnimationFrame(apply);
-  }
-
-  window.shortListPartyName=shortName;
-  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
-  else schedule();
-})();
-</script>
-<script id="fieldStartupWatchdogV1">
-(function fieldStartupWatchdogV1(){
-  'use strict';
-  var attempts=0;
-  function badge(){return document.getElementById('server')}
-  function isPending(){return /연결 중/.test(String(badge()&&badge().textContent||''))}
-  async function rescue(){
-    if(!isPending())return;
-    attempts+=1;
-    try{
-      if(typeof loadState!=='function')throw new Error('현장관리 시작 함수를 불러오지 못했습니다.');
-      await Promise.race([
-        loadState(),
-        new Promise(function(_,reject){setTimeout(function(){reject(new Error('공용 서버 연결 시간이 초과되었습니다.'))},50000)})
-      ]);
-    }catch(error){
-      var target=badge();
-      if(target&&isPending()){
-        target.textContent='● 공용 서버 실패 · 눌러서 재연결';
-        target.title=String(error&&error.message||error||'공용 서버 연결 실패');
-        target.style.color='#ff8e8e';
-      }
-    }
-    if(isPending()&&attempts<2)setTimeout(rescue,3000);
-  }
-  document.documentElement.dataset.fieldStartupWatchdogV1='ready';
-  setTimeout(rescue,1800);
-})();
-
-
-</script>
 <script id="subgradeSelectionCompatV1">
 (function(){
 'use strict';
@@ -3117,10 +2461,10 @@ renderAll=function renderAllWithSubgradeCompat(){var result=renderAllBeforeSubgr
 refreshSubgradeSelect();
 document.documentElement.dataset.subgradeSelectionCompatV1='ready';
 })();
-
 </script>
-
+<script src="party-name-list-shortener-v1.js?v=20260813-1"></script>
 <script src="import-package-split-v1.js?v=20260813-2"></script>
-<script src="field-list-grade-shortener-v1.js?v=20260813-1"></script>
+<script src="field-list-grade-shortener-v1.js?v=20260813-2"></script>
+<script src="field-startup-watchdog-v1.js?v=20260813-1"></script>
 </body>
 </html>
