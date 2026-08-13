@@ -1,8 +1,11 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 (function partyNameListShortenerV1(){
   'use strict';
 
   var LIMIT=10;
-  var LIST_SCOPES='table tbody,[id$="List"],[id$="Rows"],[id$="Grid"],.cards,.list-grid,.result-list';
+  var LIST_SCOPES='table tbody,[id$="List"],[id$="Rows"],[id$="Grid"],.cards,.list-grid,.result-list,.donecard,.qrcard,.stock-detail-card,.po-group-card,.workwait-card,.request-card';
   var scheduled=false;
 
   function safeArray(value){return Array.isArray(value)?value:[]}
@@ -24,6 +27,17 @@
     safeArray(source.shipments).forEach(function(row){names.push(row&&row.customer)});
     safeArray(source.domesticReceipts).forEach(function(row){names.push(row&&row.supplier)});
     safeArray(source.workWaits).forEach(function(row){names.push(row&&row.company)});
+    function collect(value,depth){
+      if(depth>4||value==null)return;
+      if(Array.isArray(value)){value.forEach(function(item){collect(item,depth+1)});return}
+      if(typeof value!=='object')return;
+      Object.keys(value).forEach(function(key){
+        var child=value[key];
+        if(/^(company|companyName|customer|customerName|supplier|supplierName|buyer|buyerName|seller|sellerName)$/i.test(key)&&typeof child==='string')names.push(child);
+        else if(child&&typeof child==='object')collect(child,depth+1);
+      });
+    }
+    collect(source,0);
     return Array.from(new Set(names.map(function(value){return String(value||'').trim()}).filter(function(value){return textLength(value)>LIMIT})))
       .sort(function(a,b){return textLength(b)-textLength(a)});
   }
