@@ -12,11 +12,15 @@
   }
   function shippingSchema(){return typeof schemas!=='undefined'&&schemas.shipping?schemas.shipping:null;}
   function baseRows(){return window.__mesVoyageBaseShippingRows?list(window.__mesVoyageBaseShippingRows()):[];}
+  function firstDate(rows,fields){
+    for(var i=0;i<rows.length;i++)for(var j=0;j<fields.length;j++){var value=dateOnly(rows[i]&&rows[i][fields[j]]);if(value)return value;}
+    return'';
+  }
   function enrichedRows(){
     return baseRows().map(function(row){
-      var shipment=list(row.shipments)[0]||{},item=list(row.items)[0]||{};
-      row.etdConfirmedDate=dateOnly(shipment.etdConfirmedDate||shipment.departureConfirmedDate||item.etdConfirmedDate||item.departureConfirmedDate);
-      row.etaExpectedDate=dateOnly(shipment.etaExpectedDate||shipment.arrivalExpectedDate||item.etaExpectedDate||item.arrivalExpectedDate);
+      var shipments=list(row.shipments),items=list(row.items);
+      row.etdConfirmedDate=firstDate(shipments,['etdConfirmedDate','departureConfirmedDate'])||firstDate(items,['etdConfirmedDate','departureConfirmedDate']);
+      row.etaExpectedDate=firstDate(shipments,['etaExpectedDate','arrivalExpectedDate'])||firstDate(items,['etaExpectedDate','arrivalExpectedDate']);
       return row;
     });
   }
@@ -48,7 +52,9 @@
     await commit('ETD·ETA 날짜',['shipments','salesOrders'],function(shared){
       var shipmentMatched=false;
       list(shared.shipments).forEach(function(shipment){
-        var matched=row.shipmentId?text(shipment.id)===text(row.shipmentId):(!itemIds.size&&text(shipment.soNo)===text(row.soNo));
+        var matched=(row.shipmentId&&text(shipment.id)===text(row.shipmentId))
+          ||(shipment.salesOrderId&&itemIds.has(text(shipment.salesOrderId)))
+          ||(!row.shipmentId&&text(shipment.soNo)===text(row.soNo));
         if(!matched)return;shipmentMatched=true;
         Object.assign(shipment,{etdConfirmedDate:etd,departureConfirmedDate:etd,etaExpectedDate:eta,arrivalExpectedDate:eta,updatedAt:new Date().toISOString(),updatedByName:typeof currentUserName==='function'?currentUserName():''});
       });
@@ -57,9 +63,15 @@
           Object.assign(order,{etdConfirmedDate:etd,departureConfirmedDate:etd,etaExpectedDate:eta,arrivalExpectedDate:eta,updatedAt:new Date().toISOString(),updatedByName:typeof currentUserName==='function'?currentUserName():''});
         }
       });
-      if(!shipmentMatched&&row.shipmentId){
-        var shipment=list(shared.shipments).find(function(entry){return text(entry.id)===text(row.shipmentId);});
-        if(shipment)Object.assign(shipment,{etdConfirmedDate:etd,departureConfirmedDate:etd,etaExpectedDate:eta,arrivalExpectedDate:eta});
+      if(!shipmentMatched){
+        var firstItem=list(row.items)[0]||{};
+        list(shared.shipments).push({
+          id:row.shipmentId||crypto.randomUUID(),salesOrderId:firstItem.id||'',soNo:row.soNo||firstItem.soNo||'',status:row.status||firstItem.status||'SHIPPED',
+          weight:Number(row.shippedWeight||row.weight||firstItem.weight)||0,shippedWeight:Number(row.shippedWeight||row.weight||firstItem.weight)||0,
+          shippedAt:row.shippedAt||firstItem.shippedAt||new Date().toISOString(),etdConfirmedDate:etd,departureConfirmedDate:etd,
+          etaExpectedDate:eta,arrivalExpectedDate:eta,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+          updatedByName:typeof currentUserName==='function'?currentUserName():''
+        });
       }
     });
     closeModal();
@@ -94,3 +106,4 @@
   document.documentElement.dataset.mesShippingVoyageDatesV1='loaded';
   if(typeof currentView!=='undefined'&&currentView==='shipping'&&typeof render==='function')render();
 })();
+
