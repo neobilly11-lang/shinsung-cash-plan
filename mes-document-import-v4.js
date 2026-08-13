@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-10";
+  const VERSION = "20260813-11";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -179,6 +179,69 @@
     return rows;
   }
 
+  function canonicalOcrDescription(value) {
+    const text = compact(value);
+    if (/STAINL.*STEELSCRAP/.test(text)) return "Stainless steel scrap";
+    if (/NICKELALLOY.*SCRAP/.test(text) || /NICKELALLOY/.test(text)) return "Nickel alloy scrap";
+    if (/COPPER.*SCRAP/.test(text)) return "Copper scrap";
+    if (/TITANIUM.*SCRAP/.test(text)) return "Titanium scrap";
+    if (/COBALT.*SCRAP/.test(text)) return "Cobalt scrap";
+    if (/TUNGSTEN.*SCRAP/.test(text)) return "Tungsten scrap";
+    if (/MOLYBDEN.*SCRAP/.test(text)) return "Molybdenum scrap";
+    if (/FERRO.*TITANIUM.*SCRAP/.test(text)) return "Ferro Titanium scrap";
+    return clean(value);
+  }
+
+  function extractOcrContractMarkings(value, expectedCount) {
+    const source = clean(value).toUpperCase();
+    const pattern = /\b(?:SMO|INCO(?:NEL|LOY)?|ALLOY|HAST(?:ELLOY)?|MONEL|NIMONIC|UDIMET|WASPALOY|SUS|STS|AISI|TI|CP|HS|FSX|MAR)\s*[- ]?\s*[A-Z0-9][A-Z0-9./-]*\b|\b\d{1,3}\s*\/\s*\d{1,3}\s+(?:COPPER|BRASS)\b|\b\d{1,3}\s+[A-Z]{1,5}\d{0,3}\b|\b[A-Z]{1,5}\s*[- ]?\d{2,4}[A-Z0-9/-]*\b|\b\d{3,4}\b/g;
+    const result = [];
+    for (const match of source.matchAll(pattern)) {
+      const marking = clean(match[0]).replace(/\s*\/\s*/g, "/");
+      if (!marking || result.includes(marking)) continue;
+      result.push(marking);
+      if (expectedCount > 0 && result.length >= expectedCount) break;
+    }
+    return result;
+  }
+
+  function parseColumnarContractOcr(lines, text) {
+    const flat = clean(text);
+    if (!/\bMARKING\b/i.test(flat) || !/\bPRICE\b/i.test(flat) || !/(?:Q\s*['’]?\s*TY|QUANTITY)/i.test(flat)) return [];
+
+    const descriptions = [];
+    const descriptionPattern = /Stainl[a-z]*\s+stee[l1i]\s+scrap|Nicke[l1i]\s+a[l1i]\s*loy\s+scrap|Copper\s+scrap|Titanium\s+scrap|Cobalt\s+scrap|Tungsten\s+scrap|Molybden(?:um|ium)\s+scrap|Ferro\s+Titanium\s+scrap/ig;
+    for (const match of flat.matchAll(descriptionPattern)) descriptions.push(canonicalOcrDescription(match[0]));
+    if (descriptions.length < 2) return [];
+
+    const priceLabel = /\bPRICE\s*(?:\([^)]*\))?/i.exec(flat);
+    const quantityLabel = /(?:Q\s*['’]?\s*TY|QUANTITY)\s*(?:\([^)]*\))?/i.exec(flat);
+    const markingLabel = /\bMARKING\b/i.exec(flat);
+    if (!priceLabel || !quantityLabel || !markingLabel) return [];
+
+    const afterPrice = flat.slice(priceLabel.index + priceLabel[0].length);
+    const priceStop = afterPrice.search(/\b(?:USD|DATE|DESCRIPTION)\b/i);
+    const prices = numericTokens(priceStop >= 0 ? afterPrice.slice(0, priceStop) : afterPrice, "US")
+      .map(token => token.value).filter(value => value > 0 && value < 100000).slice(0, descriptions.length);
+
+    const afterQuantity = flat.slice(quantityLabel.index + quantityLabel[0].length);
+    const quantityStop = afterQuantity.search(/\b(?:BUYER|AMOUNT|TOTAL\s+AMOUNT|BANK)\b/i);
+    const quantities = numericTokens(quantityStop >= 0 ? afterQuantity.slice(0, quantityStop) : afterQuantity, "US")
+      .map(token => token.value).filter(value => value > 0 && value < 100000000).slice(0, descriptions.length);
+
+    const afterMarking = flat.slice(markingLabel.index + markingLabel[0].length);
+    const markingStop = afterMarking.search(/\bTOTAL\b/i);
+    const markings = extractOcrContractMarkings(markingStop >= 0 ? afterMarking.slice(0, markingStop) : afterMarking, descriptions.length);
+    const count = Math.min(descriptions.length, markings.length, quantities.length, prices.length);
+    if (count < 2) return [];
+
+    const unit = sourceUnits(flat).quantity || "KG";
+    return Array.from({ length: count }, (_, index) => normalizeItem(
+      markings[index], descriptions[index], quantities[index], unit, prices[index], unit, 0,
+      { style: "US", sourceLineNo: index + 1 }
+    )).filter(item => item.marking && item.weight > 0 && item.price > 0);
+  }
+
   function parseGenericRows(lines, text) {
     const style = numberStyle(text);
     const units = sourceUnits(text);
@@ -200,7 +263,7 @@
       if (Math.abs(quantity * price - amount) > Math.max(5, amount * 0.08)) continue;
       const prefix = line.slice(0, Math.min(quantityToken.index, priceToken.index));
       const parts = descriptionParts(prefix);
-      if (!/[A-Za-z가-힣]/.test(parts.marking) || parts.marking.length < 2) continue;
+      if ((!/[A-Za-z가-힣]/.test(parts.marking) && !/^\d{3,4}$/.test(parts.marking)) || parts.marking.length < 2) continue;
 
       rows.push(normalizeItem(parts.marking, parts.description, quantity, units.quantity, price, units.price, amount, { style }));
     }
@@ -494,13 +557,15 @@
     const tel = fieldFromLines(lines, [/(?:^|\b)(?:TEL|PHONE)\s*[:#-]?\s*([+()\d][+()\d .-]{6,})/i]);
     const fax = fieldFromLines(lines, [/(?:^|\b)FAX\s*[:#-]?\s*([+()\d][+()\d .-]{6,})/i]);
     const email = (all.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [""])[0];
+    const paymentTerm = fieldFromLines(lines, [/PAYMENT(?:\s+TERM)?\s*[:#-]?\s*(.+?)(?=\s+PACKING\b|$)/i])
+      || fieldFromLines(lines.filter(line => !/LOADING\s+TERM|SHIPPING\s+TERM/i.test(line)), [/\bTERMS?\s*[:#-]?\s*(.+)$/i]);
     return {
       poNo: clean(poNo).replace(/[.,;:]$/, ""), company: clean(company), contractDate: clean(date), address: clean(address), tel: clean(tel), fax: clean(fax), email: clean(email),
       soNo: fieldFromLines(lines, [/(?:S\.?O\.?)\s*(?:NO\.?|#)?\s*[:#-]?\s*([A-Z0-9./_-]+)/i]),
       a10No: fieldFromLines(lines, [/A10\s*NO\s*[:#-]?\s*([A-Z0-9./_-]+)/i]),
       shipment: fieldFromLines(lines, [/SHIPMENT\s*[:#-]?\s*(.+?)(?=\s+LOADING\s+TERM|$)/i, /SHIPPING\s+TERMS?\s*[:#-]?\s*(.+)$/i]),
       loadingTerm: fieldFromLines(lines, [/LOADING\s+TERM\s*[:#-]?\s*([^|]+)$/i, /SAILING\s+ON\s*\/?\s*ABT\s*[:#-]?\s*([^|]+)$/i]),
-      paymentTerm: fieldFromLines(lines, [/PAYMENT(?:\s+TERM)?\s*[:#-]?\s*(.+?)(?=\s+PACKING\b|$)/i, /TERMS?\s*[:#-]?\s*(.+)$/i]),
+      paymentTerm,
       packing: fieldFromLines(lines, [/PACKING\s*[:#-]?\s*(.+)$/i]),
       note: fieldFromLines(lines, [/NOTE\s*[:#-]?\s*(.+)$/i]),
       sourceFile: String(fileName || "")
@@ -509,7 +574,7 @@
 
   function parseText(text, fileName) {
     const lines = String(text || "").split(/\r?\n/).map(clean).filter(Boolean);
-    const groups = [parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseGenericRows(lines, text)];
+    const groups = [parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseColumnarContractOcr(lines, text), parseGenericRows(lines, text)];
     const best = groups.slice().sort((a, b) => b.length - a.length)[0] || [];
     const items = dedupeItems([best]);
     return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
@@ -606,7 +671,7 @@
     return meta;
   }
 
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, compact, headerKey };
+  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, compact, headerKey };
   root.MesDocumentImporterV4 = core;
   globalThis.MesDocumentImporterV4 = core;
   globalThis.__mesDocumentImporterV4 = core;
@@ -713,12 +778,16 @@
         worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
           if (message.status === "recognizing text" && typeof setSync === "function") setSync(`OCR ${pageNumber}/${pdf.numPages} · ${Math.round((message.progress || 0) * 100)}%`);
         }});
-        await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "6" });
+        await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "3", user_defined_dpi: "300" });
       }
-      const viewport = page.getViewport({ scale: 2.2 }), canvas = document.createElement("canvas");
+      const viewport = page.getViewport({ scale: 3 }), canvas = document.createElement("canvas");
       canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-      await page.render({ canvasContext: canvas.getContext("2d", { alpha: false }), viewport }).promise;
-      const result = await worker.recognize(canvas);
+      const context = canvas.getContext("2d", { alpha: false });
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: context, viewport, background: "white" }).promise;
+      const imageSource = canvas.toDataURL("image/png");
+      const result = await worker.recognize(imageSource);
       const pageText = String(result.data && result.data.text || "");
       lines.push(...pageText.split(/\r?\n/));
       ocrPages.push(pageNumber);
