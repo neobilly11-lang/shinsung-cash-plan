@@ -3,7 +3,7 @@
   if(window.__fieldListGradeShortenerV1)return;
   window.__fieldListGradeShortenerV1=true;
 
-  var LIMIT=10;
+  var LIMIT=15;
   var LIST_SCOPES='table tbody,[id$="List"],[id$="Rows"],[id$="Grid"],.result-list';
   var scheduled=false;
 
@@ -21,7 +21,7 @@
     var names=[];
     function collectRow(row){
       if(!row||typeof row!=='object')return;
-      ['grade','mainGrade','finalGrade','confirmedGrade','supplierGrade'].forEach(function(key){addGrade(names,row[key])});
+      ['grade','sourceGrade','mainGrade','finalGrade','confirmedGrade','supplierGrade','subGrade','detailGrade','material','description'].forEach(function(key){addGrade(names,row[key])});
       safeArray(row.items).forEach(collectRow);
       safeArray(row.rows).forEach(collectRow);
     }
@@ -30,22 +30,22 @@
     });
     return Array.from(new Set(names)).sort(function(a,b){return Array.from(b).length-Array.from(a).length});
   }
+  function escapePattern(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
+  function shortenedGrade(value){return Array.from(String(value||'')).slice(0,LIMIT).join('')+' 그 외'}
   function apply(){
     scheduled=false;
     var names=gradeNames();
     document.documentElement.dataset.fieldListGradeShortenerV1='ready';
     if(!names.length)return;
+    var pattern=new RegExp(names.map(escapePattern).join('|'),'g');
     document.querySelectorAll(LIST_SCOPES).forEach(function(scope){
-      if(scope.matches('#importReceiptDirectList,#inspectionSettlementRows')||scope.closest('#importReceiptDirect,#inspectionSettlement'))return;
       var walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);
       var node;
       while((node=walker.nextNode())){
         var parent=node.parentElement;
         if(!parent||parent.closest('script,style,textarea,input,select,option,datalist'))continue;
-        var original=node.nodeValue||'',changed=original,matched='';
-        names.forEach(function(name){
-          if(changed.indexOf(name)!==-1){changed=changed.split(name).join('그 외');matched=matched||name}
-        });
+        var original=node.nodeValue||'',matched='';
+        var changed=original.replace(pattern,function(name){matched=matched||name;return shortenedGrade(name)});
         if(changed!==original){
           node.nodeValue=changed;
           if(!parent.title)parent.title=matched;
