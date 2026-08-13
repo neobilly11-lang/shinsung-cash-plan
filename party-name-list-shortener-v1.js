@@ -11,8 +11,12 @@
     var chars=Array.from(String(value||'').trim());
     return chars.length>LIMIT?chars.slice(0,LIMIT).join('')+'…':chars.join('');
   }
+  function currentState(){
+    try{return typeof state==='object'&&state?state:(window.state||{})}
+    catch(_){return window.state||{}}
+  }
   function partyNames(){
-    var source=window.state||{};
+    var source=currentState();
     var names=[];
     safeArray(source.companies).forEach(function(value){names.push(value)});
     safeArray(source.pos).forEach(function(row){names.push(row&&row.company)});
@@ -41,6 +45,7 @@
   function apply(){
     scheduled=false;
     var names=partyNames();
+    document.documentElement.dataset.partyNameListShortenerV1='ready';
     if(!names.length)return;
     listTextNodes().forEach(function(node){
       var original=node.nodeValue||'';
@@ -55,7 +60,6 @@
         if(owner&&!owner.title)owner.title=matched;
       }
     });
-    document.documentElement.dataset.partyNameListShortenerV1='ready';
   }
   function schedule(){
     if(scheduled)return;
