@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.9 seconds
-Output:
 const SUPABASE_URL = 'https://orpeybiqikrdydkhsjjs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
 const LEGACY_TABLE = 'sales_state';
