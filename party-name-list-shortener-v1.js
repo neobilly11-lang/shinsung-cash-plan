@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 (function partyNameListShortenerV1(){
   'use strict';
 
@@ -86,4 +83,3 @@ Output:
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
   else schedule();
 })();
-
