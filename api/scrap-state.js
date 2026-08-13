@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.9 seconds
+Output:
 const SUPABASE_URL = 'https://orpeybiqikrdydkhsjjs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
 const LEGACY_TABLE = 'sales_state';
@@ -182,6 +185,21 @@ export default async function handler(req, res) {
         const legacy = await readLegacyRow('revision');
         return res.status(200).json({ revision: Number(legacy.revision) || 0 });
       }
+      if (String(req.query?.manifest || '') === '1') {
+        const head = await readHead();
+        if (head) {
+          return res.status(200).json({
+            revision: Number(head.revision) || 0,
+            objectUrl: publicObjectUrl(head.payload.objectPath)
+          });
+        }
+        const legacy = await readLegacyRow('revision');
+        const revision = Number(legacy.revision) || 0;
+        return res.status(200).json({
+          revision,
+          objectUrl: publicObjectUrl(`${V2_PREFIX}/revision-${revision}.json`)
+        });
+      }
       const current = await readCurrent();
       return res.status(200).json({ payload: current.payload, revision: current.revision });
     }
@@ -240,3 +258,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message || String(error) });
   }
 }
+
