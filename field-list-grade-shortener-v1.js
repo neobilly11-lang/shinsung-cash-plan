@@ -36,6 +36,7 @@
     document.documentElement.dataset.fieldListGradeShortenerV1='ready';
     if(!names.length)return;
     document.querySelectorAll(LIST_SCOPES).forEach(function(scope){
+      if(scope.matches('#importReceiptDirectList,#inspectionSettlementRows')||scope.closest('#importReceiptDirect,#inspectionSettlement'))return;
       var walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);
       var node;
       while((node=walker.nextNode())){
