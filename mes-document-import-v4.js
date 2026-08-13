@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-9";
+  const VERSION = "20260813-10";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -375,6 +375,84 @@
     return rows;
   }
 
+  /*
+   * Ireland Alloys-style PACKING LIST:
+   * ITEM | MATERIAL DESCRIPTION | GROSS | TARE | NETT.
+   * Some material names are vertically merged, so later package rows contain
+   * only the packing type and weights. Keep the latest material name and
+   * create one item for every physical weight row.
+   */
+  function parseIrelandAlloysPackingRows(lines, text) {
+    const header = lines.findIndex(line => /MATERIAL\s+DESCRIPTION/i.test(line)
+      && /GROSS/i.test(line) && /TARE/i.test(line) && /NETT?/i.test(line));
+    if (header < 0 || !lines.slice(0, header + 1).some(line => /PACKING\s+LIST/i.test(line))) return [];
+
+    const style = numberStyle(text), rows = [];
+    const normalized = value => clean(value)
+      .replace(/(\d)\s*,\s*(\d)/g, "$1,$2")
+      .replace(/(\d)\s*\.\s*(\d)/g, "$1.$2");
+    const packingPattern = /\b\d+\s+(?:(?:LARGE\s+)?STILLAGE|PALLET|FISHBOX|IBC|(?:DRUMS?|BAGS?)(?:\s+ON\s+\d+\s+PALLET)?)\b/i;
+    const ignored = /^(?:KGS?\b|TOTALS?\b|GRAND\s+TOTALS?\b|ITEM\b|MATERIAL\s+DESCRIPTION\b)/i;
+    let currentGrade = "", previous = null, generated = 0;
+
+    function weightTriple(line) {
+      const tokens = numericTokens(line, style);
+      if (tokens.length < 3) return null;
+      const netToken = tokens[tokens.length - 1], net = netToken.value;
+      if (!(net > 0)) return null;
+      const first = Math.max(0, tokens.length - 6);
+      for (let grossIndex = tokens.length - 3; grossIndex >= first; grossIndex--) {
+        const gross = tokens[grossIndex].value;
+        if (!(gross >= net && gross > 0)) continue;
+        const tareTokens = tokens.slice(grossIndex + 1, tokens.length - 1);
+        if (!tareTokens.length || tareTokens.length > 2) continue;
+        const tare = tareTokens.length === 1
+          ? tareTokens[0].value
+          : Number(tareTokens.map(token => String(Math.trunc(token.value))).join(""));
+        if (!(tare >= 0) || Math.abs((gross - tare) - net) > Math.max(2, gross * 0.005)) continue;
+        return { gross: round2(gross), tare: round2(tare), net: round2(net), firstIndex: tokens[grossIndex].index };
+      }
+      return null;
+    }
+
+    for (let index = header + 1; index < lines.length; index++) {
+      const line = normalized(lines[index]);
+      if (!line || /^GRAND\s+TOTALS?/i.test(line)) break;
+      if (ignored.test(line)) { previous = null; continue; }
+      const weights = weightTriple(line);
+      if (!weights) {
+        if (previous && /[A-Z]/i.test(line) && !/^(?:BANK|BENEFICIARY|ACCOUNT|SWIFT|CONTAINER|REFERENCE)\b/i.test(line)) {
+          previous.marking = clean(previous.marking + " " + line);
+          currentGrade = previous.marking;
+        }
+        continue;
+      }
+
+      let prefix = clean(line.slice(0, weights.firstIndex));
+      const itemMatch = prefix.match(/^\s*(\d{1,3})\b\s*/);
+      const afterItem = itemMatch ? clean(prefix.slice(itemMatch[0].length)) : "";
+      const startsWithPacking = /^(?:(?:LARGE\s+)?STILLAGE|PALLET|FISHBOX|IBC|DRUMS?|BAGS?)\b/i.test(afterItem);
+      const itemNo = itemMatch && !startsWithPacking && packingPattern.test(afterItem) ? Number(itemMatch[1]) : 0;
+      if (itemNo) prefix = afterItem;
+      const packingMatch = prefix.match(packingPattern);
+      const packingType = packingMatch ? clean(packingMatch[0]) : "";
+      let grade = packingMatch ? clean(prefix.slice(0, packingMatch.index)) : prefix;
+      grade = grade.replace(/^[-:|]+|[-:|]+$/g, "").trim();
+      if (grade && /[A-Z]/i.test(grade)) currentGrade = grade;
+      else grade = currentGrade;
+      if (!grade || !/[A-Z]/i.test(grade)) continue;
+
+      generated++;
+      previous = normalizeItem(grade, "", weights.net, "KG", 0, "KG", 0, {
+        style, gross: weights.gross, tare: weights.tare,
+        packageNo: itemNo ? `ITEM-${String(itemNo).padStart(2, "0")}` : `PL-${String(generated).padStart(3, "0")}`,
+        packageCount: 1, packingType, sourceGradeLocked: true, sourceLineNo: itemNo || generated
+      });
+      rows.push(previous);
+    }
+    return rows;
+  }
+
   function dedupeItems(groups) {
     const out = [], seen = new Set();
     groups.flat().forEach(item => {
@@ -431,7 +509,7 @@
 
   function parseText(text, fileName) {
     const lines = String(text || "").split(/\r?\n/).map(clean).filter(Boolean);
-    const groups = [parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseGenericRows(lines, text)];
+    const groups = [parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseGenericRows(lines, text)];
     const best = groups.slice().sort((a, b) => b.length - a.length)[0] || [];
     const items = dedupeItems([best]);
     return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
@@ -528,7 +606,7 @@
     return meta;
   }
 
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, compact, headerKey };
+  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, compact, headerKey };
   root.MesDocumentImporterV4 = core;
   globalThis.MesDocumentImporterV4 = core;
   globalThis.__mesDocumentImporterV4 = core;
