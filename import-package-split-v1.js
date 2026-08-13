@@ -6,6 +6,23 @@
     var style=document.createElement('style');style.id='importPackageSplitV1Style';style.textContent='.import-method-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.split-mode-button{background:#ffe8b2!important;color:#684600!important;border:2px solid #edae2e!important}.import-split-card{border:2px solid var(--line)}.import-split-card.selected{border-color:var(--green);box-shadow:0 0 0 4px #16856f22}.import-split-editor{margin-top:18px;border:3px solid var(--green)}.import-split-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) auto;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid var(--line)}.import-split-row b{font-size:19px}.split-over-message{min-height:28px;margin:10px 0;color:var(--red);font-weight:900}@media(max-width:760px){.import-method-grid{grid-template-columns:1fr}.import-split-row{grid-template-columns:1fr}.import-split-row .btn{width:100%}}';document.head.appendChild(style);
   }
   var splitSourceNo='',splitParts=[];
+  function focusSplitWeight(index,delay){
+    setTimeout(function(){
+      var input=E('importSplitWeight'+index);if(!input)return;
+      input.scrollIntoView({behavior:'smooth',block:'center'});
+      setTimeout(function(){try{input.focus({preventScroll:true});}catch(_){input.focus();}try{input.select();}catch(_){}},180);
+    },delay||40);
+  }
+  function queueSplitDraft(){if(typeof queueWorkflowDraftStructuralSave==='function')queueWorkflowDraftStructuralSave('importReceiptSplit');}
+  root.importPackageSplitDraftContext=function(){return splitSourceNo||selectedImportPoNo||'';};
+  root.importPackageSplitDraftSnapshot=function(){return{sourceNo:splitSourceNo,parts:splitParts.slice(),poNo:selectedImportPoNo||''};};
+  root.restoreImportPackageSplitDraft=function(snapshot){
+    if(!snapshot||!snapshot.sourceNo)return false;
+    if(snapshot.poNo)selectedImportPoNo=snapshot.poNo;
+    splitSourceNo=String(snapshot.sourceNo||'');splitParts=(Array.isArray(snapshot.parts)?snapshot.parts:[]).map(round2);
+    if(!activeSource(splitSourceNo)){splitSourceNo='';splitParts=[];return false;}
+    renderImportSplitList();return true;
+  };
   function activeSource(no){return state.pos.find(function(row){return row.packageNo===no&&row.status!=='CANCELLED'&&!row.receivedAt&&row.receiptStatus!=='RECEIVED';});}
   function round2(value){return Math.round(num(value)*100)/100;}
   function visibleGrade(value){var text=String(value||'').trim();return Array.from(text).length>=10?'그 외':text||'미지정';}
@@ -33,10 +50,10 @@
   root.selectImportSplitSource=function(no){
     var source=activeSource(no);if(!source)return msg('importSplitMsg','입고완료되었거나 찾을 수 없는 패키지입니다.',true);
     splitSourceNo=no;var total=round2(source.netWeight||source.weight),half=round2(total/2);splitParts=[half,round2(total-half)];renderImportSplitList();
-    requestAnimationFrame(function(){E('importSplitEditor')?.scrollIntoView({behavior:'smooth',block:'start'});E('importSplitWeight0')?.focus();});
+    queueSplitDraft();requestAnimationFrame(function(){E('importSplitEditor')?.scrollIntoView({behavior:'smooth',block:'start'});focusSplitWeight(0,20);});
   };
-  root.addImportSplitPart=function(){splitParts.push(0);renderImportSplitEditor();setTimeout(function(){E('importSplitWeight'+(splitParts.length-1))?.focus();},0);};
-  root.removeImportSplitPart=function(index){if(splitParts.length<=2)return msg('importSplitMsg','패키지 나누기는 최소 2개가 필요합니다.',true);splitParts.splice(index,1);renderImportSplitEditor();};
+  root.addImportSplitPart=function(){splitParts.push(0);var index=splitParts.length-1;renderImportSplitEditor();queueSplitDraft();focusSplitWeight(index,40);};
+  root.removeImportSplitPart=function(index){if(splitParts.length<=2)return msg('importSplitMsg','패키지 나누기는 최소 2개가 필요합니다.',true);splitParts.splice(index,1);renderImportSplitEditor();queueSplitDraft();};
   root.updateImportSplitWeight=function(index,value){splitParts[index]=round2(value);renderImportSplitTotals();};
   function splitValues(){return splitParts.map(round2).filter(function(value){return value>0;});}
   function splitSummary(){var source=activeSource(splitSourceNo),total=round2(source&&(source.netWeight||source.weight)),used=round2(splitValues().reduce(function(sum,value){return sum+value;},0));return{source:source,total:total,used:used,remain:round2(total-used)};}
@@ -66,6 +83,13 @@
     try{await saveState();splitSourceNo='';splitParts=[];renderImportReceiptHomeCount();renderImportSplitList();showFlowToast(originalNo+' 패키지 나누기 완료 · '+names.join(', '));msg('importSplitMsg',(withLoss?'남은 '+kg(info.remain)+' 로스처리 · ':'')+names.length+'개 파생 패키지 저장완료');}
     catch(error){state=defaults(backup);renderAll();msg('importSplitMsg','패키지 나누기 저장 실패: '+error.message,true);}finally{endSaveProgress();}
   };
+  var saveSplitBeforeDraftCleanup=root.saveImportPackageSplit;
+  root.saveImportPackageSplit=async function(){var sourceBefore=splitSourceNo,poBefore=selectedImportPoNo,result=await saveSplitBeforeDraftCleanup.apply(this,arguments);if(sourceBefore&&!splitSourceNo&&typeof clearWorkflowDrafts==='function')clearWorkflowDrafts(1,[sourceBefore,poBefore]);return result;};
+  if(typeof root.workflowDraftViewLabel==='function'){
+    var splitDraftLabelBefore=root.workflowDraftViewLabel;
+    root.workflowDraftViewLabel=function(viewId){return viewId==='importReceiptSplit'?'패키지 쪼개기':splitDraftLabelBefore.apply(this,arguments);};
+    try{workflowDraftViewLabel=root.workflowDraftViewLabel;}catch(_){}
+  }
   var renderMethodBefore=root.renderImportReceiptMethod;
   root.renderImportReceiptMethod=function(){var result=renderMethodBefore.apply(this,arguments);decorateMethod();return result;};
   try{renderImportReceiptMethod=root.renderImportReceiptMethod;}catch(_){ }
