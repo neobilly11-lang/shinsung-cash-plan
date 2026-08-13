@@ -4,26 +4,26 @@
   const VERSION = "20260814-14";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
-  const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|?⑷퀎)\b/i;
+  const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
   const HEADER_ALIASES = {
-    marking: ["MARKING", "GRADE", "COMMODITY", "COMODOTY", "ITEM NAME", "MATERIAL", "MATERIALS", "ALLOY", "?덈챸", "媛뺤쥌", "?곸꽭媛뺤쥌"],
-    description: ["DESCRIPTION", "ITEM DESCRIPTION", "DESCRIPTION OF GOODS", "PRODUCT DESCRIPTION", "SCRAP TYPE", "?ㅻ챸", "?덈ぉ?ㅻ챸"],
-    quantity: ["QTY", "QTY KG", "QTY KGS", "QTY LB", "QTY LBS", "QUANTITY", "WEIGHT", "NET WEIGHT", "NETT WEIGHT", "NET", "NETT", "NW", "N/W", "以묐웾", "?뺤젙以묐웾"],
+    marking: ["MARKING", "GRADE", "COMMODITY", "COMODOTY", "ITEM NAME", "MATERIAL", "MATERIALS", "ALLOY", "품명", "강종", "상세강종"],
+    description: ["DESCRIPTION", "ITEM DESCRIPTION", "DESCRIPTION OF GOODS", "PRODUCT DESCRIPTION", "SCRAP TYPE", "설명", "품목설명"],
+    quantity: ["QTY", "QTY KG", "QTY KGS", "QTY LB", "QTY LBS", "QUANTITY", "WEIGHT", "NET WEIGHT", "NETT WEIGHT", "NET", "NETT", "NW", "N/W", "중량", "확정중량"],
     gross: ["GROSS WEIGHT", "GROSS", "GW", "G/W"],
     tare: ["TARE WEIGHT", "TARE"],
     net: ["NET WEIGHT", "NETT WEIGHT", "NET", "NETT", "NW", "N/W"],
-    price: ["UNIT PRICE", "PRICE", "USD PRICE", "USD/KG", "USD/LB", "USD/TON", "PRICE PER TON", "PRICE PER KG", "PRICE PER LB", "?④?"],
-    amount: ["TOTAL VALUE", "TOTAL AMOUNT", "AMOUNT", "VALUE", "TOTAL USD", "?⑷퀎湲덉븸", "珥앷툑??],
-    unit: ["UNIT", "UOM", "?⑥쐞"],
-    packageNo: ["PACKAGE NO", "PACKAGE NUMBER", "PKG NO", "PACK NO", "?⑦궎吏踰덊샇", "?щ궡?낃퀬踰덊샇"],
-    packageCount: ["PACKAGE COUNT", "PACKAGES", "PKGS", "?⑦궎吏 ??, "?섎웾"],
-    packingType: ["PACKING TYPE", "PACKAGE TYPE", "PACKING", "?ъ옣醫낅쪟", "?ъ옣??]
+    price: ["UNIT PRICE", "PRICE", "USD PRICE", "USD/KG", "USD/LB", "USD/TON", "PRICE PER TON", "PRICE PER KG", "PRICE PER LB", "단가"],
+    amount: ["TOTAL VALUE", "TOTAL AMOUNT", "AMOUNT", "VALUE", "TOTAL USD", "합계금액", "총금액"],
+    unit: ["UNIT", "UOM", "단위"],
+    packageNo: ["PACKAGE NO", "PACKAGE NUMBER", "PKG NO", "PACK NO", "패키지번호", "사내입고번호"],
+    packageCount: ["PACKAGE COUNT", "PACKAGES", "PKGS", "패키지 수", "수량"],
+    packingType: ["PACKING TYPE", "PACKAGE TYPE", "PACKING", "포장종류", "포장재"]
   };
 
   const round2 = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
   const clean = value => String(value == null ? "" : value).replace(/[|]+/g, " ").replace(/\s+/g, " ").trim();
-  const headerKey = value => clean(value).toUpperCase().replace(/[^A-Z0-9媛-??/g, "");
-  const compact = value => clean(value).toUpperCase().replace(/[^A-Z0-9媛-??/g, "");
+  const headerKey = value => clean(value).toUpperCase().replace(/[^A-Z0-9가-힣]/g, "");
+  const compact = value => clean(value).toUpperCase().replace(/[^A-Z0-9가-힣]/g, "");
 
   function numberStyle(text) {
     const source = String(text || "");
@@ -33,7 +33,7 @@
   }
 
   function numberValue(value, style) {
-    let text = String(value == null ? "" : value).replace(/[$???s]/g, "").replace(/[^\d.,+-]/g, "");
+    let text = String(value == null ? "" : value).replace(/[$€£\s]/g, "").replace(/[^\d.,+-]/g, "");
     if (!text) return 0;
     const mode = style || numberStyle(text);
     if (mode === "EU") text = text.replace(/\./g, "").replace(",", ".");
@@ -93,7 +93,7 @@
   }
 
   function numericTokens(line, style) {
-    return [...String(line || "").matchAll(/[$????\s*[+-]?\d(?:[\d.,]*\d)?/g)].map(match => ({
+    return [...String(line || "").matchAll(/[$€£]?\s*[+-]?\d(?:[\d.,]*\d)?/g)].map(match => ({
       text: match[0],
       value: numberValue(match[0], style),
       index: match.index || 0,
@@ -124,7 +124,7 @@
     const rows = [];
     for (const line of lines) {
       if (TOTAL_RE.test(line) || /PRICE\s+PER\s+TON/i.test(line)) continue;
-      const match = line.match(/^(.*?)\s+[$???\s*([\d.,]+)\s+([\d.,]+)\s+[$???\s*([\d.,]+)(?:\s+\d+\s*%\s+[$???\s*[\d.,]+)?\s*$/i);
+      const match = line.match(/^(.*?)\s+[$€£]\s*([\d.,]+)\s+([\d.,]+)\s+[$€£]\s*([\d.,]+)(?:\s+\d+\s*%\s+[$€£]\s*[\d.,]+)?\s*$/i);
       if (!match) continue;
       const item = normalizeItem(match[1], "", match[3], "TON", match[2], "TON", match[4], { style: "EU" });
       if (item.marking && item.weight > 0 && item.amount > 0) rows.push(item);
@@ -141,7 +141,7 @@
       let joined = lines[index];
       for (let width = 1; width <= 3 && index + width <= lines.length; width++) {
         if (width > 1) joined += " " + lines[index + width - 1];
-        const match = clean(joined).match(/^\s*(?:\d{1,3}\s+)?(.+?)\s+(?:\d{4,}\s+)?([\d,.]+)\s+([\d,.]+)\s+([\d,.]+)\s*(LB|LBS|KG|KGS)?\s+[$????\s*([\d,.]+)\s*(?:\/?\s*(?:LB|LBS|KG|KGS)|P|PP)?\s+[$????\s*([\d,.]+)\s*$/i);
+        const match = clean(joined).match(/^\s*(?:\d{1,3}\s+)?(.+?)\s+(?:\d{4,}\s+)?([\d,.]+)\s+([\d,.]+)\s+([\d,.]+)\s*(LB|LBS|KG|KGS)?\s+[$€£]?\s*([\d,.]+)\s*(?:\/?\s*(?:LB|LBS|KG|KGS)|P|PP)?\s+[$€£]?\s*([\d,.]+)\s*$/i);
         if (!match) continue;
         const unit = unitCode(match[5], units.quantity);
         const parts = descriptionParts(match[1]);
@@ -162,7 +162,7 @@
     const style = numberStyle(text);
     const units = sourceUnits(text);
     const rows = [];
-    const rowRe = new RegExp(`^\\s*(\\d{1,3})\\s+(.+?)\\s+(${DESC_RE.source})\\s+([\\d,.]+)\\s+[$????\\s*([\\d,.]+)\\s+[$????\\s*([\\d,.]+)\\s*$`, "i");
+    const rowRe = new RegExp(`^\\s*(\\d{1,3})\\s+(.+?)\\s+(${DESC_RE.source})\\s+([\\d,.]+)\\s+[$€£]?\\s*([\\d,.]+)\\s+[$€£]?\\s*([\\d,.]+)\\s*$`, "i");
     for (let index = 0; index < lines.length; index++) {
       if (TOTAL_RE.test(lines[index]) || /MARKING.*DESCRIPTION.*(?:Q.?TY|QUANTITY)/i.test(lines[index])) continue;
       let joined = "";
@@ -208,7 +208,7 @@
 
   function parseColumnarContractOcr(lines, text) {
     const flat = clean(text);
-    if (!/\bMARKING\b/i.test(flat) || !/\bPRICE\b/i.test(flat) || !/(?:Q\s*['???\s*TY|QUANTITY)/i.test(flat)) return [];
+    if (!/\bMARKING\b/i.test(flat) || !/\bPRICE\b/i.test(flat) || !/(?:Q\s*['’]?\s*TY|QUANTITY)/i.test(flat)) return [];
 
     const descriptions = [];
     const descriptionPattern = /Stainl[a-z]*\s+stee[l1i]\s+scrap|Nicke[l1i]\s+a[l1i]\s*loy\s+scrap|Copper\s+scrap|Titanium\s+scrap|Cobalt\s+scrap|Tungsten\s+scrap|Molybden(?:um|ium)\s+scrap|Ferro\s+Titanium\s+scrap/ig;
@@ -216,7 +216,7 @@
     if (descriptions.length < 2) return [];
 
     const priceLabel = /\bPRICE\s*(?:\([^)]*\))?/i.exec(flat);
-    const quantityLabel = /(?:Q\s*['???\s*TY|QUANTITY)\s*(?:\([^)]*\))?/i.exec(flat);
+    const quantityLabel = /(?:Q\s*['’]?\s*TY|QUANTITY)\s*(?:\([^)]*\))?/i.exec(flat);
     const markingLabel = /\bMARKING\b/i.exec(flat);
     if (!priceLabel || !quantityLabel || !markingLabel) return [];
 
@@ -264,7 +264,7 @@
       if (Math.abs(quantity * price - amount) > Math.max(5, amount * 0.08)) continue;
       const prefix = line.slice(0, Math.min(quantityToken.index, priceToken.index));
       const parts = descriptionParts(prefix);
-      if ((!/[A-Za-z媛-??/.test(parts.marking) && !/^\d{3,4}$/.test(parts.marking)) || parts.marking.length < 2) continue;
+      if ((!/[A-Za-z가-힣]/.test(parts.marking) && !/^\d{3,4}$/.test(parts.marking)) || parts.marking.length < 2) continue;
 
       rows.push(normalizeItem(parts.marking, parts.description, quantity, units.quantity, price, units.price, amount, { style }));
     }
@@ -345,7 +345,7 @@
     for (const raw of lines) {
       const line = clean(raw);
       if (/^SUMMARY\s+BY\s+MATERIAL/i.test(line)) break;
-      const container = line.match(/^CONTAINER\s+\d+\s*[쨌.-]?\s*([A-Z]{4})\s*(\d{6}\/\d)/i);
+      const container = line.match(/^CONTAINER\s+\d+\s*[·.-]?\s*([A-Z]{4})\s*(\d{6}\/\d)/i);
       if (container) {
         containerNo = `${container[1].toUpperCase()}${container[2]}`;
         materialIndex = 0;
@@ -438,7 +438,7 @@
     const decimalPattern = /\b\d{1,3}[.,]\d{3}\b/g;
     const gradeValue = value => {
       let grade = clean(String(value || "")
-        .replace(/[짤짰??`_]/g, " ")
+        .replace(/[©®™'`_]/g, " ")
         .split(/\s+/).filter(token => !/^[a-z][A-Za-z]?$/.test(token)).join(" ")
         .replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/gi, ""));
       if (/^INCO\s*718$/i.test(grade)) grade = "INCO718";
@@ -751,7 +751,7 @@
     const tonJumboRows = parseTonJumboPackingRows(lines, text, fileName);
     if (tonJumboRows.length && tonJumboRows.expectedNetKg > 0) {
       const actualNetKg = round2(tonJumboRows.reduce((sum, item) => sum + item.netWeight, 0));
-      if (Math.abs(actualNetKg - tonJumboRows.expectedNetKg) > 2) throw Error(`PACKING LIST 珥?N/W ${tonJumboRows.expectedNetKg.toLocaleString()} kg 以?${actualNetKg.toLocaleString()} kg留??몄떇?덉뒿?덈떎. ?쇰? ???꾨씫??諛⑹??섏뿬 ?깅줉??以묐떒?덉뒿?덈떎.`);
+      if (Math.abs(actualNetKg - tonJumboRows.expectedNetKg) > 2) throw Error(`PACKING LIST 총 N/W ${tonJumboRows.expectedNetKg.toLocaleString()} kg 중 ${actualNetKg.toLocaleString()} kg만 인식했습니다. 일부 행 누락을 방지하여 등록을 중단했습니다.`);
     }
     const groups = [parseVmetInvoiceRows(lines, text), parseVmetContainerPackingRows(lines, text), parseContainerMaterialPackingRows(lines, text), tonJumboRows, parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseColumnarContractOcr(lines, text), parseGenericRows(lines, text)];
     const best = groups.slice().sort((a, b) => b.length - a.length)[0] || [];
@@ -832,16 +832,16 @@
     const joined = matrix.map(row => row.filter(value => clean(value)).join(" "));
     const meta = metadata(joined, fileName);
     Object.assign(meta, {
-      company: matrixField(matrix, ["MESSRS", "SUPPLIER", "VENDOR", "嫄곕옒泥섎챸"], headerRow) || meta.company,
-      contractDate: matrixField(matrix, ["DATE", "CONTRACT DATE", "怨꾩빟??], headerRow) || meta.contractDate,
-      address: matrixField(matrix, ["ADDRESS", "二쇱냼"], headerRow) || meta.address,
-      tel: matrixField(matrix, ["TEL", "PHONE", "?꾪솕"], headerRow) || meta.tel,
-      email: matrixField(matrix, ["EMAIL", "E-MAIL", "?대찓??], headerRow) || meta.email,
-      poNo: matrixField(matrix, ["PO NO", "P.O NO", "PONO", "P.O ?섎쾭"], headerRow) || meta.poNo,
+      company: matrixField(matrix, ["MESSRS", "SUPPLIER", "VENDOR", "거래처명"], headerRow) || meta.company,
+      contractDate: matrixField(matrix, ["DATE", "CONTRACT DATE", "계약일"], headerRow) || meta.contractDate,
+      address: matrixField(matrix, ["ADDRESS", "주소"], headerRow) || meta.address,
+      tel: matrixField(matrix, ["TEL", "PHONE", "전화"], headerRow) || meta.tel,
+      email: matrixField(matrix, ["EMAIL", "E-MAIL", "이메일"], headerRow) || meta.email,
+      poNo: matrixField(matrix, ["PO NO", "P.O NO", "PONO", "P.O 넘버"], headerRow) || meta.poNo,
       soNo: matrixField(matrix, ["SO NO", "S.O NO", "SONO"], headerRow) || meta.soNo,
       a10No: matrixField(matrix, ["A10 NO", "A10NO"], headerRow) || meta.a10No,
       shipment: matrixField(matrix, ["SHIPMENT", "INCOTERMS"], headerRow) || meta.shipment,
-      loadingTerm: matrixField(matrix, ["LOADING TERM", "?낃퀬?덉젙??], headerRow) || meta.loadingTerm,
+      loadingTerm: matrixField(matrix, ["LOADING TERM", "입고예정일"], headerRow) || meta.loadingTerm,
       paymentTerm: matrixField(matrix, ["PAYMENT", "PAYMENT TERM"], headerRow) || meta.paymentTerm,
       packing: matrixField(matrix, ["PACKING", "PACKAGE"], headerRow) || meta.packing,
       note: matrixField(matrix, ["NOTE", "REMARK"], headerRow) || meta.note,
@@ -881,7 +881,7 @@
       const script = document.createElement("script");
       script.src = src;
       script.onload = resolve;
-      script.onerror = () => reject(Error("臾몄꽌 遺꾩꽍 紐⑤뱢??遺덈윭?ㅼ? 紐삵뻽?듬땲??"));
+      script.onerror = () => reject(Error("문서 분석 모듈을 불러오지 못했습니다."));
       document.head.appendChild(script);
     });
   }
@@ -937,8 +937,8 @@
     const lines = [], ocrPages = [];
     let worker = null;
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-      if (requestId !== importRequest) throw Error("???뚯씪???좏깮?섏뿬 ?댁쟾 遺꾩꽍??以묐떒?덉뒿?덈떎.");
-      if (typeof setSync === "function") setSync(`臾몄꽌 ${pageNumber}/${pdf.numPages} ?섏씠吏 遺꾩꽍 以?);
+      if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
+      if (typeof setSync === "function") setSync(`문서 ${pageNumber}/${pdf.numPages} 페이지 분석 중`);
       const page = await pdf.getPage(pageNumber), content = await page.getTextContent();
       const words = content.items.map(item => ({ text: clean(item.str), x: Number(item.transform && item.transform[4]) || 0, y: Number(item.transform && item.transform[5]) || 0 })).filter(item => item.text);
       const nativeChars = words.reduce((sum, item) => sum + item.text.length, 0);
@@ -955,7 +955,7 @@
       await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
       if (!worker) {
         worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
-          if (message.status === "recognizing text" && typeof setSync === "function") setSync(`OCR ${pageNumber}/${pdf.numPages} 쨌 ${Math.round((message.progress || 0) * 100)}%`);
+          if (message.status === "recognizing text" && typeof setSync === "function") setSync(`OCR ${pageNumber}/${pdf.numPages} · ${Math.round((message.progress || 0) * 100)}%`);
         }});
         await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "3", user_defined_dpi: "300" });
       }
@@ -978,13 +978,13 @@
   async function imageText(file, requestId) {
     await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
     const result = await root.Tesseract.recognize(file, "eng", { logger: message => {
-      if (requestId === importRequest && message.status === "recognizing text" && typeof setSync === "function") setSync(`?ъ쭊 臾몄옄 ?몄떇 ${Math.round((message.progress || 0) * 100)}%`);
+      if (requestId === importRequest && message.status === "recognizing text" && typeof setSync === "function") setSync(`사진 문자 인식 ${Math.round((message.progress || 0) * 100)}%`);
     }});
     return { text: String(result.data && result.data.text || ""), ocrPages: [1], pageCount: 1 };
   }
 
   async function importFile(file) {
-    if (!file) throw Error("?뚯씪???좏깮?섏꽭??");
+    if (!file) throw Error("파일을 선택하세요.");
     const requestId = ++importRequest, name = file.name || "", lower = name.toLowerCase();
     let parsed;
     if (/\.(?:xlsx|xls|csv|tsv)$/.test(lower)) {
@@ -1008,8 +1008,8 @@
       parsed = parseText(await file.text(), name);
 
     }
-    if (requestId !== importRequest) throw Error("???뚯씪???좏깮?섏뿬 ?댁쟾 遺꾩꽍??以묐떒?덉뒿?덈떎.");
-    if (!parsed.items.length) throw Error("媛뺤쥌쨌以묐웾 ?됱쓣 李얠? 紐삵뻽?듬땲?? ???꾩껜媛 蹂댁씠???먮낯 PDF쨌Excel ?먮뒗 ?좊챸???ъ쭊???좏깮?섏꽭??");
+    if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
+    if (!parsed.items.length) throw Error("강종·중량 행을 찾지 못했습니다. 표 전체가 보이는 원본 PDF·Excel 또는 선명한 사진을 선택하세요.");
     return mapItems(parsed);
   }
 
@@ -1036,21 +1036,21 @@
     const marking = item.marking || item.matchedMarking || "", description = item.description || item.matchedDescription || "";
     const qty = item.quantity || item.weight || "", unit = item.unit || "KG", price = item.sourcePrice || (item.price && round2(item.price * (WEIGHT_FACTORS[item.priceUnit || unit] || 1))) || "";
     return `<article class="mes-po-item registration-line">
-      <div class="line-editor-head"><b>?덈ぉ ${index + 1}</b><button type="button" class="btn danger" onclick="mesPoRemoveItem(this)">????젣</button></div>
+      <div class="line-editor-head"><b>품목 ${index + 1}</b><button type="button" class="btn danger" onclick="mesPoRemoveItem(this)">행 삭제</button></div>
       <div class="mes-po-item-grid">
-        <label>MARKING 쨌 嫄곕옒泥섍컯醫?input name="sourceGrade" required value="${escHtml(marking)}"></label>
+        <label>MARKING · 거래처강종<input name="sourceGrade" required value="${escHtml(marking)}"></label>
         <label>DESCRIPTION<input name="description" value="${escHtml(description)}"></label>
         <label>Q'TY<input name="quantity" type="number" min="0" step="0.001" required value="${escHtml(qty)}" oninput="mesPoItemRecalc(this)"></label>
-        <label>以묐웾?⑥쐞<select name="unit" onchange="mesPoItemRecalc(this)">${["KG", "LB", "TON"].map(value => `<option ${unit === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+        <label>중량단위<select name="unit" onchange="mesPoItemRecalc(this)">${["KG", "LB", "TON"].map(value => `<option ${unit === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
         <label>PRICE<input name="sourcePrice" type="number" min="0" step="0.0001" value="${escHtml(price)}" oninput="mesPoItemRecalc(this)"></label>
-        <label>?④??⑥쐞<select name="priceUnit" onchange="mesPoItemRecalc(this)">${["KG", "LB", "TON"].map(value => `<option value="${value}" ${String(item.priceUnit || unit) === value ? "selected" : ""}>USD/${value}</option>`).join("")}</select></label>
+        <label>단가단위<select name="priceUnit" onchange="mesPoItemRecalc(this)">${["KG", "LB", "TON"].map(value => `<option value="${value}" ${String(item.priceUnit || unit) === value ? "selected" : ""}>USD/${value}</option>`).join("")}</select></label>
         <label>TOTAL VALUE (USD)<input name="amount" type="number" min="0" step="0.01" value="${escHtml(item.amount || "")}" oninput="mesPoAmountChanged(this)"></label>
-        <label>?⑦궎吏 ??input name="packageCount" type="number" min="1" step="1" value="${escHtml(item.packageCount || 1)}"></label>
-        <details class="mes-system-fields"><summary>?곕━ ?쒖뒪??媛뺤쥌 遺꾨쪟 쨌 ?섏젙 媛??/summary><div class="mes-po-item-grid">
-          <label>?덉쥌<input name="productType" value="${escHtml(item.productType || inferType(description, marking))}"></label>
-          <label>媛뺤쥌<input name="mainGrade" value="${escHtml(item.matchedMarking || marking)}"></label>
-          <label>?뚭컯醫?input name="subGrade" value="${escHtml(item.subGrade || "")}"></label>
-          <label>?곸꽭媛뺤쥌<input name="detailGrade" value="${escHtml(item.detailGrade || description)}"></label>
+        <label>패키지 수<input name="packageCount" type="number" min="1" step="1" value="${escHtml(item.packageCount || 1)}"></label>
+        <details class="mes-system-fields"><summary>우리 시스템 강종 분류 · 수정 가능</summary><div class="mes-po-item-grid">
+          <label>품종<input name="productType" value="${escHtml(item.productType || inferType(description, marking))}"></label>
+          <label>강종<input name="mainGrade" value="${escHtml(item.matchedMarking || marking)}"></label>
+          <label>소강종<input name="subGrade" value="${escHtml(item.subGrade || "")}"></label>
+          <label>상세강종<input name="detailGrade" value="${escHtml(item.detailGrade || description)}"></label>
         </div></details>
       </div>
     </article>`;
@@ -1059,31 +1059,31 @@
   function poDocumentDefaults(documentData) {
     const source = documentData || {};
     return {
-      poNo: source.poNo || "", company: source.company || "", contractDate: source.contractDate || "", address: source.address || "", tel: source.tel || "", fax: source.fax || "", email: source.email || "", soNo: source.soNo || "", a10No: source.a10No || "", shipment: source.shipment || "", loadingTerm: source.loadingTerm || "", paymentTerm: source.paymentTerm || "", packing: source.packing || "", note: source.note || "", sourceFile: source.sourceFile || "吏곸젒?낅젰", items: source.items && source.items.length ? source.items : [{}]
+      poNo: source.poNo || "", company: source.company || "", contractDate: source.contractDate || "", address: source.address || "", tel: source.tel || "", fax: source.fax || "", email: source.email || "", soNo: source.soNo || "", a10No: source.a10No || "", shipment: source.shipment || "", loadingTerm: source.loadingTerm || "", paymentTerm: source.paymentTerm || "", packing: source.packing || "", note: source.note || "", sourceFile: source.sourceFile || "직접입력", items: source.items && source.items.length ? source.items : [{}]
     };
   }
 
   function openDirectPo(documentData) {
     const source = poDocumentDefaults(documentData);
-    byId("modalTitle").textContent = "P.O 吏곸젒?낅젰 쨌 ?낅줈???묒떇怨??숈씪 ??ぉ";
+    byId("modalTitle").textContent = "P.O 직접입력 · 업로드 양식과 동일 항목";
     byId("modalBody").innerHTML = `<form id="mesPoV4Form" class="form-grid mes-po-form" onsubmit="saveMesPoV4(event,this)">
-      <div class="wide mes-po-form-title"><b>PURCHASE CONTRACT</b><span>CASH COW METAL CO.,LTD 쨌 ?낅젰 ???꾩옣愿由?怨듭슜?쒕쾭 ?숈떆 諛섏쁺</span></div>
+      <div class="wide mes-po-form-title"><b>PURCHASE CONTRACT</b><span>CASH COW METAL CO.,LTD · 입력 후 현장관리 공용서버 동시 반영</span></div>
       <label>P.O NO<input name="orderNo" required value="${escHtml(source.poNo)}"></label>
-      <label>?낃퀬 援щ텇<select name="kind"><option value="OVERSEAS">?댁쇅?낃퀬</option><option value="DOMESTIC">援?궡?낃퀬</option></select></label>
-      <label>DATE 쨌 怨꾩빟??input name="contractDate" value="${escHtml(source.contractDate)}" placeholder="?? 2026-08-13"></label>
-      <label>?낃퀬?덉젙??input name="planDate" type="date" value="${/^\d{4}-\d{2}-\d{2}$/.test(source.loadingTerm) ? escHtml(source.loadingTerm) : ""}"></label>
-      <label class="wide">Messrs 쨌 嫄곕옒泥섎챸<input name="partner" required value="${escHtml(source.company)}"></label>
+      <label>입고 구분<select name="kind"><option value="OVERSEAS">해외입고</option><option value="DOMESTIC">국내입고</option></select></label>
+      <label>DATE · 계약일<input name="contractDate" value="${escHtml(source.contractDate)}" placeholder="예: 2026-08-13"></label>
+      <label>입고예정일<input name="planDate" type="date" value="${/^\d{4}-\d{2}-\d{2}$/.test(source.loadingTerm) ? escHtml(source.loadingTerm) : ""}"></label>
+      <label class="wide">Messrs · 거래처명<input name="partner" required value="${escHtml(source.company)}"></label>
       <label class="wide">Address<input name="address" value="${escHtml(source.address)}"></label>
       <label>Tel<input name="tel" value="${escHtml(source.tel)}"></label><label>Fax<input name="fax" value="${escHtml(source.fax)}"></label>
       <label>Email<input name="email" type="email" value="${escHtml(source.email)}"></label><label>S.O NO<input name="soNo" value="${escHtml(source.soNo)}"></label>
       <label>A10 NO<input name="a10No" value="${escHtml(source.a10No)}"></label><label>Loading Term<input name="loadingTerm" value="${escHtml(source.loadingTerm)}"></label>
       <label>Shipment<input name="shipment" value="${escHtml(source.shipment)}"></label><label>Packing<input name="packing" value="${escHtml(source.packing)}"></label>
-      <label>?듯솕<select name="currency"><option>USD</option><option>KRW</option></select></label><label>?섏쑉<input name="rate" type="number" step="0.01" value="1"></label>
+      <label>통화<select name="currency"><option>USD</option><option>KRW</option></select></label><label>환율<input name="rate" type="number" step="0.01" value="1"></label>
       <label class="wide">Payment<textarea name="paymentTerm">${escHtml(source.paymentTerm)}</textarea></label>
       <label class="wide">Note<textarea name="note">${escHtml(source.note)}</textarea></label>
       <input type="hidden" name="sourceFile" value="${escHtml(source.sourceFile)}">
-      <div class="wide mes-po-items"><div class="line-editor-head"><h3>?덈ぉ 紐낆꽭</h3><button type="button" class="btn" onclick="mesPoAddItem()">+ ?덈ぉ ??異붽?</button></div><div id="mesPoV4Items">${source.items.map(poItemHtml).join("")}</div></div>
-      <div class="wide actions"><button class="btn primary">P.O ???쨌 援щℓ怨꾪쉷 ?깅줉</button><button type="button" class="btn" onclick="openMesDocumentPoRegistration()">嫄곕옒泥??뚯씪 ?ㅼ떆 ?좏깮</button><button type="button" class="btn" onclick="closeModal()">痍⑥냼</button></div>
+      <div class="wide mes-po-items"><div class="line-editor-head"><h3>품목 명세</h3><button type="button" class="btn" onclick="mesPoAddItem()">+ 품목 행 추가</button></div><div id="mesPoV4Items">${source.items.map(poItemHtml).join("")}</div></div>
+      <div class="wide actions"><button class="btn primary">P.O 저장 · 구매계획 등록</button><button type="button" class="btn" onclick="openMesDocumentPoRegistration()">거래처 파일 다시 선택</button><button type="button" class="btn" onclick="closeModal()">취소</button></div>
     </form>`;
     byId("modal").classList.add("on");
     document.querySelector("#modal .modal-card")?.classList.add("wide-modal");
@@ -1111,11 +1111,11 @@
   root.saveMesPoV4 = async function (event, form) {
     event.preventDefault();
     const value = Object.fromEntries(new FormData(form).entries()), itemValues = [...form.querySelectorAll(".mes-po-item")].map(itemFormData).filter(item => item.sourceGrade && Number(item.quantity) > 0);
-    if (!value.orderNo || !value.partner || !itemValues.length) return toast("P.O 踰덊샇쨌嫄곕옒泥샕룻븳 媛??댁긽???덈ぉ???낅젰?섏꽭??", true);
+    if (!value.orderNo || !value.partner || !itemValues.length) return toast("P.O 번호·거래처·한 개 이상의 품목을 입력하세요.", true);
     const duplicate = safe(state.pos).some(item => item.poNo === value.orderNo && item.status !== "CANCELLED");
-    if (duplicate && !confirm(`${value.orderNo} P.O媛 ?대? ?덉뒿?덈떎. 湲곗〈 P.O ?덈ぉ??痍⑥냼?섍퀬 ???댁슜?쇰줈 諛붽?源뚯슂?`)) return;
+    if (duplicate && !confirm(`${value.orderNo} P.O가 이미 있습니다. 기존 P.O 품목을 취소하고 새 내용으로 바꿀까요?`)) return;
     const createdAt = new Date().toISOString(), nextPackage = mesNextPackage();
-    const ok = await commit("MES P.O 臾몄꽌 ?깅줉", ["pos"], shared => {
+    const ok = await commit("MES P.O 문서 등록", ["pos"], shared => {
       if (duplicate) safe(shared.pos).filter(item => item.poNo === value.orderNo && item.status !== "CANCELLED").forEach(item => { item.status = "CANCELLED"; item.cancelledAt = createdAt; item.cancelledByName = currentUserName(); });
       itemValues.forEach(item => {
         const normalized = normalizeItem(item.sourceGrade, item.description, item.quantity, item.unit, item.sourcePrice, item.priceUnit, item.amount, { packageCount: item.packageCount });
@@ -1129,23 +1129,23 @@
           priceUnit: normalized.priceUnit, purchaseAmount: normalized.amount, contractDate: value.contractDate, expectedArrivalDate: value.planDate,
           type: value.kind, currency: value.currency, exchangeRate: Number(value.rate) || 1, address: value.address, tel: value.tel, fax: value.fax, email: value.email,
           soNo: value.soNo, a10No: value.a10No, shipment: value.shipment, loadingTerm: value.loadingTerm, paymentTerm: value.paymentTerm,
-          packing: value.packing, purchaseNote: value.note, sourceFile: value.sourceFile, purchaseStatus: "援щℓ?뺤젙", status: "CONFIRMED",
+          packing: value.packing, purchaseNote: value.note, sourceFile: value.sourceFile, purchaseStatus: "구매확정", status: "CONFIRMED",
           receiptStatus: "WAITING", inspectionStatus: "NOT_RECEIVED", createdAt, createdByName: currentUserName()
         });
       });
     });
-    if (ok) { closeModal(); openView("purchase"); toast(`${value.orderNo} P.O ??μ셿猷?쨌 援щℓ怨꾪쉷怨??꾩옣愿由?怨듭슜?쒕쾭???깅줉?덉뒿?덈떎.`); }
+    if (ok) { closeModal(); openView("purchase"); toast(`${value.orderNo} P.O 저장완료 · 구매계획과 현장관리 공용서버에 등록했습니다.`); }
   };
 
   root.__mesOpenDirectPo = openDirectPo;
 
   root.openMesDocumentPoRegistration = function () {
-    byId("modalTitle").textContent = "嫄곕옒泥?P.O쨌INVOICE ?뚯씪濡??깅줉";
+    byId("modalTitle").textContent = "거래처 P.O·INVOICE 파일로 등록";
     byId("modalBody").innerHTML = `<div class="mes-import-native">
-      <div class="mes-import-steps"><b>1 ?뚯씪?좏깮</b><b>2 臾몄옄쨌??遺꾩꽍</b><b>3 ?덈ぉ ?뺤씤</b><b>4 P.O ???/b></div>
-      <label class="document-upload mes-import-drop" for="mesPoDocumentFile"><b>PDF 쨌 Excel 쨌 ?ъ쭊???좏깮?섏꽭??/b><p>?몃? ?꾨줈洹몃옩???댁? ?딄퀬 ???붾㈃?먯꽌 P.O 踰덊샇쨌嫄곕옒泥샕텺ARKING쨌DESCRIPTION쨌以묐웾쨌?④?쨌TOTAL VALUE瑜??먮룞?꾩꽦?⑸땲??</p><input id="mesPoDocumentFile" type="file" accept=".pdf,.xlsx,.xls,.csv,.tsv,.txt,.png,.jpg,.jpeg,.webp" onchange="mesAnalyzePoDocument(this.files[0])"></label>
-      <div id="mesPoImportStatus" class="mes-import-status">?뚯씪???좏깮?섎㈃ ??臾몄꽌濡?珥덇린?뷀븳 ??遺꾩꽍?⑸땲??</div>
-      <div class="actions"><button class="btn" onclick="openMesDirectPoRegistration()">鍮?P.O 吏곸젒?낅젰</button><button class="btn" onclick="closeModal()">痍⑥냼</button></div>
+      <div class="mes-import-steps"><b>1 파일선택</b><b>2 문자·표 분석</b><b>3 품목 확인</b><b>4 P.O 저장</b></div>
+      <label class="document-upload mes-import-drop" for="mesPoDocumentFile"><b>PDF · Excel · 사진을 선택하세요</b><p>외부 프로그램을 열지 않고 이 화면에서 P.O 번호·거래처·MARKING·DESCRIPTION·중량·단가·TOTAL VALUE를 자동완성합니다.</p><input id="mesPoDocumentFile" type="file" accept=".pdf,.xlsx,.xls,.csv,.tsv,.txt,.png,.jpg,.jpeg,.webp" onchange="mesAnalyzePoDocument(this.files[0])"></label>
+      <div id="mesPoImportStatus" class="mes-import-status">파일을 선택하면 새 문서로 초기화한 뒤 분석합니다.</div>
+      <div class="actions"><button class="btn" onclick="openMesDirectPoRegistration()">빈 P.O 직접입력</button><button class="btn" onclick="closeModal()">취소</button></div>
     </div>`;
     byId("modal").classList.add("on");
     document.querySelector("#modal .modal-card")?.classList.add("wide-modal");
@@ -1154,35 +1154,35 @@
   root.mesAnalyzePoDocument = async function (file) {
     if (!file) return;
     const statusBox = byId("mesPoImportStatus");
-    if (statusBox) statusBox.textContent = `${file.name} 쨌 遺꾩꽍 以鍮?以?;
+    if (statusBox) statusBox.textContent = `${file.name} · 분석 준비 중`;
     byId("progress")?.classList.add("on");
     try {
       const parsed = await importFile(file);
-      if (statusBox) statusBox.textContent = `${parsed.items.length}媛??덈ぉ 遺꾩꽍 ?꾨즺`;
+      if (statusBox) statusBox.textContent = `${parsed.items.length}개 품목 분석 완료`;
       openDirectPo(parsed);
-      toast(`${file.name} 쨌 ${parsed.items.length}媛??덈ぉ ?먮룞?꾩꽦 ?꾨즺`);
+      toast(`${file.name} · ${parsed.items.length}개 품목 자동완성 완료`);
     } catch (error) {
-      if (statusBox) statusBox.textContent = `遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`;
-      toast(`P.O ?뚯씪 遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`, true);
+      if (statusBox) statusBox.textContent = `불러오기 실패: ${error.message}`;
+      toast(`P.O 파일 불러오기 실패: ${error.message}`, true);
     } finally {
       byId("progress")?.classList.remove("on");
-      if (typeof setSync === "function") setSync("怨듭슜 ?쒕쾭 ?곌껐??);
+      if (typeof setSync === "function") setSync("공용 서버 연결됨");
     }
   };
 
   root.openPackingRequestUpload = function (poNo) {
-    byId("modalTitle").textContent = `${poNo} 쨌 PACKING LIST ?ъ슫 遺덈윭?ㅺ린`;
-    byId("modalBody").innerHTML = `<div class="mes-import-native"><div class="mes-import-steps"><b>1 ?뚯씪?좏깮</b><b>2 ?⑦궎吏 遺꾩꽍</b><b>3 GW/NW ?뺤씤</b><b>4 ?낃퀬?붿껌 ???/b></div>
-      <label class="document-upload mes-import-drop" for="mesPackingFile"><b>PACKING LIST PDF 쨌 Excel 쨌 ?ъ쭊 ?좏깮</b><p>Package No.쨌媛뺤쥌쨌G/W쨌N/W쨌?ъ옣醫낅쪟瑜??쎄퀬, ?녿뒗 媛믪? P.O ?덈ぉ怨??곌껐???섏젙 媛?ν븳 ?붾㈃?쇰줈 ?꾪솚?⑸땲??</p><input id="mesPackingFile" type="file" accept=".pdf,.xlsx,.xls,.csv,.tsv,.txt,.png,.jpg,.jpeg,.webp" onchange="analyzePackingRequestFile(decodeURIComponent('${encodeURIComponent(poNo)}'),this.files[0])"></label>
-      <div id="mesPackingImportStatus" class="mes-import-status">?뚯씪???좏깮?섍굅??P.O ?덈ぉ?쇰줈 諛붾줈 ?묒꽦?섏꽭??</div>
-      <div class="actions"><button class="btn primary" onclick="openPackingRequestDirect(decodeURIComponent('${encodeURIComponent(poNo)}'))">P.O ?덈ぉ?쇰줈 諛붾줈 ?묒꽦</button><button class="btn" onclick="openInboundRequestBuilder(decodeURIComponent('${encodeURIComponent(poNo)}'))">?댁쟾</button></div></div>`;
+    byId("modalTitle").textContent = `${poNo} · PACKING LIST 쉬운 불러오기`;
+    byId("modalBody").innerHTML = `<div class="mes-import-native"><div class="mes-import-steps"><b>1 파일선택</b><b>2 패키지 분석</b><b>3 GW/NW 확인</b><b>4 입고요청 저장</b></div>
+      <label class="document-upload mes-import-drop" for="mesPackingFile"><b>PACKING LIST PDF · Excel · 사진 선택</b><p>Package No.·강종·G/W·N/W·포장종류를 읽고, 없는 값은 P.O 품목과 연결해 수정 가능한 화면으로 전환합니다.</p><input id="mesPackingFile" type="file" accept=".pdf,.xlsx,.xls,.csv,.tsv,.txt,.png,.jpg,.jpeg,.webp" onchange="analyzePackingRequestFile(decodeURIComponent('${encodeURIComponent(poNo)}'),this.files[0])"></label>
+      <div id="mesPackingImportStatus" class="mes-import-status">파일을 선택하거나 P.O 품목으로 바로 작성하세요.</div>
+      <div class="actions"><button class="btn primary" onclick="openPackingRequestDirect(decodeURIComponent('${encodeURIComponent(poNo)}'))">P.O 품목으로 바로 작성</button><button class="btn" onclick="openInboundRequestBuilder(decodeURIComponent('${encodeURIComponent(poNo)}'))">이전</button></div></div>`;
     byId("modal").classList.add("on");
   };
 
   root.analyzePackingRequestFile = async function (poNo, file) {
     if (!file) return;
     const po = poRows().find(row => row.poNo === poNo);
-    if (!po) return toast("?낃퀬?붿껌 P.O瑜?李얠? 紐삵뻽?듬땲??", true);
+    if (!po) return toast("입고요청 P.O를 찾지 못했습니다.", true);
     byId("progress")?.classList.add("on");
     const statusBox = byId("mesPackingImportStatus");
     try {
@@ -1198,16 +1198,16 @@
           subGrade: matched.subGrade || "", detailGrade: matched.detailGrade || item.description || ""
         };
       });
-      if (!items.length) throw Error("PACKING LIST ?덈ぉ??李얠? 紐삵뻽?듬땲??");
-      if (statusBox) statusBox.textContent = `${items.length}媛??⑦궎吏 ?먮룞?꾩꽦 ?꾨즺`;
+      if (!items.length) throw Error("PACKING LIST 품목을 찾지 못했습니다.");
+      if (statusBox) statusBox.textContent = `${items.length}개 패키지 자동완성 완료`;
       renderPackingRequestForm(po, items);
-      toast(`${file.name} 쨌 ${items.length}媛??⑦궎吏 遺덈윭?ㅺ린 ?꾨즺`);
+      toast(`${file.name} · ${items.length}개 패키지 불러오기 완료`);
     } catch (error) {
-      if (statusBox) statusBox.textContent = `遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`;
-      toast(`PACKING LIST 遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`, true);
+      if (statusBox) statusBox.textContent = `불러오기 실패: ${error.message}`;
+      toast(`PACKING LIST 불러오기 실패: ${error.message}`, true);
     } finally {
       byId("progress")?.classList.remove("on");
-      if (typeof setSync === "function") setSync("怨듭슜 ?쒕쾭 ?곌껐??);
+      if (typeof setSync === "function") setSync("공용 서버 연결됨");
     }
   };
 
@@ -1215,12 +1215,12 @@
   function gradeSummary(value) {
     const full = clean(value);
     if (full.length <= 20) return escHtml(full || "-");
-    return `<span title="${escHtml(full)}">${escHtml(full.slice(0, 20))}????/span>`;
+    return `<span title="${escHtml(full)}">${escHtml(full.slice(0, 20))}… 외</span>`;
   }
 
   const mesSchemas = root.schemas || (typeof schemas !== "undefined" ? schemas : null);
-  const purchaseGradeColumn = mesSchemas && mesSchemas.purchase && mesSchemas.purchase.cols.find(column => column[0] === "??쒓컯醫? || column[0] === "嫄곕옒泥섍컯醫?);
-  if (purchaseGradeColumn) { purchaseGradeColumn[0] = "嫄곕옒泥섍컯醫?; purchaseGradeColumn[1] = row => gradeSummary(row.grade); }
+  const purchaseGradeColumn = mesSchemas && mesSchemas.purchase && mesSchemas.purchase.cols.find(column => column[0] === "대표강종" || column[0] === "거래처강종");
+  if (purchaseGradeColumn) { purchaseGradeColumn[0] = "거래처강종"; purchaseGradeColumn[1] = row => gradeSummary(row.grade); }
 
   const baseRender = root.render;
   root.render = function () {
@@ -1230,10 +1230,10 @@
       if (viewName === "purchase" || viewName === "dashboard") button.remove();
     });
     if (viewName === "dashboard") document.querySelectorAll("#content .dashboard-head .actions button").forEach(button => {
-      if (/P\.O\s*?깅줉|S\.O\s*?깅줉/.test(button.textContent || "")) button.remove();
+      if (/P\.O\s*등록|S\.O\s*등록/.test(button.textContent || "")) button.remove();
     });
     if (viewName === "purchase") document.querySelectorAll("#content .dashboard-head .actions button").forEach(button => {
-      if (/^\+?\s*P\.O\s*?깅줉$/.test(clean(button.textContent))) button.remove();
+      if (/^\+?\s*P\.O\s*등록$/.test(clean(button.textContent))) button.remove();
     });
     return result;
   };
