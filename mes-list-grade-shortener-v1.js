@@ -10,7 +10,8 @@
   function shortValue(label,value){
     if(!/강종/.test(String(label||'')))return value;
     var full=plain(value);
-    return Array.from(full).length>=10?'<span class="mes-grade-etc" title="'+esc(full)+'">그 외</span>':value;
+    var chars=Array.from(full);
+    return chars.length>=15?'<span class="mes-grade-etc" title="'+esc(full)+'">'+esc(chars.slice(0,15).join('')+' 그 외')+'</span>':value;
   }
   function shortSchema(schema){
     if(!schema||!Array.isArray(schema.cols))return schema;
