@@ -3026,5 +3026,36 @@ document.documentElement.dataset.productTypeManagerV1="loaded";
 
 
 </script>
+<script id="fieldStartupWatchdogV1">
+(function fieldStartupWatchdogV1(){
+  'use strict';
+  var attempts=0;
+  function badge(){return document.getElementById('server')}
+  function isPending(){return /연결 중/.test(String(badge()&&badge().textContent||''))}
+  async function rescue(){
+    if(!isPending())return;
+    attempts+=1;
+    try{
+      if(typeof loadState!=='function')throw new Error('현장관리 시작 함수를 불러오지 못했습니다.');
+      await Promise.race([
+        loadState(),
+        new Promise(function(_,reject){setTimeout(function(){reject(new Error('공용 서버 연결 시간이 초과되었습니다.'))},14000)})
+      ]);
+    }catch(error){
+      var target=badge();
+      if(target&&isPending()){
+        target.textContent='● 공용 서버 실패 · 눌러서 재연결';
+        target.title=String(error&&error.message||error||'공용 서버 연결 실패');
+        target.style.color='#ff8e8e';
+      }
+    }
+    if(isPending()&&attempts<2)setTimeout(rescue,3000);
+  }
+  document.documentElement.dataset.fieldStartupWatchdogV1='ready';
+  setTimeout(rescue,1800);
+})();
+
+
+</script>
 </body>
 </html>
