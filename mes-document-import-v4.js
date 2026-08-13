@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260813-11";
+  const VERSION = "20260813-12";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -327,6 +327,50 @@
     return rows;
   }
 
+  /*
+   * ARROUQ/CARR-style table:
+   * S.N. | DESCRIPTION | GROSS WEIGHT/TON | JUMBO WEIGHT K.G. | NET WEIGHT TON
+   * The middle value is tare in kilograms while gross/net are metric tons.
+   */
+  function parseTonJumboPackingRows(lines, text) {
+    const header = lines.slice(0, 90).join(" ");
+    if (!/PACKING\s+LIST/i.test(header)
+      || !/GROSS\s+WEIGHT\s*\/?\s*TON/i.test(header)
+      || !/JUMBO\s+WEIGHT/i.test(header)
+      || !/NET\s+WEIGHT\s*\/?\s*TON/i.test(header)) return [];
+
+    const rows = [];
+    const normalized = value => clean(value)
+      .replace(/[|]/g, " ")
+      .replace(/(\d)\s*[.,]\s*(\d{3})\b/g, "$1.$2")
+      .replace(/\s+/g, " ");
+    const rowPattern = /^\s*(\d{1,2})[.)-]?\s+(.+?)\s+(\d{1,3}[.,]\d{3})\s+(\d{1,3})\s+(\d{1,3}[.,]\d{3})\s*$/i;
+
+    for (let index = 0; index < lines.length; index++) {
+      if (/^\s*(?:TOTAL|BANK|BENEFICIARY|ACCOUNT|SWIFT)\b/i.test(lines[index])) continue;
+      let joined = "";
+      for (let width = 1; width <= 3 && index + width <= lines.length; width++) {
+        joined = normalized(joined + " " + lines[index + width - 1]);
+        const match = joined.match(rowPattern);
+        if (!match) continue;
+        const lineNo = Number(match[1]), grade = clean(match[2]);
+        const grossTon = numberValue(match[3], "US"), tareKg = numberValue(match[4], "US"), netTon = numberValue(match[5], "US");
+        const expectedTare = round2((grossTon - netTon) * 1000);
+        if (!grade || !/[A-Z0-9]/i.test(grade) || !(grossTon > 0 && netTon > 0 && grossTon >= netTon)) continue;
+        if (Math.abs(expectedTare - tareKg) > Math.max(5, grossTon * 2)) continue;
+        rows.push(normalizeItem(grade, "", netTon, "TON", 0, "TON", 0, {
+          style: "US", gross: grossTon, tare: tareKg / 1000,
+          packageNo: `CARR-${String(lineNo).padStart(2, "0")}`,
+          packageCount: 1, sourceGradeLocked: true, sourceLineNo: lineNo,
+          memo: `Jumbo/Tare ${round2(tareKg)} kg`
+        }));
+        index += width - 1;
+        break;
+      }
+    }
+    return rows;
+  }
+
   /* Reconstruct MATERIAL values that are vertically merged across package rows. */
   function parseMergedMaterialPackingRows(lines, text) {
     const header = lines.findIndex(line => /PACKING\s*#/i.test(line)
@@ -339,479 +383,7 @@
       .replace(/(\d)\s+([,.])\s*(\d)/g, "$1$2$3");
     const rowData = value => {
       const line = normalizedLine(value);
-      const lnMatch = line.match(/^\s*(\d{1,3})\b/) || line.match(/\/\s*(\d{1,3})\b/) || line.match(/\bNO\.[A-Z0-9.-]+\s+(\d{1,3})\b/i);
-      if (!lnMatch) return null;
-      const ln = Number(lnMatch[1]);
-      if (!ln || ln > 999) return null;
-      const tokens = numericTokens(line, style);
-      if (tokens.length < 3) return null;
-      let gross = 0, tare = 0, net = 0;
-      if (tokens.length >= 4) {
-        [gross, tare, net] = tokens.slice(-3).map(token => token.value);
-        if (!(gross > 0 && net > 0 && gross >= net && tare >= 0 && Math.abs((gross - tare) - net) <= Math.max(5, gross * 0.015))) return null;
-      } else {
-        gross = tokens[tokens.length - 2].value;
-        net = tokens[tokens.length - 1].value;
-        tare = round2(gross - net);
-        if (!(gross > 0 && net > 0 && gross >= net && tare <= Math.max(100, gross * 0.15))) return null;
-      }
-      const firstWeight = tokens[tokens.length >= 4 ? tokens.length - 3 : tokens.length - 2];
-      const prefix = clean(line.slice(0, firstWeight.index));
-      const prefixNumbers = [...prefix.matchAll(/\b(\d{1,6})\b/g)].map(match => match[1]);
-      return { ln, gross: round2(gross), tare: round2(tare), net: round2(net), packageNo: prefixNumbers.length > 1 ? prefixNumbers[prefixNumbers.length - 1] : "", sourceIndex: -1 };
-    };
-    const materialFragment = value => {
-      const line = normalizedLine(value);
-      if (!/[A-Za-z]/.test(line) || /SUB\s*TOTAL|TOTAL\s+IN\s+KGS?|PALLET\s+WEIGHT/i.test(line)) return "";
-      if (/\b(?:SEAL|CONTAINER)\b/i.test(line) || /^\s*NO\.[A-Z0-9.-]+/i.test(line) || /^[A-Z]{4}\d{6,}/i.test(line)) return "";
-      const data = rowData(line);
-      let prefix = line;
-      if (data) {
-        const tokens = numericTokens(line, style);
-        const firstWeight = tokens[tokens.length >= 4 ? tokens.length - 3 : tokens.length - 2];
-        prefix = clean(line.slice(0, firstWeight.index));
-      }
-      prefix = prefix.replace(/^\s*\d{1,3}\b\s*/, "").replace(/^\s*\d{1,6}\b\s*/, "");
-      if (!/[A-Za-z]/.test(prefix) || /^(?:SEAL|NO\.)/i.test(prefix)) return "";
-      return prefix;
-    };
-    const packageNoFor = (block, dataRows, row, position) => {
-      if (row.packageNo) return row.packageNo;
-      const previousIndex = position ? dataRows[position - 1].sourceIndex : -1;
-      const nextIndex = position + 1 < dataRows.length ? dataRows[position + 1].sourceIndex : block.length;
-      const before = block.slice(previousIndex + 1, row.sourceIndex).map(normalizedLine).filter(value => /^\d{1,6}$/.test(value));
-      const after = block.slice(row.sourceIndex + 1, nextIndex).map(normalizedLine).filter(value => /^\d{1,6}$/.test(value));
-      const values = [];
-      if (before.length) values.push(before[before.length - 1]);
-      if (after.length) values.push(after[0]);
-      return [...new Set(values)].join("/") || `LN-${String(row.ln).padStart(2, "0")}`;
-    };
-
-    const rows = [];
-    let start = header + 1;
-    for (let cursor = start; cursor < lines.length; cursor++) {
-      const boundary = /SUB\s*TOTAL\s+IN\s+KGS?/i.test(lines[cursor]);
-      const finalBoundary = /^(?:PALLET\s+WEIGHT|TOTAL\s+IN\s+KGS?)/i.test(clean(lines[cursor]));
-      if (!boundary && !finalBoundary) continue;
-      const block = lines.slice(start, cursor);
-      const dataRows = block.map((line, index) => { const row = rowData(line); if (row) row.sourceIndex = index; return row; }).filter(Boolean);
-      const sourceGrade = clean(block.map(materialFragment).filter(Boolean).join(" "));
-      if (sourceGrade && dataRows.length) dataRows.forEach((row, position) => {
-        rows.push(normalizeItem(sourceGrade, "", row.net, "KG", 0, "KG", 0, {
-          style, gross: row.gross, tare: row.tare, packageNo: packageNoFor(block, dataRows, row, position),
-          packageCount: 1, sourceGradeLocked: true, sourceLineNo: row.ln
-        }));
-      });
-      start = cursor + 1;
-      if (finalBoundary) break;
-    }
-    return rows;
-  }
-
-  /* Parse package-detail tables whose columns are: No. | Material | Nett | Gross. */
-  function parseMaterialNettGrossRows(lines, text) {
-    const headerText = lines.slice(0, 90).join(" ");
-    if (!/\bMATERIALS?\b/i.test(headerText) || !/\bNETT?(?:\s+WEIGHT)?\b/i.test(headerText) || !/\bGROSS(?:\s+WEIGHT)?\b/i.test(headerText)) return [];
-    if (!/JUMBO\s+BAG|PACKING\s+LIST|PACKING\s+DETAIL/i.test(headerText)) return [];
-
-    const style = numberStyle(text), rows = [];
-    let currentBag = "";
-    lines.forEach(rawLine => {
-      const line = clean(rawLine).replace(/(\d)\s+([,.])\s*(\d)/g, "$1$2$3");
-      const bagMatch = line.match(/JUMBO\s+BAG\s+NO\.?\s*([A-Z0-9-]+)/i);
-      if (bagMatch) currentBag = clean(bagMatch[1]);
-      if (/^(?:NO\.?\s+)?MATERIALS?\b|\bNETT?\s+GROSS\b|^TOTAL\b/i.test(line)) return;
-      const match = line.match(/^\s*(\d{1,3}[A-Z]?)\s+(.+?)\s+([\d.,]+)\s+([\d.,]+)\s*$/i);
-      if (!match) return;
-      const rowCode = match[1].toUpperCase(), material = clean(match[2]);
-      const net = numberValue(match[3], style), gross = numberValue(match[4], style);
-      if (!material || !/[A-Z]/i.test(material) || !(net > 0 && gross >= net)) return;
-      const tare = round2(gross - net);
-      if (tare > Math.max(100, gross * 0.2)) return;
-      const packageNo = `JUMBO-${rowCode || currentBag}`;
-      rows.push(normalizeItem(material, "", net, "KG", 0, "KG", 0, {
-        style, gross, tare, packageNo, packageCount: 1, sourceGradeLocked: true,
-        sourceLineNo: Number.parseInt(rowCode, 10) || 0,
-        memo: currentBag ? `Jumbo Bag No. ${currentBag}` : ""
-      }));
-    });
-    return rows;
-  }
-
-  /*
-   * Ireland Alloys-style PACKING LIST:
-   * ITEM | MATERIAL DESCRIPTION | GROSS | TARE | NETT.
-   * Some material names are vertically merged, so later package rows contain
-   * only the packing type and weights. Keep the latest material name and
-   * create one item for every physical weight row.
-   */
-  function parseIrelandAlloysPackingRows(lines, text) {
-    const header = lines.findIndex(line => /MATERIAL\s+DESCRIPTION/i.test(line)
-      && /GROSS/i.test(line) && /TARE/i.test(line) && /NETT?/i.test(line));
-    if (header < 0 || !lines.slice(0, header + 1).some(line => /PACKING\s+LIST/i.test(line))) return [];
-
-    const style = numberStyle(text), rows = [];
-    const normalized = value => clean(value)
-      .replace(/(\d)\s*,\s*(\d)/g, "$1,$2")
-      .replace(/(\d)\s*\.\s*(\d)/g, "$1.$2");
-    const packingPattern = /\b\d+\s+(?:(?:LARGE\s+)?STILLAGE|PALLET|FISHBOX|IBC|(?:DRUMS?|BAGS?)(?:\s+ON\s+\d+\s+PALLET)?)\b/i;
-    const ignored = /^(?:KGS?\b|TOTALS?\b|GRAND\s+TOTALS?\b|ITEM\b|MATERIAL\s+DESCRIPTION\b)/i;
-    let currentGrade = "", previous = null, generated = 0;
-
-    function weightTriple(line) {
-      const tokens = numericTokens(line, style);
-      if (tokens.length < 3) return null;
-      const netToken = tokens[tokens.length - 1], net = netToken.value;
-      if (!(net > 0)) return null;
-      const first = Math.max(0, tokens.length - 6);
-      for (let grossIndex = tokens.length - 3; grossIndex >= first; grossIndex--) {
-        const gross = tokens[grossIndex].value;
-        if (!(gross >= net && gross > 0)) continue;
-        const tareTokens = tokens.slice(grossIndex + 1, tokens.length - 1);
-        if (!tareTokens.length || tareTokens.length > 2) continue;
-        const tare = tareTokens.length === 1
-          ? tareTokens[0].value
-          : Number(tareTokens.map(token => String(Math.trunc(token.value))).join(""));
-        if (!(tare >= 0) || Math.abs((gross - tare) - net) > Math.max(2, gross * 0.005)) continue;
-        return { gross: round2(gross), tare: round2(tare), net: round2(net), firstIndex: tokens[grossIndex].index };
-      }
-      return null;
-    }
-
-    for (let index = header + 1; index < lines.length; index++) {
-      const line = normalized(lines[index]);
-      if (!line || /^GRAND\s+TOTALS?/i.test(line)) break;
-      if (ignored.test(line)) { previous = null; continue; }
-      const weights = weightTriple(line);
-      if (!weights) {
-        if (previous && /[A-Z]/i.test(line) && !/^(?:BANK|BENEFICIARY|ACCOUNT|SWIFT|CONTAINER|REFERENCE)\b/i.test(line)) {
-          previous.marking = clean(previous.marking + " " + line);
-          currentGrade = previous.marking;
-        }
-        continue;
-      }
-
-      let prefix = clean(line.slice(0, weights.firstIndex));
-      const itemMatch = prefix.match(/^\s*(\d{1,3})\b\s*/);
-      const afterItem = itemMatch ? clean(prefix.slice(itemMatch[0].length)) : "";
-      const startsWithPacking = /^(?:(?:LARGE\s+)?STILLAGE|PALLET|FISHBOX|IBC|DRUMS?|BAGS?)\b/i.test(afterItem);
-      const itemNo = itemMatch && !startsWithPacking && packingPattern.test(afterItem) ? Number(itemMatch[1]) : 0;
-      if (itemNo) prefix = afterItem;
-      const packingMatch = prefix.match(packingPattern);
-      const packingType = packingMatch ? clean(packingMatch[0]) : "";
-      let grade = packingMatch ? clean(prefix.slice(0, packingMatch.index)) : prefix;
-      grade = grade.replace(/^[-:|]+|[-:|]+$/g, "").trim();
-      if (grade && /[A-Z]/i.test(grade)) currentGrade = grade;
-      else grade = currentGrade;
-      if (!grade || !/[A-Z]/i.test(grade)) continue;
-
-      generated++;
-      previous = normalizeItem(grade, "", weights.net, "KG", 0, "KG", 0, {
-        style, gross: weights.gross, tare: weights.tare,
-        packageNo: itemNo ? `ITEM-${String(itemNo).padStart(2, "0")}` : `PL-${String(generated).padStart(3, "0")}`,
-        packageCount: 1, packingType, sourceGradeLocked: true, sourceLineNo: itemNo || generated
-      });
-      rows.push(previous);
-    }
-    return rows;
-  }
-
-  function dedupeItems(groups) {
-    const out = [], seen = new Set();
-    groups.flat().forEach(item => {
-      if (!item || !item.marking || item.weight <= 0) return;
-      const key = `${compact(item.marking)}|${round2(item.weight)}|${round2(item.amount)}|${compact(item.packageNo)}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(item);
-    });
-    return out;
-  }
-
-  function fieldFromLines(lines, patterns) {
-    for (const line of lines) for (const pattern of patterns) {
-      const match = line.match(pattern);
-      if (match && clean(match[1])) return clean(match[1]);
-    }
-    return "";
-  }
-
-  function metadata(lines, fileName) {
-    const all = lines.join("\n");
-    const supplierLine = lines.find(line => /^(?:MESSRS|SUPPLIER|VENDOR|SELLER|FROM)\b/i.test(line));
-    let company = supplierLine ? clean(supplierLine.replace(/^(?:MESSRS|SUPPLIER|VENDOR|SELLER|FROM)\s*[:#-]?\s*/i, "").split(/\b(?:DATE|P\.?O\.?\s*NO|S\.?O\.?\s*NO)\b/i)[0]) : "";
-    if (!company) {
-      company = lines.slice(0, 16).filter(line => !/CASH\s+COW\s+METAL|SHIN\s+SUNG\s+METAL|PURCHASE|INVOICE|ADDRESS|CONTACT|CUSTOMER/i.test(line))
-        .filter(line => /\b(?:LTD|LIMITED|INC|LLC|BV|B\.V|COMPANY|CORP|METALS?|MATERIAL|RECYCLING|TRADING|ALLOYS?|INDONESIA)\b/i.test(line))
-        .sort((a, b) => b.length - a.length)[0] || "";
-    }
-    const fileCode = (String(fileName || "").toUpperCase().match(/[A-Z]{2,}[A-Z0-9-]*\d{6}[A-Z0-9-]*/g) || [""])[0];
-    const detectedPoNo = fieldFromLines(lines, [
-      /(?:\bP\.?O\.?\b|\bPURCHASE\s+ORDER\b)\s*(?:NO\.?|NUMBER|#)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
-      /BUYER\s+REF\s+NO\.?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
-      /ORDER\s+NUMBER\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i
-    ]);
-    const poNo = /\d{6}/.test(fileCode) ? fileCode : detectedPoNo || fileCode;
-    const date = fieldFromLines(lines, [/(?:^|\b)DATE\s*[:#-]?\s*([0-9]{1,4}[-/.][A-Za-z0-9]{1,9}[-/.][0-9]{1,4})/i, /INVOICE\s+DATE\s*[:#-]?\s*([^\s]{6,20})/i]);
-    const address = fieldFromLines(lines, [/^ADDRESS\s*[:#-]?\s*(.+?)(?=\s+(?:S\.?O\.?|P\.?O\.?)\s*NO|$)/i, /\bADD(?:RESS)?\s*[:#-]\s*(.+)$/i]);
-    const tel = fieldFromLines(lines, [/(?:^|\b)(?:TEL|PHONE)\s*[:#-]?\s*([+()\d][+()\d .-]{6,})/i]);
-    const fax = fieldFromLines(lines, [/(?:^|\b)FAX\s*[:#-]?\s*([+()\d][+()\d .-]{6,})/i]);
-    const email = (all.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [""])[0];
-    const paymentTerm = fieldFromLines(lines, [/PAYMENT(?:\s+TERM)?\s*[:#-]?\s*(.+?)(?=\s+PACKING\b|$)/i])
-      || fieldFromLines(lines.filter(line => !/LOADING\s+TERM|SHIPPING\s+TERM/i.test(line)), [/\bTERMS?\s*[:#-]?\s*(.+)$/i]);
-    return {
-      poNo: clean(poNo).replace(/[.,;:]$/, ""), company: clean(company), contractDate: clean(date), address: clean(address), tel: clean(tel), fax: clean(fax), email: clean(email),
-      soNo: fieldFromLines(lines, [/(?:S\.?O\.?)\s*(?:NO\.?|#)?\s*[:#-]?\s*([A-Z0-9./_-]+)/i]),
-      a10No: fieldFromLines(lines, [/A10\s*NO\s*[:#-]?\s*([A-Z0-9./_-]+)/i]),
-      shipment: fieldFromLines(lines, [/SHIPMENT\s*[:#-]?\s*(.+?)(?=\s+LOADING\s+TERM|$)/i, /SHIPPING\s+TERMS?\s*[:#-]?\s*(.+)$/i]),
-      loadingTerm: fieldFromLines(lines, [/LOADING\s+TERM\s*[:#-]?\s*([^|]+)$/i, /SAILING\s+ON\s*\/?\s*ABT\s*[:#-]?\s*([^|]+)$/i]),
-      paymentTerm,
-      packing: fieldFromLines(lines, [/PACKING\s*[:#-]?\s*(.+)$/i]),
-      note: fieldFromLines(lines, [/NOTE\s*[:#-]?\s*(.+)$/i]),
-      sourceFile: String(fileName || "")
-    };
-  }
-
-  function parseText(text, fileName) {
-    const lines = String(text || "").split(/\r?\n/).map(clean).filter(Boolean);
-    const groups = [parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseColumnarContractOcr(lines, text), parseGenericRows(lines, text)];
-    const best = groups.slice().sort((a, b) => b.length - a.length)[0] || [];
-    const items = dedupeItems([best]);
-    return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
-  }
-
-  function columnIndex(headers, aliases, excluded) {
-    const keys = aliases.map(headerKey);
-    for (const key of keys) {
-      let index = headers.findIndex((value, idx) => idx !== excluded && value === key);
-      if (index >= 0) return index;
-    }
-    for (const key of keys.filter(value => value.length >= 4)) {
-      let index = headers.findIndex((value, idx) => idx !== excluded && (value.startsWith(key) || value.endsWith(key)));
-      if (index >= 0) return index;
-    }
-    return -1;
-  }
-
-  function nextValue(row, start) {
-    for (let index = start + 1; index < row.length; index++) if (clean(row[index])) return clean(row[index]);
-    return "";
-  }
-
-  function matrixField(matrix, aliases, beforeRow) {
-    const keys = aliases.map(headerKey);
-    let value = "";
-    matrix.slice(0, beforeRow < 0 ? 50 : beforeRow).forEach(row => {
-      row.forEach((cell, index) => {
-        if (!keys.includes(headerKey(cell))) return;
-        const candidate = nextValue(row, index);
-        if (candidate) value = candidate;
-      });
-    });
-    return value;
-  }
-
-  function parseMatrix(sourceMatrix, fileName) {
-    const matrix = (sourceMatrix || []).map(row => Array.isArray(row) ? row : []);
-
-    let headerRow = -1, columns = {};
-    for (let index = 0; index < Math.min(matrix.length, 60); index++) {
-      const headers = matrix[index].map(headerKey);
-      const marking = columnIndex(headers, HEADER_ALIASES.marking);
-      const quantity = columnIndex(headers, HEADER_ALIASES.quantity);
-      const net = columnIndex(headers, HEADER_ALIASES.net);
-      if (marking < 0 || (quantity < 0 && net < 0 && columnIndex(headers, HEADER_ALIASES.gross) < 0)) continue;
-      headerRow = index;
-      for (const [name, aliases] of Object.entries(HEADER_ALIASES)) columns[name] = columnIndex(headers, aliases, name === "description" ? marking : -1);
-      break;
-    }
-    if (headerRow < 0) return parseText(matrix.map(row => row.filter(value => clean(value)).join(" ")).join("\n"), fileName);
-    const headerText = matrix[headerRow].map(clean).join(" "), units = sourceUnits(headerText), style = numberStyle(headerText), items = [];
-    for (const row of matrix.slice(headerRow + 1)) {
-      const first = clean(row.find(value => clean(value)) || "");
-      if (TOTAL_RE.test(first)) break;
-      const marking = clean(row[columns.marking]);
-      if (!marking) continue;
-      const description = columns.description >= 0 ? clean(row[columns.description]) : "";
-      const unit = columns.unit >= 0 ? unitCode(row[columns.unit], units.quantity) : units.quantity;
-      const gross = columns.gross >= 0 ? row[columns.gross] : "";
-      const tare = columns.tare >= 0 ? row[columns.tare] : "";
-      const quantityCell = columns.net >= 0 && clean(row[columns.net]) ? row[columns.net] : columns.quantity >= 0 ? row[columns.quantity] : gross;
-      let amount = columns.amount >= 0 ? row[columns.amount] : "";
-      if (!clean(amount)) {
-        const tail = row.slice(Math.max(columns.price + 1, columns.quantity + 1)).map(value => ({ value, number: numberValue(value, style) })).filter(value => clean(value.value) && value.number > 0);
-        amount = tail.length ? tail[tail.length - 1].value : "";
-      }
-      const item = normalizeItem(marking, description, quantityCell, unit, columns.price >= 0 ? row[columns.price] : "", units.price, amount, {
-        style, gross: clean(gross) ? gross : quantityCell, tare: clean(tare) ? tare : null,
-        packageNo: columns.packageNo >= 0 ? row[columns.packageNo] : "",
-        packageCount: columns.packageCount >= 0 ? numberValue(row[columns.packageCount], style) : 1,
-        packingType: columns.packingType >= 0 ? row[columns.packingType] : ""
-      });
-      if (item.weight > 0) items.push(item);
-    }
-    const joined = matrix.map(row => row.filter(value => clean(value)).join(" "));
-    const meta = metadata(joined, fileName);
-    Object.assign(meta, {
-      company: matrixField(matrix, ["MESSRS", "SUPPLIER", "VENDOR", "거래처명"], headerRow) || meta.company,
-      contractDate: matrixField(matrix, ["DATE", "CONTRACT DATE", "계약일"], headerRow) || meta.contractDate,
-      address: matrixField(matrix, ["ADDRESS", "주소"], headerRow) || meta.address,
-      tel: matrixField(matrix, ["TEL", "PHONE", "전화"], headerRow) || meta.tel,
-      email: matrixField(matrix, ["EMAIL", "E-MAIL", "이메일"], headerRow) || meta.email,
-      poNo: matrixField(matrix, ["PO NO", "P.O NO", "PONO", "P.O 넘버"], headerRow) || meta.poNo,
-      soNo: matrixField(matrix, ["SO NO", "S.O NO", "SONO"], headerRow) || meta.soNo,
-      a10No: matrixField(matrix, ["A10 NO", "A10NO"], headerRow) || meta.a10No,
-      shipment: matrixField(matrix, ["SHIPMENT", "INCOTERMS"], headerRow) || meta.shipment,
-      loadingTerm: matrixField(matrix, ["LOADING TERM", "입고예정일"], headerRow) || meta.loadingTerm,
-      paymentTerm: matrixField(matrix, ["PAYMENT", "PAYMENT TERM"], headerRow) || meta.paymentTerm,
-      packing: matrixField(matrix, ["PACKING", "PACKAGE"], headerRow) || meta.packing,
-      note: matrixField(matrix, ["NOTE", "REMARK"], headerRow) || meta.note,
-      items: dedupeItems([items]), matrix, diagnostics: { parser: "matrix", headerRow: headerRow + 1, version: VERSION }
-    });
-    return meta;
-  }
-
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, compact, headerKey };
-  root.MesDocumentImporterV4 = core;
-  globalThis.MesDocumentImporterV4 = core;
-  globalThis.__mesDocumentImporterV4 = core;
-  if (typeof module !== "undefined" && module.exports) module.exports = core;
-  if (typeof document === "undefined") return;
-
-  const style = document.createElement("style");
-  style.textContent = `
-    .mes-import-native{display:grid;gap:18px}.mes-import-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-    .mes-import-steps b{padding:12px 8px;border-radius:12px;background:#edf5f2;text-align:center;color:#0d5f4d}
-    .mes-import-drop{display:block;padding:26px;border:2px dashed #87aa9f;border-radius:18px;background:#f7fbf9;text-align:center;cursor:pointer}
-    .mes-import-drop input{display:block;width:100%;margin-top:16px;font-size:16px}.mes-import-status{padding:14px;border-radius:12px;background:#f1f4f3;font-weight:700}
-    .mes-po-form-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:18px;border-radius:14px;background:#0b3228;color:#fff}
-    .mes-po-items{display:grid;gap:12px}.mes-po-item{display:grid;gap:12px;padding:16px;border:1px solid #cbd8d4;border-radius:16px;background:#fff}
-    .mes-po-item-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mes-po-item-grid label{min-width:0}.mes-po-item-grid input,.mes-po-item-grid select{width:100%}
-    .mes-system-fields{grid-column:1/-1}.mes-system-fields summary{cursor:pointer;font-weight:800;color:#0d705b}.wide-modal{width:min(1180px,96vw)!important;max-width:1180px!important}
-    @media(max-width:760px){.mes-import-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.mes-po-item-grid{grid-template-columns:1fr 1fr}.mes-po-item-grid label:first-child,.mes-po-item-grid label:nth-child(2),.mes-system-fields{grid-column:1/-1}.mes-import-drop{padding:20px 12px}}
-  `;
-  document.head.appendChild(style);
-
-  const byId = id => document.getElementById(id);
-  let importRequest = 0;
-  let masterMappings = null;
-
-  function loadScript(src, test) {
-    if (test()) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = () => reject(Error("문서 분석 모듈을 불러오지 못했습니다."));
-      document.head.appendChild(script);
-    });
-  }
-
-  async function mappings() {
-    if (masterMappings) return masterMappings;
-    try {
-      const response = await fetch("cashcow-marking-master.json?v=20260804-2", { cache: "no-store" });
-      const json = await response.json();
-      masterMappings = Array.isArray(json.mappings) ? json.mappings : [];
-    } catch (_) { masterMappings = []; }
-    return masterMappings;
-  }
-
-
-  function similarity(a, b) {
-    a = compact(a); b = compact(b);
-    if (!a || !b) return 0;
-    if (a === b) return 1;
-    if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length) + 0.15;
-    const set = new Set(a), common = [...new Set(b)].filter(value => set.has(value)).length;
-    return common / Math.max(new Set(a).size, new Set(b).size);
-  }
-
-  async function mapItems(documentData) {
-    const list = await mappings();
-    documentData.items.forEach(item => {
-      if (item.sourceGradeLocked) {
-        item.matchedMarking = item.marking;
-        item.matchedDescription = item.description || "";
-        item.matchConfidence = 100;
-        return;
-      }
-      let best = null;
-      list.forEach(map => {
-        const candidates = [map.marking, ...(Array.isArray(map.sources) ? map.sources : [])];
-        const score = Math.max(...candidates.map(value => similarity(item.marking, value)));
-        if (!best || score > best.score) best = { map, score };
-      });
-      if (best && best.score >= 0.68) {
-        item.matchedMarking = best.map.marking;
-        item.matchedDescription = best.map.description || item.description;
-        item.matchConfidence = round2(best.score * 100);
-      }
-    });
-    return documentData;
-  }
-
-  async function pdfText(file, requestId) {
-    await loadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", () => !!root.pdfjsLib);
-    root.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-    const pdf = await root.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-    const lines = [], ocrPages = [];
-    let worker = null;
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-      if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
-      if (typeof setSync === "function") setSync(`문서 ${pageNumber}/${pdf.numPages} 페이지 분석 중`);
-      const page = await pdf.getPage(pageNumber), content = await page.getTextContent();
-      const words = content.items.map(item => ({ text: clean(item.str), x: Number(item.transform && item.transform[4]) || 0, y: Number(item.transform && item.transform[5]) || 0 })).filter(item => item.text);
-      const nativeChars = words.reduce((sum, item) => sum + item.text.length, 0);
-      if (nativeChars >= 80) {
-        const groups = [];
-        words.sort((a, b) => b.y - a.y || a.x - b.x).forEach(item => {
-          let row = groups.find(group => Math.abs(group.y - item.y) <= 3);
-          if (!row) { row = { y: item.y, words: [] }; groups.push(row); }
-          row.words.push(item);
-        });
-        groups.sort((a, b) => b.y - a.y).forEach(group => lines.push(group.words.sort((a, b) => a.x - b.x).map(item => item.text).join(" ")));
-        continue;
-      }
-      await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
-      if (!worker) {
-        worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
-          if (message.status === "recognizing text" && typeof setSync === "function") setSync(`OCR ${pageNumber}/${pdf.numPages} · ${Math.round((message.progress || 0) * 100)}%`);
-        }});
-        await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "3", user_defined_dpi: "300" });
-      }
-      const viewport = page.getViewport({ scale: 3 }), canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-      const context = canvas.getContext("2d", { alpha: false });
-      context.fillStyle = "#fff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: context, viewport, background: "white" }).promise;
-      const imageSource = canvas.toDataURL("image/png");
-      const result = await worker.recognize(imageSource);
-      const pageText = String(result.data && result.data.text || "");
-      lines.push(...pageText.split(/\r?\n/));
-      ocrPages.push(pageNumber);
-    }
-    if (worker) await worker.terminate();
-    return { text: lines.map(clean).filter(Boolean).join("\n"), ocrPages, pageCount: pdf.numPages };
-  }
-
-  async function imageText(file, requestId) {
-    await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
-    const result = await root.Tesseract.recognize(file, "eng", { logger: message => {
-      if (requestId === importRequest && message.status === "recognizing text" && typeof setSync === "function") setSync(`사진 문자 인식 ${Math.round((message.progress || 0) * 100)}%`);
-    }});
-    return { text: String(result.data && result.data.text || ""), ocrPages: [1], pageCount: 1 };
-  }
-
-  async function importFile(file) {
-    if (!file) throw Error("파일을 선택하세요.");
-    const requestId = ++importRequest, name = file.name || "", lower = name.toLowerCase();
-    let parsed;
-    if (/\.(?:xlsx|xls|csv|tsv)$/.test(lower)) {
-      if (typeof mesEnsureXlsx === "function") await mesEnsureXlsx();
-      else await loadScript("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", () => !!root.XLSX);
-      const workbook = root.XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+      const lnMatch = line.match(/^\s*(\d{1,3})\b/) …6906 tokens truncated…es: true });
       const candidates = workbook.SheetNames.map(sheetName => parseMatrix(root.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: false }), name));
       parsed = candidates.sort((a, b) => b.items.length - a.items.length)[0];
       parsed.diagnostics.sheets = workbook.SheetNames.length;
@@ -1061,3 +633,4 @@
   if (root.currentView || typeof currentView !== "undefined") root.render();
   document.documentElement.dataset.mesDocumentImportV4 = VERSION;
 })(typeof window !== "undefined" ? window : globalThis);
+
