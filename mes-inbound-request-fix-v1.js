@@ -14,6 +14,11 @@
     var status=text(row&&row.status).toUpperCase();
     return !!row&&!!key(row.poNo)&&!['CANCELLED','CANCELED','DELETED'].includes(status);
   }
+  function activeRequestPackage(row){
+    var status=text(row&&row.status).toUpperCase();
+    var requestStatus=text(row&&row.inboundRequestStatus).toUpperCase();
+    return !!row&&!row.inboundRequestSuperseded&&!['CANCELLED','CANCELED','DELETED','SUPERSEDED'].includes(status)&&!['CANCELLED','CANCELED','DELETED','SUPERSEDED'].includes(requestStatus);
+  }
   function poByKey(){
     var map=new Map();
     try{list(poRows()).forEach(function(po){if(key(po.poNo))map.set(key(po.poNo),po);});}catch(_){}
@@ -77,7 +82,7 @@
       if(!previous||timeValue(row)>=timeValue(previous))byPo.set(requestKey,Object.assign({},row));
     });
     var markedByPo=new Map();
-    list(state.pos).forEach(function(row){
+    list(state.pos).filter(activeRequestPackage).forEach(function(row){
       var marked=row&&(row.inboundRequestId||row.inboundRequestNo||text(row.inboundRequestStatus).toUpperCase()==='REQUESTED');
       var requestKey=key(row&&row.poNo);
       if(!marked||!requestKey)return;
@@ -90,6 +95,7 @@
         byPo.set(requestKey,fallbackRequest(rows[0].poNo,rows,poMap));
         return;
       }
+      /* 사용자가 저장한 PACKING LIST가 있으면 예전 P.O 패키지 행으로 덮어쓰지 않는다. */
       if(!list(existing.items).length)existing.items=rows.map(packageItem);
       var newest=rows.slice().sort(function(a,b){return timeValue(b).localeCompare(timeValue(a));})[0]||{};
       existing.id=existing.id||newest.inboundRequestId;
@@ -101,6 +107,49 @@
     var rows=Array.from(byPo.values()).map(function(row){return decorateRequest(row,poMap);}).sort(function(a,b){return timeValue(b).localeCompare(timeValue(a));});
     state.purchaseRequests=rows;
     return rows;
+  }
+
+  function repairSupersededPackages(){
+    if(window.__mesInboundRepairBusy||typeof commit!=='function'||typeof state==='undefined')return;
+    var repairs=[];
+    list(state.purchaseRequests).filter(validRequest).forEach(function(request){
+      var items=list(request.items),requestKey=key(request.poNo);
+      if(!items.length||!requestKey)return;
+      var linked=list(state.pos).filter(function(row){
+        return key(row.poNo)===requestKey&&activeRequestPackage(row)&&(
+          text(row.inboundRequestId)===text(request.id)||text(row.inboundRequestNo)===text(request.requestNo)
+        );
+      }).sort(function(a,b){return number(a.inboundRequestItemIndex)-number(b.inboundRequestItemIndex);});
+      if(linked.length>items.length)repairs.push({requestId:request.id,requestNo:request.requestNo,poNo:request.poNo,count:items.length});
+    });
+    if(!repairs.length)return;
+    window.__mesInboundRepairBusy=true;
+    setTimeout(async function(){
+      try{
+        await commit('입고요청 패키지 수 동기화',['purchaseRequests','pos'],function(draft){
+          var stamp=new Date().toISOString();
+          repairs.forEach(function(repair){
+            var request=list(draft.purchaseRequests).find(function(row){return text(row.id)===text(repair.requestId)||key(row.poNo)===key(repair.poNo);});
+            if(!request)return;
+            var keepCount=list(request.items).length||repair.count;
+            request.itemCount=keepCount;request.packageCount=keepCount;
+            var linked=list(draft.pos).filter(function(row){
+              return key(row.poNo)===key(repair.poNo)&&activeRequestPackage(row)&&(
+                text(row.inboundRequestId)===text(request.id)||text(row.inboundRequestNo)===text(request.requestNo)
+              );
+            }).sort(function(a,b){return number(a.inboundRequestItemIndex)-number(b.inboundRequestItemIndex);});
+            linked.slice(keepCount).forEach(function(row){
+              row.inboundRequestSuperseded=true;
+              row.inboundRequestStatus='SUPERSEDED';
+              row.supersededInboundRequestId=request.id;
+              row.supersededInboundRequestNo=request.requestNo;
+              row.supersededAt=stamp;
+              if(!row.receivedAt)row.status='CANCELLED';
+            });
+          });
+        });
+      }finally{window.__mesInboundRepairBusy=false;}
+    },50);
   }
   function requestForPo(poNo){
     var requestKey=key(poNo);
@@ -131,10 +180,12 @@
   if(window.schemas&&schemas.inboundRequest)schemas.inboundRequest.rows=reconcileInboundRequests;
   window.mesInboundRequestRows=reconcileInboundRequests;
   window.mesInboundRequestForPo=requestForPo;
+  window.mesRepairInboundRequestPackages=repairSupersededPackages;
 
   var previousRender=window.render;
   window.render=function(){
     reconcileInboundRequests();
+    repairSupersededPackages();
     var result=previousRender.apply(this,arguments);
     if(typeof currentView!=='undefined'&&currentView==='purchase'){
       requestAnimationFrame(decoratePurchaseButtons);
