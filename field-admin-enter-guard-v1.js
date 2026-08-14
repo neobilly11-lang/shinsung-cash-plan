@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.3 seconds
-Output:
 (function(){
   'use strict';
   if(window.__fieldAdminEnterGuardV1)return;
@@ -20,12 +17,11 @@ Output:
   },true);
   var original=window.resetAllData;
   if(typeof original==='function')window.resetAllData=function(){
-    if(!admin()){warn('?꾩껜?먮즺 珥덇린?붽? ?좉꺼 ?덉뒿?덈떎. MES?먯꽌 ?⑤룆 愿由ъ옄 ??紐낆쓣 癒쇱? 吏?뺥븯?몄슂.');return false}
-    if(admin()!==email()){warn('?꾩껜?먮즺 珥덇린?붾뒗 ?⑤룆 愿由ъ옄 '+admin()+'留??ㅽ뻾?????덉뒿?덈떎.');return false}
+    if(!admin()){warn('전체자료 초기화가 잠겨 있습니다. MES에서 단독 관리자 한 명을 먼저 지정하세요.');return false}
+    if(admin()!==email()){warn('전체자료 초기화는 단독 관리자 '+admin()+'만 실행할 수 있습니다.');return false}
     return original.apply(this,arguments);
   };
   try{resetAllData=window.resetAllData}catch(_){ }
-  document.querySelectorAll('button[onclick="resetAllData()"],button[onclick*="resetAllData"]').forEach(function(button){button.title='?⑤룆 愿由ъ옄留??ㅽ뻾 媛??;button.dataset.enterSkip='1'});
+  document.querySelectorAll('button[onclick="resetAllData()"],button[onclick*="resetAllData"]').forEach(function(button){button.title='단독 관리자만 실행 가능';button.dataset.enterSkip='1'});
   document.documentElement.dataset.fieldAdminEnterGuardV1='loaded';
 })();
-
