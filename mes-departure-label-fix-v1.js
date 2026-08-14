@@ -30,8 +30,7 @@
     if(document.getElementById(id))return;
     var script=document.createElement('script');script.id=id;script.src=src;script.defer=true;document.head.appendChild(script);
   }
-  loadUpgrade('/mes-sales-balance-v1.js?v=20260814-1','mesSalesBalanceV1Loader');
+  loadUpgrade('/mes-sales-balance-v1.js?v=20260815-1','mesSalesBalanceV1Loader');
   loadUpgrade('/mes-access-recovery-v1.js?v=20260814-1','mesAccessRecoveryV1Loader');
   document.documentElement.dataset.mesDepartureLabelFixV1='loaded';
 })();
-
