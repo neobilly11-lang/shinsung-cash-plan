@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#102542">
-<title>?좎꽦湲덉냽 MES</title>
+<title>신성금속 MES</title>
 <style>
 :root{--navy:#102542;--navy2:#233c62;--blue:#3273dc;--teal:#008ea1;--mint:#e7f7f5;--bg:#f3f6fa;--line:#dce3ec;--text:#182434;--muted:#6c7a8d;--danger:#d94c58;--shadow:0 12px 34px #19324f18}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;color:var(--text);background:var(--bg)}button,input,select,textarea{font:inherit}.hidden{display:none!important}
@@ -23,46 +23,47 @@
 </style>
 </head>
 <body>
-<div id="auth" class="auth"><div class="auth-card"><h1>?좎꽦湲덉냽 MES</h1><p>?꾩옣愿由ъ? 媛숈? 怨꾩젙?쇰줈 濡쒓렇?명븯?몄슂.</p><label>?대쫫 ?먮뒗 ?대찓??input id="loginId" autocomplete="username" placeholder="?깅줉???대쫫 ?먮뒗 ?대찓??></label><label>鍮꾨?踰덊샇<input id="loginPassword" type="password" autocomplete="current-password"></label><label style="display:flex;gap:8px;align-items:center"><input id="remember" type="checkbox" checked style="width:22px;height:22px;margin:0"> ?먮룞?묒냽 ?좎?</label><button class="btn primary" onclick="login()">濡쒓렇?맞룹젒??/button><button class="btn" onclick="location.href='/stable-inspection-mobile-v4.html?authReturn=mes'">?ъ슜???깅줉쨌鍮꾨?踰덊샇 李얘린</button><div id="authMsg" class="auth-msg"></div></div></div>
+<div id="auth" class="auth"><div class="auth-card"><h1>신성금속 MES</h1><p>현장관리와 같은 계정으로 로그인하세요.</p><label>이름 또는 이메일<input id="loginId" autocomplete="username" placeholder="등록한 이름 또는 이메일"></label><label>비밀번호<input id="loginPassword" type="password" autocomplete="current-password"></label><label style="display:flex;gap:8px;align-items:center"><input id="remember" type="checkbox" checked style="width:22px;height:22px;margin:0"> 자동접속 유지</label><button class="btn primary" onclick="login()">로그인·접속</button><button class="btn" onclick="location.href='/stable-inspection-mobile-v4.html?authReturn=mes'">사용자 등록·비밀번호 찾기</button><div id="authMsg" class="auth-msg"></div></div></div>
 <div class="shell">
-<aside id="side" class="side"><div class="brand" onclick="openView('dashboard')" style="cursor:pointer"><strong>?좎꽦湲덉냽 MES</strong><span>?꾩옣愿由??ㅼ떆媛??곕룞 ?쒖뒪??/span></div><div id="nav"></div><button class="nav-btn field-link" onclick="location.href='/stable-inspection-mobile-v4.html'"><b>??/b> ?꾩옣愿由??닿린</button></aside>
-<main class="main"><header class="top"><button class="menu-toggle" onclick="side.classList.toggle('on')">??/button><div id="pageTitle" class="page-title">?듯빀 ?꾪솴??/div><div id="sync" class="sync"><b>??/b><span>怨듭슜 ?쒕쾭 ?곌껐 以?/span></div><button id="user" class="user" onclick="logout()">濡쒓렇??/button></header><div id="content" class="content"></div></main>
+<aside id="side" class="side"><div class="brand" onclick="openView('dashboard')" style="cursor:pointer"><strong>신성금속 MES</strong><span>현장관리 실시간 연동 시스템</span></div><div id="nav"></div><button class="nav-btn field-link" onclick="location.href='/stable-inspection-mobile-v4.html'"><b>↗</b> 현장관리 열기</button></aside>
+<main class="main"><header class="top"><button class="menu-toggle" onclick="side.classList.toggle('on')">☰</button><div id="pageTitle" class="page-title">통합 현황판</div><div id="sync" class="sync"><b>●</b><span>공용 서버 연결 중</span></div><button id="user" class="user" onclick="logout()">로그인</button></header><div id="content" class="content"></div></main>
 </div>
-<div id="modal" class="modal"><div class="modal-card" onclick="event.stopPropagation()"><div class="modal-head"><h2 id="modalTitle">?먮즺 ?섏젙</h2><button class="close" onclick="closeModal()">횞</button></div><div id="modalBody"></div></div></div>
-<div id="progress" class="save-progress"><div><div class="spinner"></div><h2>怨듭슜 ?쒕쾭?????以?/h2><p>?꾩옣愿由ъ? MES???숈떆??諛섏쁺?섍퀬 ?덉뒿?덈떎.</p></div></div><div id="toast" class="toast"></div>
+<div id="modal" class="modal"><div class="modal-card" onclick="event.stopPropagation()"><div class="modal-head"><h2 id="modalTitle">자료 수정</h2><button class="close" onclick="closeModal()">×</button></div><div id="modalBody"></div></div></div>
+<div id="progress" class="save-progress"><div><div class="spinner"></div><h2>공용 서버에 저장 중</h2><p>현장관리와 MES에 동시에 반영하고 있습니다.</p></div></div><div id="toast" class="toast"></div>
 <script>
 const API='https://orpeybiqikrdydkhsjjs.supabase.co',KEY='sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
 const AUTH_LOCAL_KEY='scrap-auth-session-v1',AUTH_TEMP_KEY='scrap-auth-session-temp-v1',AUTH_NAME_MAP_KEY='scrap-auth-name-email-v1';
 const VIEWS=[
- {group:'怨꾪쉷愿由?,id:'purchase',icon:'01',label:'援щℓ怨꾪쉷'}, {group:'怨꾪쉷愿由?,id:'sales',icon:'02',label:'?먮ℓ怨꾪쉷'},
- {group:'?낃퀬쨌?앹궛',id:'inbound',icon:'03',label:'?낃퀬?꾪솴'}, {group:'?낃퀬쨌?앹궛',id:'production',icon:'04',label:'?앹궛?꾪솴'},
- {group:'?낃퀬쨌?앹궛',id:'settlement',icon:'05',label:'?명??꾪솴'}, {group:'?ш퀬쨌異쒗븯',id:'inventory',icon:'06',label:'?ш퀬?꾪솴'},
- {group:'?ш퀬쨌異쒗븯',id:'stockDetail',icon:'07',label:'?ш퀬?곸꽭'}, {group:'?ш퀬쨌異쒗븯',id:'shippingPlan',icon:'08',label:'異쒗븯怨꾪쉷'},
- {group:'?ш퀬쨌異쒗븯',id:'shipping',icon:'09',label:'異쒓퀬?꾪솴'}, {group:'湲곕줉',id:'daily',icon:'10',label:'?쇱씪 ?묒뾽?쇱?'}
+ {group:'계획관리',id:'purchase',icon:'01',label:'구매계획'}, {group:'계획관리',id:'sales',icon:'02',label:'판매계획'},
+ {group:'입고·생산',id:'inbound',icon:'03',label:'입고현황'}, {group:'입고·생산',id:'production',icon:'04',label:'생산현황'},
+ {group:'입고·생산',id:'settlement',icon:'05',label:'세틀현황'}, {group:'재고·출하',id:'inventory',icon:'06',label:'재고현황'},
+ {group:'재고·출하',id:'stockDetail',icon:'07',label:'재고상세'}, {group:'재고·출하',id:'shippingPlan',icon:'08',label:'출하계획'},
+ {group:'재고·출하',id:'shipping',icon:'09',label:'출고현황'}, {group:'기록',id:'daily',icon:'10',label:'일일 작업일지'}
 ];
 let state={},revision=0,currentView='dashboard',filters={},authSession=null,authUser=null,pollBusy=false,lastLoad=0;
 const $=id=>document.getElementById(id),safe=value=>Array.isArray(value)?value:[],num=value=>Number(value)||0,esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=value=>num(value).toLocaleString('ko-KR',{maximumFractionDigits:2}),date=value=>String(value||'').slice(0,10)||'-',dt=value=>String(value||'').replace('T',' ').slice(0,16)||'-';
-const nowDate=()=>new Date().toLocaleDateString('sv-SE'),currentUserName=()=>String(authUser?.user_metadata?.display_name||authUser?.user_metadata?.name||authUser?.email?.split('@')[0]||'MES ?ъ슜??);
+const nowDate=()=>new Date().toLocaleDateString('sv-SE'),currentUserName=()=>String(authUser?.user_metadata?.display_name||authUser?.user_metadata?.name||authUser?.email?.split('@')[0]||'MES 사용자');
 function defaults(x={}){return{pos:[],splits:[],inputs:[],bags:[],losses:[],workWaits:[],salesOrders:[],packingLists:[],shipments:[],shipmentAllocations:[],returnReceipts:[],domesticReceipts:[],movements:[],waitingMoves:[],receiptWorks:[],shippingWorks:[],auditLogs:[],locations:[],mainGrades:[],subGrades:[],...x}}
 function authMap(){try{return JSON.parse(localStorage.getItem(AUTH_NAME_MAP_KEY)||'{}')}catch{return{}}}function resolveEmail(v){v=String(v||'').trim();return v.includes('@')?v.toLowerCase():authMap()[v.toLowerCase()]||''}
-async function authRequest(path,opt={}){const r=await fetch(`${API}/auth/v1/${path}`,{method:opt.method||'GET',headers:{apikey:KEY,'Content-Type':'application/json',...(opt.token?{Authorization:`Bearer ${opt.token}`}:{})},body:opt.body?JSON.stringify(opt.body):undefined}),text=await r.text();let out={};try{out=JSON.parse(text||'{}')}catch{out={message:text}}if(!r.ok)throw Error(out.message||out.error_description||out.error||`?몄쬆 HTTP ${r.status}`);return out}
+async function authRequest(path,opt={}){const r=await fetch(`${API}/auth/v1/${path}`,{method:opt.method||'GET',headers:{apikey:KEY,'Content-Type':'application/json',...(opt.token?{Authorization:`Bearer ${opt.token}`}:{})},body:opt.body?JSON.stringify(opt.body):undefined}),text=await r.text();let out={};try{out=JSON.parse(text||'{}')}catch{out={message:text}}if(!r.ok)throw Error(out.message||out.error_description||out.error||`인증 HTTP ${r.status}`);return out}
 function saveSession(session,remember){localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);(remember?localStorage:sessionStorage).setItem(remember?AUTH_LOCAL_KEY:AUTH_TEMP_KEY,JSON.stringify({...session,user:session?.user||authUser||null,remember}))}
 function savedSession(){for(const [store,key] of [[localStorage,AUTH_LOCAL_KEY],[sessionStorage,AUTH_TEMP_KEY]])try{const x=JSON.parse(store.getItem(key)||'null');if(x?.access_token)return x}catch{}return null}
-async function login(){const email=resolveEmail($('loginId').value),password=$('loginPassword').value;if(!email||!password)return $('authMsg').textContent='?깅줉???대찓?쇨낵 鍮꾨?踰덊샇瑜??낅젰?섏꽭??';$('authMsg').textContent='濡쒓렇???뺤씤 以묅?;try{const s=await authRequest('token?grant_type=password',{method:'POST',body:{email,password}});unlock(s,s.user||await authRequest('user',{token:s.access_token}),$('remember').checked)}catch(e){$('authMsg').textContent='濡쒓렇???ㅽ뙣: '+e.message}}
-function unlock(session,user,remember=true){authSession=session;authUser=user;session.user=user;saveSession(session,remember);$('auth').classList.remove('on');$('user').textContent='?뫀 '+currentUserName()+' 쨌 濡쒓렇?꾩썐';void loadState(true)}
-async function verifyFastSession(session){try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}authSession=session;authUser=user;session.user=user;saveSession(session,session.remember!==false);$('user').textContent='?뫀 '+currentUserName()+' 쨌 濡쒓렇?꾩썐'}catch{localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);authSession=null;authUser=null;$('auth').classList.add('on');$('authMsg').textContent='濡쒓렇???쒓컙??留뚮즺?섏뿀?듬땲?? ?ㅼ떆 濡쒓렇?명븯?몄슂.'}}
-async function initAuth(){if(['localhost','127.0.0.1'].includes(location.hostname)){return unlock({access_token:'test'},{id:'test',email:'mes@local',user_metadata:{display_name:'MES ?뚯뒪??}},false)}const session=savedSession();if(session?.user){unlock(session,session.user,session.remember!==false);void verifyFastSession(session);return}if(session)try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}return unlock(session,user,session.remember!==false)}catch{}$('auth').classList.add('on')}
+async function login(){const email=resolveEmail($('loginId').value),password=$('loginPassword').value;if(!email||!password)return $('authMsg').textContent='등록한 이메일과 비밀번호를 입력하세요.';$('authMsg').textContent='로그인 확인 중…';try{const s=await authRequest('token?grant_type=password',{method:'POST',body:{email,password}});unlock(s,s.user||await authRequest('user',{token:s.access_token}),$('remember').checked)}catch(e){$('authMsg').textContent='로그인 실패: '+e.message}}
+function unlock(session,user,remember=true){authSession=session;authUser=user;session.user=user;saveSession(session,remember);$('auth').classList.remove('on');$('user').textContent='👤 '+currentUserName()+' · 로그아웃';void loadState(true)}
+async function verifyFastSession(session){try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}authSession=session;authUser=user;session.user=user;saveSession(session,session.remember!==false);$('user').textContent='👤 '+currentUserName()+' · 로그아웃'}catch{localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);authSession=null;authUser=null;$('auth').classList.add('on');$('authMsg').textContent='로그인 시간이 만료되었습니다. 다시 로그인하세요.'}}
+async function initAuth(){if(['localhost','127.0.0.1'].includes(location.hostname)){return unlock({access_token:'test'},{id:'test',email:'mes@local',user_metadata:{display_name:'MES 테스트'}},false)}const session=savedSession();if(session?.user){unlock(session,session.user,session.remember!==false);void verifyFastSession(session);return}if(session)try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}return unlock(session,user,session.remember!==false)}catch{}$('auth').classList.add('on')}
 async function logout(){try{if(authSession?.access_token)await authRequest('logout?scope=local',{method:'POST',token:authSession.access_token})}catch{}localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);location.reload()}
-async function readState(){const r=await fetch('/api/scrap-state',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`?쒕쾭 HTTP ${r.status}`);return out}
-async function readRevision(){const r=await fetch('/api/scrap-state?revision=1',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`?쒕쾭 HTTP ${r.status}`);return num(out.revision)}
-function setSync(text,bad=false){$('sync').classList.toggle('bad',bad);$('sync').innerHTML=`<b>??/b><span>${esc(text)}</span>`}
-async function loadState(shouldRender=true){try{setSync('怨듭슜 ?쒕쾭 ?숆린??以?);const out=await readState();state=defaults(out.payload);revision=num(out.revision);lastLoad=Date.now();setSync('?ㅼ떆媛??곌껐 쨌 '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));if(shouldRender)render()}catch(e){setSync('?쒕쾭 ?곌껐 ?ㅽ뙣',true);toast(e.message,true)}}
-async function realtimePoll(){if(pollBusy||document.hidden||!authUser||$('progress').classList.contains('on')||($('modal').classList.contains('on')&&$('modalBody').querySelector('form')))return;pollBusy=true;try{const remote=await readRevision();if(remote>revision)await loadState(true)}catch(e){setSync('?ъ뿰寃??湲?,true)}finally{pollBusy=false}}
-async function commit(label,collections,mutate){$('progress').classList.add('on');try{for(let attempt=0;attempt<3;attempt++){const latest=await readState(),draft=defaults(structuredClone(latest.payload));mutate(draft);const changes={};collections.forEach(key=>changes[key]=draft[key]);const audit={id:crypto.randomUUID(),action:'MES_UPDATE',label,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()};changes.auditLogs=[...safe(draft.auditLogs),audit];const r=await fetch('/api/scrap-state',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,baseRevision:num(latest.revision)})}),out=await r.json();if(r.status===409)continue;if(!r.ok)throw Error(out.error||`???HTTP ${r.status}`);await loadState(true);toast(label+' ?…31861 tokens truncated…mall><b>"+esc(row.containerSize)+"</b></div><div><small>李⑤웾踰덊샇</small><b>"+esc(row.vehicleNo||"-")+"</b></div>"
-    +"<div><small>?곕씫泥?/small><b>"+esc(row.contact||"-")+"</b></div><div><small>?묒뾽??/small><b>"+esc(row.operatorName||"-")+"</b></div><div><small>??μ씪??/small><b>"+dt(row.savedAt)+"</b></div></div>"
-    +mesSection("PACKING LIST",[["?щ궡?낃퀬踰덊샇",function(x){return x.internalPackageNo||"-";}],["嫄곕옒泥?Package No.",function(x){return x.packageNo||"-";}],["媛뺤쥌",function(x){return x.grade;}],["G/W",function(x){return fmt(x.gw);}],["N/W",function(x){return fmt(x.nw);}],["?ъ옣醫낅쪟",function(x){return x.packingType||"-";}],["鍮꾧퀬",function(x){return x.memo||"-";}]],row.items)
-    +"<div class='actions'><button class='btn primary' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>?낃퀬?붿껌 ?섏젙</button><button class='btn' onclick='closeModal()'>?リ린</button></div>";
+async function readState(){const r=await fetch('/api/scrap-state',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`서버 HTTP ${r.status}`);return out}
+async function readRevision(){const r=await fetch('/api/scrap-state?revision=1',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`서버 HTTP ${r.status}`);return num(out.revision)}
+function setSync(text,bad=false){$('sync').classList.toggle('bad',bad);$('sync').innerHTML=`<b>●</b><span>${esc(text)}</span>`}
+async function loadState(shouldRender=true){try{setSync('공용 서버 동기화 중');const out=await readState();state=defaults(out.payload);revision=num(out.revision);lastLoad=Date.now();setSync('실시간 연결 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));if(shouldRender)render()}catch(e){setSync('서버 연결 실패',true);toast(e.message,true)}}
+async function realtimePoll(){if(pollBusy||document.hidden||!authUser||$('progress').classList.contains('on')||($('modal').classList.contains('on')&&$('modalBody').querySelector('form')))return;pollBusy=true;try{const remote=await readRevision();if(remote>revision)await loadState(true)}catch(e){setSync('재연결 대기',true)}finally{pollBusy=false}}
+async function commit(label,collections,mutate){$('progress').classList.add('on');try{for(let attempt=0;attempt<3;attempt++){const latest=await readState(),draft=defaults(structuredClone(latest.payload));mutate(draft);const changes={};collections.forEach(key=>changes[key]=draft[key]);const audit={id:crypto.randomUUID(),action:'MES_UPDATE',label,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()};changes.auditLogs=[...safe(draft.auditLogs),audit];const r=await fetch('/api/scrap-state',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,baseRevision:num(latest.revision)})}),out=await r.json();if(r.status===409)continue;if(!r.ok)throw Error(out.error||`저장 HTTP ${r.status}`);await loadState(true);toast(label+' 저장 완료 · 현장관리에도 반영됨');return}throw Error('동시 저장 충돌이 반복되었습니다. 잠시 후 다시 저장하세요.')}catch(…31217 tokens truncated…ll>거래처</small><b>"+esc(row.company)+"</b></div><div><small>입고구분</small><b>"+(row.importType==="OVERSEAS"?"해외입고":"국내입고")+"</b></div>"
+    +"<div><small>요청일시</small><b>"+esc(row.requestDate+" "+row.requestTime)+"</b></div><div><small>컨테이너</small><b>"+esc(row.containerSize)+"</b></div><div><small>차량번호</small><b>"+esc(row.vehicleNo||"-")+"</b></div>"
+    +"<div><small>연락처</small><b>"+esc(row.contact||"-")+"</b></div><div><small>작업자</small><b>"+esc(row.operatorName||"-")+"</b></div><div><small>저장일시</small><b>"+dt(row.savedAt)+"</b></div></div>"
+    +mesSection("PACKING LIST",[["사내입고번호",function(x){return x.internalPackageNo||"-";}],["거래처 Package No.",function(x){return x.packageNo||"-";}],["강종",function(x){return x.grade;}],["G/W",function(x){return fmt(x.gw);}],["N/W",function(x){return fmt(x.nw);}],["포장종류",function(x){return x.packingType||"-";}],["비고",function(x){return x.memo||"-";}]],row.items)
+    +"<div class='actions'><button class='btn primary' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>입고요청 수정</button><button class='btn' onclick='closeModal()'>닫기</button></div>";
   $("modal").classList.add("on");
 };
 var baseEditRowInbound=window.editRow;
@@ -120,7 +121,7 @@ function distinct(items,key){
   return Array.from(new Set(safe(items).map(function(item){return String(item&&item[key]||"").trim();}).filter(Boolean))).join(" / ");
 }
 function requestItemGrade(item){
-  return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" 쨌 ");
+  return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · ");
 }
 function requestSource(row){
   return safe(row.items).find(function(item){return item.shippingRequestStatus==="REQUESTED"||item.shippingRequestedAt||item.shippingRequestDate;})||safe(row.items)[0]||{};
@@ -157,7 +158,7 @@ function shippingPlanRowsV2(){
       unitPrices:unitPrices,
       exchangeRates:exchangeRates,
       currency:currency,
-      requestState:(source.shippingRequestStatus==="REQUESTED"||source.shippingRequestedAt)?"?붿껌?꾨즺":"誘몄슂泥?,
+      requestState:(source.shippingRequestStatus==="REQUESTED"||source.shippingRequestedAt)?"요청완료":"미요청",
       _salesSearch:search+" "+requestDate+" "+(source.shippingRequestNo||"")+" "+(source.shippingRequirements||"")+" "+(source.vehicleNo||"")+" "+(source.driverPhone||""),
       _savedAt:requestDate?requestDate+"T12:00:00":row._savedAt
     });
@@ -166,27 +167,27 @@ function shippingPlanRowsV2(){
 window.mesShippingPlanRowsV2=shippingPlanRowsV2;
 schemas.shippingPlan.rows=shippingPlanRowsV2;
 schemas.shippingPlan.cols=[
-  ["?붿껌?좎쭨",function(r){return r.requestDate||"-";}],
+  ["요청날짜",function(r){return r.requestDate||"-";}],
   ["S.O",function(r){return r.soNo||"-";},"link"],
-  ["?먮ℓ援щ텇",function(r){return r.type||"-";}],
-  ["?먮ℓ泥?,function(r){return r.customer||"-";},"left"],
-  ["?덉쥌",function(r){return r.productTypes||"-";}],
-  ["媛뺤쥌",function(r){return r.mainGrades||"-";},"left"],
-  ["?뚭컯醫?,function(r){return r.subGrades||"-";}],
-  ["?곸꽭媛뺤쥌",function(r){return r.detailGrades||"-";},"left"],
-  ["異쒗븯?덉젙??,function(r){return date(r.shipDate);}],
-  ["?먮ℓ以묐웾",function(r){return fmt(r.weight)+" kg";}],
-  ["?듯솕",function(r){return r.currency||"-";}],
-  ["?섏쑉",function(r){return r.exchangeRates||"-";}],
-  ["?④?",function(r){return r.unitPrices||"-";}],
-  ["?먮ℓ湲덉븸",function(r){return fmt(r.amount);}],
-  ["而⑦뀒?대꼫",function(r){return r.containerSize||"-";}],
-  ["?꾩닔?붿껌?ы빆",function(r){return r.shippingRequirements||"-";},"left"],
-  ["李⑤웾踰덊샇",function(r){return r.vehicleNo||"-";}],
-  ["湲곗궗?꾨쾲",function(r){return r.driverPhone||"-";}],
-  ["異쒗븯?붿껌",function(r){return status(r.requestState);}],
-  ["?붿껌?묒뾽??,function(r){return r.requestOperatorName||"-";}],
-  ["??μ씪??,function(r){return window.mesSavedAtText(r);}]
+  ["판매구분",function(r){return r.type||"-";}],
+  ["판매처",function(r){return r.customer||"-";},"left"],
+  ["품종",function(r){return r.productTypes||"-";}],
+  ["강종",function(r){return r.mainGrades||"-";},"left"],
+  ["소강종",function(r){return r.subGrades||"-";}],
+  ["상세강종",function(r){return r.detailGrades||"-";},"left"],
+  ["출하예정일",function(r){return date(r.shipDate);}],
+  ["판매중량",function(r){return fmt(r.weight)+" kg";}],
+  ["통화",function(r){return r.currency||"-";}],
+  ["환율",function(r){return r.exchangeRates||"-";}],
+  ["단가",function(r){return r.unitPrices||"-";}],
+  ["판매금액",function(r){return fmt(r.amount);}],
+  ["컨테이너",function(r){return r.containerSize||"-";}],
+  ["필수요청사항",function(r){return r.shippingRequirements||"-";},"left"],
+  ["차량번호",function(r){return r.vehicleNo||"-";}],
+  ["기사전번",function(r){return r.driverPhone||"-";}],
+  ["출하요청",function(r){return status(r.requestState);}],
+  ["요청작업자",function(r){return r.requestOperatorName||"-";}],
+  ["저장일시",function(r){return window.mesSavedAtText(r);}]
 ];
 schemas.shippingPlan.edit="sales";
 
@@ -195,7 +196,7 @@ function requestExists(row){
 }
 function requestButton(row){
   var done=requestExists(row),encoded=encodeURIComponent(row.soNo||row.id||"");
-  return "<button class='btn shipping-request-action "+(done?"done":"")+"' onclick='event.stopPropagation();openMesShippingRequest(decodeURIComponent(\""+encoded+"\"))'>"+(done?"異쒗븯?붿껌?꾨즺 쨌 ?섏젙":"異쒗븯?붿껌")+"</button>";
+  return "<button class='btn shipping-request-action "+(done?"done":"")+"' onclick='event.stopPropagation();openMesShippingRequest(decodeURIComponent(\""+encoded+"\"))'>"+(done?"출하요청완료 · 수정":"출하요청")+"</button>";
 }
 function decorateShippingRequestButtons(){
   if(currentView!=="sales")return;
@@ -212,7 +213,7 @@ function decorateShippingRequestButtons(){
   });
   var actions=document.querySelector("#content .dashboard-head .actions");
   if(actions&&!actions.querySelector(".shipping-request-help")){
-    actions.insertAdjacentHTML("afterbegin","<button class='btn shipping-request-quick shipping-request-help' onclick='event.stopPropagation();toast(\"?꾨옒 ?먮ℓ怨꾪쉷??異쒗븯?붿껌 踰꾪듉???꾨Ⅴ硫??붿껌?셋룹빻?뚯씠?댟룻븘?섏슂泥?궗??쓣 ?깅줉?????덉뒿?덈떎.\")'>異쒗븯?붿껌 ?묒꽦 ?덈궡</button>");
+    actions.insertAdjacentHTML("afterbegin","<button class='btn shipping-request-quick shipping-request-help' onclick='event.stopPropagation();toast(\"아래 판매계획의 출하요청 버튼을 누르면 요청일·컨테이너·필수요청사항을 등록할 수 있습니다.\")'>출하요청 작성 안내</button>");
   }
 }
 function decoratePurchaseButtonsFixed(){
@@ -222,40 +223,40 @@ function decoratePurchaseButtonsFixed(){
     var row=rows[index];if(!row)return;
     var old=tr.querySelector(".inbound-request-action");if(old)old.remove();
     var existing=typeof poRequest==="function"&&poRequest(row.poNo);
-    var html="<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"?낃퀬?붿껌 ?섏젙":"?낃퀬?붿껌")+"</button>";
+    var html="<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>";
     if(tr.lastElementChild)tr.lastElementChild.insertAdjacentHTML("beforeend",html);
   });
   document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
     var row=rows[index];if(!row)return;
     var old=card.querySelector(".inbound-request-action");if(old)old.remove();
     var existing=typeof poRequest==="function"&&poRequest(row.poNo);
-    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"?낃퀬?붿껌 ?섏젙":"?낃퀬?붿껌")+"</button>");
+    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>");
   });
   var actions=document.querySelector("#content .dashboard-head .actions");
   if(actions&&!actions.querySelector(".purchase-mode-actions")){
-    actions.insertAdjacentHTML("afterbegin","<span class='purchase-mode-actions shipping-plan-quick-actions'><button class='btn primary' onclick='event.stopPropagation();openMesDirectPoRegistration()'>+ P.O 吏곸젒?낅젰</button><button class='btn shipping-request-quick' onclick='event.stopPropagation();openMesDocumentPoRegistration()'>+ 嫄곕옒泥??쒕쪟濡??깅줉</button></span>");
+    actions.insertAdjacentHTML("afterbegin","<span class='purchase-mode-actions shipping-plan-quick-actions'><button class='btn primary' onclick='event.stopPropagation();openMesDirectPoRegistration()'>+ P.O 직접입력</button><button class='btn shipping-request-quick' onclick='event.stopPropagation();openMesDocumentPoRegistration()'>+ 거래처 서류로 등록</button></span>");
   }
 }
 window.openMesShippingRequest=function(soNo){
   var row=safe(schemas.sales.rows()).find(function(item){return String(item.soNo)===String(soNo)||String(item.id)===String(soNo);});
-  if(!row)return toast("?먮ℓ怨꾪쉷 S.O ?먮즺瑜?李얠? 紐삵뻽?듬땲??",true);
+  if(!row)return toast("판매계획 S.O 자료를 찾지 못했습니다.",true);
   var source=requestSource(row),savedContainer=source.shippingContainerSize||source.containerSize||"";
-  $("modalTitle").textContent=(row.soNo||"S.O")+" 쨌 異쒗븯?붿껌 ?묒꽦";
+  $("modalTitle").textContent=(row.soNo||"S.O")+" · 출하요청 작성";
   var itemRows=safe(row.items).map(function(item,index){
     return "<tr><td>"+(index+1)+"</td><td>"+esc(item.productType||"-")+"</td><td>"+esc(item.mainGrade||item.grade||"-")+"</td><td>"+esc(item.subGrade||"-")+"</td><td>"+esc(item.detailGrade||"-")+"</td><td>"+fmt(item.weight)+" kg</td><td>"+esc(item.currency||"-")+"</td><td>"+fmt(item.exchangeRate)+"</td><td>"+fmt(item.unitPrice)+"</td><td>"+fmt(item.amount||num(item.weight)*num(item.unitPrice))+"</td></tr>";
   }).join("");
-  $("modalBody").innerHTML="<div class='shipping-request-info'><div><small>S.O</small><b>"+esc(row.soNo)+"</b></div><div><small>?먮ℓ泥?/small><b>"+esc(row.customer)+"</b></div><div><small>異쒗븯?덉젙??/small><b>"+esc(date(row.shipDate))+"</b></div><div><small>?먮ℓ以묐웾</small><b>"+fmt(row.weight)+" kg</b></div></div>"
+  $("modalBody").innerHTML="<div class='shipping-request-info'><div><small>S.O</small><b>"+esc(row.soNo)+"</b></div><div><small>판매처</small><b>"+esc(row.customer)+"</b></div><div><small>출하예정일</small><b>"+esc(date(row.shipDate))+"</b></div><div><small>판매중량</small><b>"+fmt(row.weight)+" kg</b></div></div>"
     +"<form id='mesShippingRequestForm' class='form-grid' onsubmit='saveMesShippingRequest(event,this,decodeURIComponent(\""+encodeURIComponent(row.soNo)+"\"))'>"
-    +"<label>異쒗븯?붿껌??<span class='shipping-request-required'>?꾩닔</span><input name='requestDate' type='date' required value='"+esc(source.shippingRequestDate||source.requestDate||nowDate())+"'></label>"
-    +"<label class='wide'>而⑦뀒?대꼫 ?좏깮 <span class='shipping-request-required'>?꾩닔</span><div class='container-choice'>"
+    +"<label>출하요청일 <span class='shipping-request-required'>필수</span><input name='requestDate' type='date' required value='"+esc(source.shippingRequestDate||source.requestDate||nowDate())+"'></label>"
+    +"<label class='wide'>컨테이너 선택 <span class='shipping-request-required'>필수</span><div class='container-choice'>"
     +["20FT","40FT","OPEN TOP"].map(function(value){return "<label><input type='radio' name='containerSize' value='"+value+"' "+(savedContainer===value?"checked":"")+"><span>"+value+"</span></label>";}).join("")
     +"</div></label>"
-    +"<label class='wide'>?꾩닔?붿껌?ы빆 <span class='shipping-request-required'>?꾩닔</span><textarea name='shippingRequirements' required placeholder='異쒗븯 ?묒뾽??諛섎뱶???꾩슂???붿껌?ы빆???낅젰?섏꽭??'>"+esc(source.shippingRequirements||source.requestMemo||"")+"</textarea></label>"
-    +"<label>李⑤웾踰덊샇 <small>?좏깮</small><input name='vehicleNo' value='"+esc(source.shippingVehicleNo||source.vehicleNo||"")+"'></label>"
-    +"<label>湲곗궗?꾨쾲 <small>?좏깮</small><input name='driverPhone' type='tel' value='"+esc(source.driverPhone||source.contact||"")+"'></label>"
-    +"<div class='wide shipping-request-note'>??ν븯硫??숈씪 怨듭슜 ?쒕쾭???좎꽦 ?ㅽ겕???꾩옣愿由??섏텧?섏슂泥?吏꾪뻾?꾪솴?숈뿉 利됱떆 諛섏쁺?⑸땲??</div>"
-    +"<div class='wide table-wrap'><table><thead><tr><th>No.</th><th>?덉쥌</th><th>媛뺤쥌</th><th>?뚭컯醫?/th><th>?곸꽭媛뺤쥌</th><th>以묐웾</th><th>?듯솕</th><th>?섏쑉</th><th>?④?</th><th>湲덉븸</th></tr></thead><tbody>"+itemRows+"</tbody></table></div>"
-    +"<div class='wide actions'><button class='btn primary'>異쒗븯?붿껌 ???/button><button type='button' class='btn' onclick='closeModal()'>痍⑥냼</button></div></form>";
+    +"<label class='wide'>필수요청사항 <span class='shipping-request-required'>필수</span><textarea name='shippingRequirements' required placeholder='출하 작업에 반드시 필요한 요청사항을 입력하세요.'>"+esc(source.shippingRequirements||source.requestMemo||"")+"</textarea></label>"
+    +"<label>차량번호 <small>선택</small><input name='vehicleNo' value='"+esc(source.shippingVehicleNo||source.vehicleNo||"")+"'></label>"
+    +"<label>기사전번 <small>선택</small><input name='driverPhone' type='tel' value='"+esc(source.driverPhone||source.contact||"")+"'></label>"
+    +"<div class='wide shipping-request-note'>저장하면 동일 공용 서버의 신성 스크랩 현장관리 ‘출하요청 진행현황’에 즉시 반영됩니다.</div>"
+    +"<div class='wide table-wrap'><table><thead><tr><th>No.</th><th>품종</th><th>강종</th><th>소강종</th><th>상세강종</th><th>중량</th><th>통화</th><th>환율</th><th>단가</th><th>금액</th></tr></thead><tbody>"+itemRows+"</tbody></table></div>"
+    +"<div class='wide actions'><button class='btn primary'>출하요청 저장</button><button type='button' class='btn' onclick='closeModal()'>취소</button></div></form>";
   $("modal").classList.add("on");
   setTimeout(function(){$("mesShippingRequestForm")?.querySelector("[name=requestDate]")?.focus();},80);
 };
@@ -267,14 +268,14 @@ function nextShippingRequestNo(){
 window.saveMesShippingRequest=async function(event,form,soNo){
   event.preventDefault();
   var value=formData(form),container=form.querySelector("[name=containerSize]:checked")?.value;
-  if(!value.requestDate)return toast("異쒗븯?붿껌?쇱쓣 ?낅젰?섏꽭??",true);
-  if(!container)return toast("而⑦뀒?대꼫 20FT, 40FT ?먮뒗 OPEN TOP???좏깮?섏꽭??",true);
-  if(!String(value.shippingRequirements||"").trim())return toast("?꾩닔?붿껌?ы빆???낅젰?섏꽭??",true);
+  if(!value.requestDate)return toast("출하요청일을 입력하세요.",true);
+  if(!container)return toast("컨테이너 20FT, 40FT 또는 OPEN TOP을 선택하세요.",true);
+  if(!String(value.shippingRequirements||"").trim())return toast("필수요청사항을 입력하세요.",true);
   var row=safe(schemas.sales.rows()).find(function(item){return String(item.soNo)===String(soNo);});
-  if(!row)return toast("??ν븷 S.O ?먮ℓ怨꾪쉷??李얠? 紐삵뻽?듬땲??",true);
+  if(!row)return toast("저장할 S.O 판매계획을 찾지 못했습니다.",true);
   var ids=new Set(safe(row.items).map(function(item){return String(item.id);}));
   var source=requestSource(row),stamp=new Date().toISOString(),requestNo=source.shippingRequestNo||nextShippingRequestNo();
-  var ok=await commit("MES 異쒗븯?붿껌 ???,["salesOrders"],function(shared){
+  var ok=await commit("MES 출하요청 저장",["salesOrders"],function(shared){
     safe(shared.salesOrders).forEach(function(item){
       if(!ids.has(String(item.id)))return;
       var oldStatus=String(item.status||"");
@@ -302,7 +303,7 @@ window.saveMesShippingRequest=async function(event,form,soNo){
   if(ok){
     closeModal();
     openView("shippingPlan");
-    toast("異쒗븯?붿껌 ??μ셿猷?쨌 ?좎꽦 ?꾩옣愿由?異쒗븯?붿껌??諛섏쁺?덉뒿?덈떎.");
+    toast("출하요청 저장완료 · 신성 현장관리 출하요청에 반영했습니다.");
   }
 };
 
@@ -310,7 +311,7 @@ var baseFilterControlsShipping=window.filterControls;
 window.filterControls=function(){
   var html=baseFilterControlsShipping();
   if(currentView!=="shippingPlan")return html;
-  return html.replace(/??μ씪 ?쒖옉/g,"?붿껌???쒖옉").replace(/??μ씪 醫낅즺/g,"?붿껌??醫낅즺").replace(/踰덊샇쨌?뚯궗쨌媛뺤쥌/g,"?붿껌?셋톁.O쨌?먮ℓ泥샕룻뭹醫끒룰컯醫끒룹감?됀룰린?ъ쟾踰?);
+  return html.replace(/저장일 시작/g,"요청일 시작").replace(/저장일 종료/g,"요청일 종료").replace(/번호·회사·강종/g,"요청일·S.O·판매처·품종·강종·차량·기사전번");
 };
 var baseRenderShippingV2=window.render;
 window.render=function(){
@@ -326,7 +327,7 @@ document.documentElement.dataset.mesShippingRequestV2="loaded";
 </script>
 
 <style id="mesCompactDesktopV1">
-/* PC ?꾩슜 50% ?뺤텞 蹂닿린: 紐⑤컮?쇱쓽 ??湲??踰꾪듉? 洹몃?濡??좎??쒕떎. */
+/* PC 전용 50% 압축 보기: 모바일의 큰 글자/버튼은 그대로 유지한다. */
 @media (min-width:761px){
   .shell{zoom:.5;min-height:200vh;grid-template-columns:260px minmax(0,1fr)}
   .side{height:200vh}
