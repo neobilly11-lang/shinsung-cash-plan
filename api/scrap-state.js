@@ -13,7 +13,8 @@ const headers = { apikey: SUPABASE_KEY, 'content-type': 'application/json' };
 const emptyState = {
   pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
   gradeTypes: {}, mainGrades: [], subGrades: [], locations: [], movements: [],
-  waitingLocations: [], waitingMoves: [], workWaitLocations: [], inspectors: []
+  waitingLocations: [], waitingMoves: [], workWaitLocations: [], inspectors: [],
+  samples: [], analysisRecords: [], preSettlements: [], systemSettings: {}
 };
 const allowedKeys = [
   'pos', 'splits', 'inputs', 'bags', 'companies', 'gradeMasters', 'gradeTypes',
@@ -23,7 +24,8 @@ const allowedKeys = [
   'packingLists', 'shipments', 'shipmentAllocations', 'returnReceipts',
   'claims', 'domesticReceipts', 'packagingMaterials', 'selectionGuides',
   'receiptWorks', 'shippingWorks', 'orderPhotos', 'workflowDrafts',
-  'workflowDraftDeletions', 'inspectors', 'auditLogs'
+  'workflowDraftDeletions', 'inspectors', 'auditLogs', 'samples',
+  'analysisRecords', 'preSettlements', 'systemSettings'
 ];
 
 const publicObjectUrl = path =>
@@ -255,4 +257,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message || String(error) });
   }
 }
-
