@@ -20,7 +20,7 @@
     $('modalBody').innerHTML='<form class="form-grid mes-sales-edit-form" onsubmit="saveMesDetail(event,this)">'
       +'<label>S.O 번호<input name="soNo" value="'+esc(row.soNo)+'"></label>'
       +'<label>판매처<input name="customer" value="'+esc(row.customer)+'"></label>'
-      +'<label>출하예정일<input name="shipDate" type="date" value="'+(date(row.shipDate)==='-'?'':date(row.shipDate))+'"></label>'
+      +'<label>출항예정일<input name="shipDate" type="date" value="'+(date(row.shipDate)==='-'?'':date(row.shipDate))+'"></label>'
       +'<label>통화<select name="currency">'+option('KRW',currency)+option('USD',currency)+option('EUR',currency)+option('JPY',currency)+'</select></label>'
       +'<label>판매 환율<input name="exchangeRate" type="number" min="0" step="0.01" inputmode="decimal" value="'+exchangeRate+'"></label>'
       +'<div class="registration-lines"><h3>S.O 품목</h3>'+items.map(function(item){return mesEditLine(item,'SO');}).join('')+'</div>'
