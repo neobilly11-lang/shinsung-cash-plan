@@ -73,11 +73,11 @@
   function syncOrderLine(line){
     if(!line)return;
     var product=line.querySelector('input[name="productType"]'),main=line.querySelector('input[name="mainGrade"]'),sub=line.querySelector('input[name="subGrade"]'),description=line.querySelector('input[name="description"]');
-    if(description)description.value=[product&&product.value,main&&main.value,sub&&sub.value].map(text).filter(Boolean).join(" 쨌 ");
+    if(description)description.value=[product&&product.value,main&&main.value,sub&&sub.value].map(text).filter(Boolean).join(" · ");
   }
   function isSoModal(){
     var body=document.getElementById("modalBody"),title=text(document.getElementById("modalTitle")&&document.getElementById("modalTitle").textContent);
-    return !!(body&&(body.querySelector('input[name="soNo"]')||/S\.O|?먮ℓ怨꾪쉷|異쒗븯怨꾪쉷|異쒓퀬?꾪솴/.test(title)));
+    return !!(body&&(body.querySelector('input[name="soNo"]')||/S\.O|판매계획|출하계획|출고현황/.test(title)));
   }
   function ensurePicker(){
     if(picker)return picker;
@@ -85,7 +85,7 @@
     picker.id="mesSoGradePicker";
     picker.className="mes-so-grade-picker";
     picker.hidden=true;
-    picker.innerHTML='<div class="mes-so-picker-head"><strong></strong><button type="button" class="mes-so-picker-close" aria-label="寃?됯껐怨??リ린">횞</button></div><div class="mes-so-picker-results"></div><button type="button" class="mes-so-picker-clear">?좏깮 吏?곌린 쨌 ?ㅻⅨ 媛?吏곸젒 ?낅젰</button>';
+    picker.innerHTML='<div class="mes-so-picker-head"><strong></strong><button type="button" class="mes-so-picker-close" aria-label="검색결과 닫기">×</button></div><div class="mes-so-picker-results"></div><button type="button" class="mes-so-picker-clear">선택 지우기 · 다른 값 직접 입력</button>';
     document.body.appendChild(picker);
     picker.querySelector(".mes-so-picker-close").addEventListener("click",closePicker);
     picker.querySelector(".mes-so-picker-clear").addEventListener("click",function(){
@@ -152,7 +152,7 @@
     if(!options.length){
       var empty=document.createElement("div");
       empty.className="mes-so-picker-empty";
-      empty.textContent="?쇱튂?섎뒗 ???媛뺤쥌???놁뒿?덈떎. ?꾩옱 ?낅젰媛믪쓣 吏곸젒 ?ъ슜?????덉뒿?덈떎.";
+      empty.textContent="일치하는 저장 강종이 없습니다. 현재 입력값을 직접 사용할 수 있습니다.";
       results.appendChild(empty);
     }else{
       options.forEach(function(value,index){
@@ -165,7 +165,7 @@
         results.appendChild(button);
       });
     }
-    picker.querySelector(".mes-so-picker-head strong").textContent=activeKind==="main"?"??λ맂 理쒖쥌媛뺤쥌 寃?됯껐怨?:"??λ맂 ?뚭컯醫?寃?됯껐怨?;
+    picker.querySelector(".mes-so-picker-head strong").textContent=activeKind==="main"?"저장된 최종강종 검색결과":"저장된 소강종 검색결과";
     placePicker();
   }
   function openPicker(input,kind){
@@ -183,11 +183,11 @@
     input.autocomplete="off";
     input.setAttribute("role","combobox");
     input.setAttribute("aria-autocomplete","list");
-    input.placeholder=kind==="main"?"??λ맂 理쒖쥌媛뺤쥌 寃?됀룹꽑??:"??λ맂 ?뚭컯醫?寃?됀룹꽑??;
+    input.placeholder=kind==="main"?"저장된 최종강종 검색·선택":"저장된 소강종 검색·선택";
     var label=input.closest("label");
     if(label){
       var first=label.firstChild;
-      if(first&&first.nodeType===Node.TEXT_NODE)first.nodeValue=kind==="main"?"理쒖쥌媛뺤쥌 寃?됀룹꽑??:"?뚭컯醫?寃?됀룹꽑??;
+      if(first&&first.nodeType===Node.TEXT_NODE)first.nodeValue=kind==="main"?"최종강종 검색·선택":"소강종 검색·선택";
     }
     input.addEventListener("focus",function(){openPicker(input,kind)});
     input.addEventListener("click",function(){openPicker(input,kind)});
@@ -214,13 +214,13 @@
       description.type="hidden";
       var grid=description.closest(".form-grid");
       var productLabel=document.createElement("label");
-      productLabel.textContent="?덉쥌";
-      var product=document.createElement("input");product.name="productType";product.readOnly=true;product.placeholder="理쒖쥌媛뺤쥌 ?좏깮 ???먮룞?낅젰";productLabel.appendChild(product);
-      var mainLabel=document.createElement("label");mainLabel.className="wide";mainLabel.textContent="理쒖쥌媛뺤쥌 寃?됀룹꽑??;
+      productLabel.textContent="품종";
+      var product=document.createElement("input");product.name="productType";product.readOnly=true;product.placeholder="최종강종 선택 시 자동입력";productLabel.appendChild(product);
+      var mainLabel=document.createElement("label");mainLabel.className="wide";mainLabel.textContent="최종강종 검색·선택";
       var main=document.createElement("input");main.name="mainGrade";main.required=true;main.value=initial;mainLabel.appendChild(main);
-      var subLabel=document.createElement("label");subLabel.textContent="?뚭컯醫?寃?됀룹꽑??;
+      var subLabel=document.createElement("label");subLabel.textContent="소강종 검색·선택";
       var sub=document.createElement("input");sub.name="subGrade";subLabel.appendChild(sub);
-      if(label){label.textContent="S.O ???媛뺤쥌";label.hidden=true;label.appendChild(description);label.insertAdjacentElement("afterend",subLabel);label.insertAdjacentElement("afterend",mainLabel);label.insertAdjacentElement("afterend",productLabel)}
+      if(label){label.textContent="S.O 저장 강종";label.hidden=true;label.appendChild(description);label.insertAdjacentElement("afterend",subLabel);label.insertAdjacentElement("afterend",mainLabel);label.insertAdjacentElement("afterend",productLabel)}
       else if(grid){grid.prepend(subLabel);grid.prepend(mainLabel);grid.prepend(productLabel)}
       bindInput(main,"main");bindInput(sub,"sub");
       [product,main,sub].forEach(function(input){input.addEventListener("input",function(){syncOrderLine(line)});input.addEventListener("change",function(){syncOrderLine(line)})});
@@ -270,14 +270,14 @@
       var head=Object.fromEntries(new FormData(form).entries());
       var lines=Array.from(form.querySelectorAll(".order-create-line")).map(function(line){
         var product=text(line.querySelector('input[name="productType"]')&&line.querySelector('input[name="productType"]').value),main=text(line.querySelector('input[name="mainGrade"]')&&line.querySelector('input[name="mainGrade"]').value),sub=text(line.querySelector('input[name="subGrade"]')&&line.querySelector('input[name="subGrade"]').value),detail=text(line.querySelector('input[name="lineNote"]')&&line.querySelector('input[name="lineNote"]').value),quantity=Number(line.querySelector('input[name="quantity"]')&&line.querySelector('input[name="quantity"]').value)||0,price=Number(line.querySelector('input[name="price"]')&&line.querySelector('input[name="price"]').value)||0,amount=Number(line.querySelector('input[name="amount"]')&&line.querySelector('input[name="amount"]').value)||quantity*price;
-        return{productType:product,mainGrade:main,subGrade:sub,detailGrade:detail,weight:quantity,unitPrice:price,amount:amount,grade:[product,main,sub,detail].filter(Boolean).join(" 쨌 ")};
+        return{productType:product,mainGrade:main,subGrade:sub,detailGrade:detail,weight:quantity,unitPrice:price,amount:amount,grade:[product,main,sub,detail].filter(Boolean).join(" · ")};
       });
       if(!text(head.orderNo)||!text(head.partner)||!lines.length||lines.some(function(line){return !line.mainGrade||line.weight<=0})){
-        if(typeof toast==="function")toast("S.O 踰덊샇쨌?먮ℓ泥샕룹턀醫낃컯醫끒룹쨷?됱쓣 紐⑤몢 ?낅젰?섏꽭??",true);
+        if(typeof toast==="function")toast("S.O 번호·판매처·최종강종·중량을 모두 입력하세요.",true);
         return;
       }
       var stamp=new Date().toISOString();
-      var ok=await commit("MES S.O ?깅줉",["salesOrders"],function(shared){
+      var ok=await commit("MES S.O 등록",["salesOrders"],function(shared){
         shared.salesOrders=(Array.isArray(shared.salesOrders)?shared.salesOrders:[]).filter(function(row){return text(row.soNo)!==text(head.orderNo)});
         lines.forEach(function(line){shared.salesOrders.push({id:crypto.randomUUID(),soNo:text(head.orderNo),poNo:text(head.linkedNo),customer:text(head.partner),address:text(head.address),tel:text(head.tel),fax:text(head.fax),shipDate:text(head.orderDate),shipment:text(head.shipment),packing:text(head.packing),note:text(head.note),currency:text(head.currency)||"USD",productType:line.productType,mainGrade:line.mainGrade,subGrade:line.subGrade,detailGrade:line.detailGrade,grade:line.grade,weight:line.weight,unitPrice:line.unitPrice,amount:line.amount,status:"WAITING",createdAt:stamp,createdByName:typeof currentUserName==="function"?currentUserName():"MES"})});
       });
@@ -287,4 +287,3 @@
   }
   document.documentElement.dataset.mesSoGradePicker="loaded";
 })();
-
