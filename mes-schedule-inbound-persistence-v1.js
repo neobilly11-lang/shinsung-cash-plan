@@ -6,6 +6,7 @@
   var monthCursor=new Date();
   monthCursor=new Date(monthCursor.getFullYear(),monthCursor.getMonth(),1);
   var typeFilter={purchase:true,arrival:true,sales:true,departurePlan:true,containerWork:true,departureConfirmed:true};
+  var typeOrder={arrival:0,purchase:1,sales:2,containerWork:3,departurePlan:4,departureConfirmed:5};
   var query='';
 
   function list(value){return Array.isArray(value)?value:[];}
@@ -91,9 +92,12 @@
   }
   function allEvents(){
     var q=query.toLowerCase();
-    return purchaseEvents().concat(arrivalEvents(),salesEvents(),departurePlanEvents(),containerWorkEvents(),departureConfirmedEvents()).filter(function(event){
+    return arrivalEvents().concat(purchaseEvents(),salesEvents(),containerWorkEvents(),departurePlanEvents(),departureConfirmedEvents()).filter(function(event){
       return typeFilter[event.type]&&(!q||[event.number,event.partner,event.grade,event.date].join(' ').toLowerCase().includes(q));
     });
+  }
+  function compareEvents(a,b){
+    return a.date.localeCompare(b.date)||(typeOrder[a.type]??99)-(typeOrder[b.type]??99)||text(a.time).localeCompare(text(b.time))||text(a.number).localeCompare(text(b.number));
   }
   function escapeHtml(value){return typeof esc==='function'?esc(value):text(value).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function monthTitle(cursor){return cursor.getFullYear()+'. '+String(cursor.getMonth()+1).padStart(2,'0');}
@@ -118,14 +122,14 @@
     var byDate=new Map();events.forEach(function(event){if(!byDate.has(event.date))byDate.set(event.date,[]);byDate.get(event.date).push(event);});
     var html="<div class='calendar-weekdays'><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class='calendar-days'>";
     for(var i=0;i<42;i++){
-      var d=new Date(start);d.setDate(start.getDate()+i);var dayKey=localKey(d),items=byDate.get(dayKey)||[];
+      var d=new Date(start);d.setDate(start.getDate()+i);var dayKey=localKey(d),items=(byDate.get(dayKey)||[]).slice().sort(compareEvents);
       html+="<div class='calendar-day "+(d.getMonth()===month?'':'outside')+(dayKey===today?' today':'')+"'><div class='day-number'>"+d.getDate()+"</div><div class='day-events'>"+items.map(eventHtml).join('')+'</div></div>';
     }
     return html+'</div>';
   }
   function mobileList(events){
     var month=String(monthCursor.getMonth()+1).padStart(2,'0'),prefix=monthCursor.getFullYear()+'-'+month;
-    var rows=events.filter(function(event){return event.date.indexOf(prefix)===0;}).sort(function(a,b){return(a.date+a.time).localeCompare(b.date+b.time);});
+    var rows=events.filter(function(event){return event.date.indexOf(prefix)===0;}).sort(compareEvents);
     if(!rows.length)return"<div class='schedule-empty'>이 달의 입고·출하 일정이 없습니다.</div>";
     var current='',html='';rows.forEach(function(event){if(current!==event.date){current=event.date;html+="<h3>"+escapeHtml(current)+"</h3>";}html+=eventHtml(event);});return html;
   }
@@ -147,6 +151,7 @@
 
   var style=document.createElement('style');
   style.textContent=".schedule-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:18px}.schedule-head h1{margin:0;font-size:28px}.schedule-head p{margin:7px 0 0;color:var(--muted)}.schedule-search{display:flex;gap:8px;min-width:420px}.schedule-search input{min-width:0;flex:1}.schedule-shell{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px}.schedule-side,.schedule-main{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}.schedule-side>.wide{width:100%;margin-bottom:8px}.mini-title{display:flex;align-items:center;justify-content:space-between;margin:15px 0 8px}.mini-title button{border:0;background:#eef4f8;border-radius:8px;width:34px;height:34px;font-size:22px}.mini-week,.mini-days{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;gap:2px}.mini-week span{font-size:11px;color:var(--muted);padding:5px 0}.mini-days span{padding:6px 0;border-radius:7px;font-size:12px}.mini-days .muted{color:#c1c8ce}.mini-days .today{background:#168777;color:#fff}.schedule-types{display:grid;gap:5px;margin-top:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#f8fbfc}.schedule-types label{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;font-weight:800;cursor:pointer}.schedule-types label[data-schedule-type='arrival']{background:#fff4d8;color:#8a5200}.schedule-types label[data-schedule-type='departurePlan']{background:#f4f0ff}.schedule-types label[data-schedule-type='containerWork']{background:#eaf5ff;color:#1d5e91}.schedule-types label[data-schedule-type='departureConfirmed']{background:#ecfaf6}.schedule-types i{width:11px;height:11px;border-radius:3px;flex:0 0 auto}.schedule-types i.purchase{background:#ef6a74}.schedule-types i.arrival{background:#f1a12a}.schedule-types i.sales{background:#2ba8c8}.schedule-types i.departure-plan{background:#7b61c9}.schedule-types i.container-work{background:#237db8}.schedule-types i.departure-confirmed{background:#13836f}.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.calendar-toolbar h2{margin:0}.calendar-toolbar>div{display:flex;gap:7px}.calendar-weekdays,.calendar-days{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr))}.calendar-weekdays span{text-align:center;padding:10px;font-weight:800;background:#f1f5f8}.calendar-weekdays span:first-child{color:#d94852}.calendar-weekdays span:last-child{color:#2574bd}.calendar-day{min-height:128px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px;min-width:0}.calendar-day:nth-child(7n+1){border-left:1px solid var(--line)}.calendar-day.outside{background:#fafbfc;color:#b8c0c7}.calendar-day.today{background:#eef9ff;box-shadow:inset 0 0 0 2px #41a6d9}.day-number{font-weight:800;margin-bottom:5px}.calendar-day:nth-child(7n+1) .day-number{color:#d94852}.calendar-day:nth-child(7n) .day-number{color:#2574bd}.day-events{display:grid;gap:4px}.schedule-event{display:block;width:100%;border:0;border-radius:6px;background:#fff5f6;padding:5px 6px;text-align:left;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;color:#172b25}.schedule-event.arrival{background:#fff1c7;box-shadow:inset 3px 0 0 #f1a12a}.schedule-event.sales{background:#eefaff}.schedule-event.departurePlan{background:#f4f0ff}.schedule-event.containerWork{background:#eaf5ff;box-shadow:inset 3px 0 0 #237db8}.schedule-event.departureConfirmed{background:#ecfaf6}.schedule-event span{display:inline-block;width:6px;height:6px;border-radius:2px;background:#ef6a74;margin-right:4px}.schedule-event.arrival span{background:#f1a12a}.schedule-event.sales span{background:#2ba8c8}.schedule-event.departurePlan span{background:#7b61c9}.schedule-event.containerWork span{background:#237db8}.schedule-event.departureConfirmed span{background:#13836f}.schedule-event small{display:block;margin-left:10px;color:#60716b;overflow:hidden;text-overflow:ellipsis}.schedule-mobile-list{display:none}.schedule-empty{padding:28px;text-align:center;color:var(--muted)}@media(max-width:900px){.schedule-head{display:block}.schedule-search{min-width:0;margin-top:13px}.schedule-shell{grid-template-columns:1fr}.schedule-side{display:grid;grid-template-columns:1fr 1fr;gap:8px}.schedule-side .mini-title,.schedule-side .mini-week,.schedule-side .mini-days{display:none}.schedule-types{grid-column:1/-1;margin:0;display:flex;gap:8px;flex-wrap:wrap}.schedule-types label{min-height:44px;padding:9px 12px}.calendar-weekdays,.calendar-days{display:none}.schedule-mobile-list{display:block}.schedule-mobile-list h3{margin:16px 0 7px;padding-bottom:6px;border-bottom:1px solid var(--line)}.schedule-mobile-list .schedule-event{font-size:14px;padding:11px;margin-bottom:7px;white-space:normal}.calendar-toolbar h2{font-size:20px}}@media(max-width:520px){.schedule-search{display:grid;grid-template-columns:1fr auto}.schedule-side{grid-template-columns:1fr}.schedule-types{display:grid;grid-template-columns:1fr 1fr}.schedule-types label{font-size:14px}.calendar-toolbar{align-items:flex-start;gap:8px}.calendar-toolbar>div{gap:4px}.calendar-toolbar .btn{padding:9px 10px}}";
+  style.textContent+=".schedule-types [data-schedule-type='arrival']{order:1}.schedule-types [data-schedule-type='purchase']{order:2}.schedule-types [data-schedule-type='sales']{order:3}.schedule-types [data-schedule-type='containerWork']{order:4}.schedule-types [data-schedule-type='departurePlan']{order:5}.schedule-types [data-schedule-type='departureConfirmed']{order:6}.schedule-types .schedule-pref-note{order:7}";
   document.head.appendChild(style);
 
   if(Array.isArray(VIEWS)&&!VIEWS.some(function(view){return view.id==='schedule';}))VIEWS.unshift({group:'일정',id:'schedule',icon:'📅',label:'입고·출하 일정'});
@@ -164,4 +169,3 @@
   if(location.hash==='#schedule'){currentView='schedule';window.render();}
   document.documentElement.dataset.mesScheduleInboundPersistenceV1='loaded';
 })();
-
