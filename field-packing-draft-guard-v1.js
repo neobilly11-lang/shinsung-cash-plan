@@ -54,5 +54,31 @@
     return result;
   };
 
+  function installMesAccess(){
+    var nav=document.querySelector('nav.bottom');
+    if(nav&&!nav.querySelector('[data-v="mes"]')){
+      var button=document.createElement('button');
+      button.dataset.v='mes';button.innerHTML='④<br>MES';
+      button.addEventListener('click',function(){window.openMesFromField();});
+      nav.appendChild(button);nav.style.gridTemplateColumns='repeat(4,minmax(0,1fr))';
+    }
+    window.openMesFromField=function openMesFromField(){
+      var session=null;
+      try{session=typeof authSession!=='undefined'&&authSession&&authSession.access_token?authSession:null;}catch(_){}
+      if(!session)for(var pair of [[localStorage,'scrap-auth-session-v1'],[sessionStorage,'scrap-auth-session-temp-v1']])try{var value=JSON.parse(pair[0].getItem(pair[1])||'null');if(value&&value.access_token){session=value;break;}}catch(_){}
+      if(session)try{
+        var user=(typeof authUser!=='undefined'&&authUser)||session.user||null;
+        var bridge=Object.assign({},session,{user:user,remember:session.remember!==false,source:'field',createdAt:Date.now()});
+        sessionStorage.setItem('shinsung-field-auth-bridge-v1',JSON.stringify(bridge));
+        if(bridge.remember)localStorage.setItem('shinsung-field-auth-bridge-v1',JSON.stringify(bridge));
+      }catch(_){}
+      location.assign('/mes.html?v=mes-access-sales-balance-20260814-1&from=field&authBridge=1#dashboard');
+    };
+    if(nav){var mes=nav.querySelector('[data-v="mes"]');if(mes)mes.onclick=function(event){event.preventDefault();window.openMesFromField();};}
+  }
+
+  installMesAccess();
+
   document.documentElement.dataset.fieldPackingDraftGuardV1='loaded';
 })();
+
