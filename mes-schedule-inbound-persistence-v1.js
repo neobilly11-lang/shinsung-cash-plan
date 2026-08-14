@@ -67,8 +67,8 @@
   function departurePlanEvents(){
     var rows=[];try{rows=list(salesRows());}catch(_){rows=[];}
     return rows.map(function(order){
-      var items=list(order.items),source=items.find(function(item){return item.etdExpectedDate||item.expectedEtdDate||item.departurePlanDate||item.shippingPlanDate||item.shipDate;})||items[0]||{};
-      var when=dateKey(source.etdExpectedDate||source.expectedEtdDate||source.departurePlanDate||source.shippingPlanDate||source.shipDate||order.etdExpectedDate||order.expectedEtdDate||order.departurePlanDate||order.shippingPlanDate||order.shipDate);if(!when)return null;
+      var items=list(order.items),source=items.find(function(item){return item.etdExpectedDate||item.expectedEtdDate||item.departurePlanDate||item.shipDate;})||items[0]||{};
+      var when=dateKey(source.etdExpectedDate||source.expectedEtdDate||source.departurePlanDate||source.shipDate||order.etdExpectedDate||order.expectedEtdDate||order.departurePlanDate||order.shipDate);if(!when)return null;
       return{type:'departurePlan',date:when,time:text(source.departurePlanTime||source.shippingPlanTime),number:order.soNo,partner:text(order.customer),grade:fullGrade(items,order.grade),weight:number(order.weight),id:order.soNo};
     }).filter(Boolean);
   }
@@ -164,3 +164,4 @@
   if(location.hash==='#schedule'){currentView='schedule';window.render();}
   document.documentElement.dataset.mesScheduleInboundPersistenceV1='loaded';
 })();
+
