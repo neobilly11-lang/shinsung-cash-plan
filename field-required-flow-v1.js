@@ -4,11 +4,11 @@
 
   const doc=document;
   const state={lastAction:null,queue:[],currentKey:'',timer:0,notice:null};
-  const SAVE_WORDS=/(????뺤젙|?깅줉|?꾨즺|?대룞|?붿껌|泥섎━|?앹꽦)/;
-  const IGNORE_ACTION=/(??젣|痍⑥냼|?リ린|議고쉶|寃???좏깮|蹂닿린|誘몃━蹂닿린|?ㅼ슫濡쒕뱶|?몄뇙|異쒕젰|珥ъ쁺|?ъ쭊|QR|移댄넚|怨듭쑀|?꾩떆蹂닿?|?꾩떆???/i;
-  const OPTIONAL=/(?좏깮?ы빆|?좏깮\)|?꾩슂?????꾩슂??吏곸젒 ?낅젰|硫붾え|鍮꾧퀬|?댁긽 ?ъ쭊|?곸꽭媛뺤쥌)/;
-  const ACTIONABLE_ERROR=/(?낅젰?섏꽭???좏깮?섏꽭???꾩닔|紐⑤뱺 .*??ぉ|紐⑤뱺 .*???뺥솗???낅젰|珥ъ쁺?섍굅???낅줈????嫄??댁긽 ?좏깮|?됱쓣 ?섎굹 ?댁긽|0kg蹂대떎 而??댄븯?ъ빞|?쇱튂?댁빞|?깅줉??.*?좏깮|?뺤씤?섏꽭??/;
-  const NON_FIELD_ERROR=/(?대? .*?깅줉|以묐났|李얠쓣 ???놁뒿?덈떎|????ㅽ뙣|HTTP|?쒕쾭|?쒓컙 珥덇낵|媛숈뒿?덈떎|?놁뒿?덈떎\.?$)/;
+  const SAVE_WORDS=/(저장|확정|등록|완료|이동|요청|처리|생성)/;
+  const IGNORE_ACTION=/(삭제|취소|닫기|조회|검색|선택|보기|미리보기|다운로드|인쇄|출력|촬영|사진|QR|카톡|공유|임시보관|임시저장)/i;
+  const OPTIONAL=/(선택사항|선택\)|필요할 때|필요시|직접 입력|메모|비고|이상 사진|상세강종)/;
+  const ACTIONABLE_ERROR=/(입력하세요|선택하세요|필수|모든 .*항목|모든 .*행|정확히 입력|촬영하거나 업로드|한 건 이상 선택|행을 하나 이상|0kg보다 커|이하여야|일치해야|등록된 .*선택|확인하세요)/;
+  const NON_FIELD_ERROR=/(이미 .*등록|중복|찾을 수 없습니다|저장 실패|HTTP|서버|시간 초과|같습니다|없습니다\.?$)/;
 
   const schemas={
     addPackage:['poNo','company','grade','weight'],
@@ -24,32 +24,32 @@
   };
 
   const categories=[
-    {name:'P.O 踰덊샇',test:/P\.?O\.?\s*(踰덊샇|?섎쾭)?/i,select:['#poNo','[id*="PoNo"]','[id*="PONo"]','[name*="poNo" i]'],words:['p.o','po踰덊샇','po ?섎쾭','p.o ?섎쾭']},
-    {name:'S.O 踰덊샇',test:/S\.?O\.?\s*(踰덊샇|?섎쾭)?/i,select:['#soNo','[id*="SoNo"]','[id*="SONo"]','[name*="soNo" i]'],words:['s.o','so踰덊샇','so ?섎쾭','s.o ?섎쾭']},
-    {name:'嫄곕옒泥샕룹텧?섏쿂',test:/(嫄곕옒泥?怨듦툒??異쒗븯泥??먮ℓ泥?怨좉컼??/,select:['#company','#soCustomer','[id*="Company"]','[id*="Customer"]','[id*="Supplier"]'],words:['嫄곕옒泥?,'怨듦툒??,'異쒗븯泥?,'?먮ℓ泥?,'怨좉컼??]},
-    {name:'李⑤웾踰덊샇',test:/李⑤웾踰덊샇/,select:['[id*="vehicle" i]'],words:['李⑤웾踰덊샇']},
-    {name:'?곕씫泥?,test:/(?곕씫泥??꾪솕踰덊샇|湲곗궗?꾨쾲)/,select:['[id*="phone" i]','[id*="contact" i]'],words:['?곕씫泥?,'?꾪솕踰덊샇','湲곗궗?꾨쾲']},
-    {name:'1?묒뾽??,test:/1?묒뾽??,select:['#handoverWorker1'],words:['1?묒뾽??]},
-    {name:'2?묒뾽??,test:/2?묒뾽??,select:['#handoverWorker2'],words:['2?묒뾽??]},
-    {name:'?묒뾽?먃룰??섏옄',test:/(?:^|[^12])?묒뾽??寃?섏옄/,select:['#inspector','[id*="Worker"]','[id*="worker"]','[id*="Inspector"]'],words:['?묒뾽??,'寃?섏옄']},
-    {name:'?덉쥌',test:/?덉쥌/,select:['#finalType','[id^="inspectionType-"]','#editFinalType','#bagType','[id*="ProductType"]'],words:['?덉쥌']},
-    {name:'理쒖쥌媛뺤쥌쨌媛뺤쥌',test:/(理쒖쥌\s*媛뺤쥌|寃??s*媛뺤쥌|媛뺤쥌紐?(?:^|[^??)媛뺤쥌)/,select:['#finalMain','[id^="inspectionMain-"]','#editFinalMain','#grade','#soGrade','#bagMain','[id*="Grade"]'],words:['理쒖쥌 媛뺤쥌','理쒖쥌媛뺤쥌','寃??媛뺤쥌','媛뺤쥌紐?,'媛뺤쥌']},
-    {name:'?뚭컯醫?,test:/?뚭컯醫?,select:['#finalSub','[id^="inspectionSub-"]','#editFinalSub','#bagSub','[id*="SubGrade"]'],words:['?뚭컯醫?]},
-    {name:'以묐웾',test:/(以묐웾|?섎웾|G\/W|N\/W|GW|NW)/i,select:['#finalWeight','[id^="inspectionWeight-"]','#editFinalWeight','#weight','#soWeight','[id*="Weight"]','[id*="weight"]','[id*="Quantity"]'],words:['?뺤젙 以묐웾','?대룞 以묐웾','?묒뾽?湲?以묐웾','?⑥? ?덉긽?섎웾','以묐웾','?섎웾','g/w','n/w','gw','nw']},
-    {name:'?좎쭨',test:/(?좎쭨|?쇱옄|異쒗븯?덉젙???낃퀬?뺤젙???낇빆?덉젙??/,select:['#soDate','input[type="date"]'],words:['異쒗븯?덉젙??,'?낃퀬?뺤젙??,'?낇빆?덉젙??,'?좎쭨','?쇱옄']},
-    {name:'?쒓컙',test:/(?쒓컙|?쑣룸텇)/,select:['input[type="time"]','[id*="Hour"]','[id*="Minute"]','[id*="Time"]'],words:['媛怨듭떆媛?,'?뺤젙?쒓컙','?쒓컙','?쑣룸텇']},
-    {name:'?뺤긽 ?ъ쭊',test:/(?뺤긽 ?ъ쭊|臾쇳뭹?ъ쭊|?묒뾽???ъ쭊)/,select:['#shapePhoto','[id*="ResultPhoto"]','[id*="ItemPhoto"]'],words:['?뺤긽 ?ъ쭊','臾쇳뭹?ъ쭊','?묒뾽???ъ쭊']},
-    {name:'遺꾩꽍湲??ъ쭊',test:/(遺꾩꽍湲??ъ쭊|遺꾩꽍移??ъ쭊)/,select:['#analyzerPhoto','[id*="AnalyzerPhoto"]','[id*="AnalysisPhoto"]'],words:['遺꾩꽍湲??ъ쭊','遺꾩꽍移??ъ쭊']},
-    {name:'誘몄옉???ъ쭊',test:/誘몄옉???ъ쭊/,select:['#handoverPhoto'],words:['誘몄옉???ъ쭊']},
-    {name:'怨꾧렐???ъ쭊',test:/怨꾧렐???ъ쭊/,select:['[id*="weightSlip" i]'],words:['怨꾧렐???ъ쭊']},
-    {name:'?섏젙 ?ъ쑀',test:/?섏젙 ?ъ쑀/,select:['#editReason','[id*="Reason"]'],words:['?섏젙 ?ъ쑀']},
-    {name:'濡쒖뒪 泥섎━ ?ъ쑀',test:/濡쒖뒪 泥섎━ ?ъ쑀/,select:['[id*="lossReason" i]'],words:['濡쒖뒪 泥섎━ ?ъ쑀']},
-    {name:'?묒뾽 醫낅쪟',test:/?묒뾽 醫낅쪟/,select:['[id*="workType" i]','[name*="workType" i]'],words:['?묒뾽 醫낅쪟']},
-    {name:'?묒뾽?湲??μ냼',test:/(?묒뾽?湲??μ냼|?묒뾽 ?湲곗옣???묒뾽??/,select:['[id*="workWaitLocation" i]','[id*="workLocation" i]'],words:['?묒뾽?湲??μ냼','?묒뾽 ?湲곗옣??,'?묒뾽??]},
-    {name:'?ъ옣?湲??μ냼',test:/(?ъ옣?湲곗옣|?ъ옣?湲??μ냼)/,select:['[id*="waitingLocation" i]','[id*="packingWait" i]'],words:['?ъ옣?湲곗옣','?ъ옣?湲??μ냼']},
-    {name:'?대룞 ?μ냼',test:/(?대룞?μ냼|?ш퀬 ?대룞?μ냼|?대룞 ???μ냼)/,select:['[id*="moveLocation" i]','[id*="destination" i]'],words:['?대룞?μ냼','?ш퀬 ?대룞?μ냼','?대룞 ???μ냼']},
-    {name:'?꾨즺踰덊샇',test:/?꾨즺踰덊샇/,select:['[id*="bagNo" i]','[id*="completionNo" i]','[id*="completeNo" i]'],words:['?꾨즺踰덊샇']},
-    {name:'?곸꽭?묒뾽吏移?,test:/?곸꽭?묒뾽吏移?,select:['[id*="Instruction"]','[id*="instruction"]'],words:['?곸꽭?묒뾽吏移?]}
+    {name:'P.O 번호',test:/P\.?O\.?\s*(번호|넘버)?/i,select:['#poNo','[id*="PoNo"]','[id*="PONo"]','[name*="poNo" i]'],words:['p.o','po번호','po 넘버','p.o 넘버']},
+    {name:'S.O 번호',test:/S\.?O\.?\s*(번호|넘버)?/i,select:['#soNo','[id*="SoNo"]','[id*="SONo"]','[name*="soNo" i]'],words:['s.o','so번호','so 넘버','s.o 넘버']},
+    {name:'거래처·출하처',test:/(거래처|공급사|출하처|판매처|고객사)/,select:['#company','#soCustomer','[id*="Company"]','[id*="Customer"]','[id*="Supplier"]'],words:['거래처','공급사','출하처','판매처','고객사']},
+    {name:'차량번호',test:/차량번호/,select:['[id*="vehicle" i]'],words:['차량번호']},
+    {name:'연락처',test:/(연락처|전화번호|기사전번)/,select:['[id*="phone" i]','[id*="contact" i]'],words:['연락처','전화번호','기사전번']},
+    {name:'1작업자',test:/1작업자/,select:['#handoverWorker1'],words:['1작업자']},
+    {name:'2작업자',test:/2작업자/,select:['#handoverWorker2'],words:['2작업자']},
+    {name:'작업자·검수자',test:/(?:^|[^12])작업자|검수자/,select:['#inspector','[id*="Worker"]','[id*="worker"]','[id*="Inspector"]'],words:['작업자','검수자']},
+    {name:'품종',test:/품종/,select:['#finalType','[id^="inspectionType-"]','#editFinalType','#bagType','[id*="ProductType"]'],words:['품종']},
+    {name:'최종강종·강종',test:/(최종\s*강종|검수\s*강종|강종명|(?:^|[^소])강종)/,select:['#finalMain','[id^="inspectionMain-"]','#editFinalMain','#grade','#soGrade','#bagMain','[id*="Grade"]'],words:['최종 강종','최종강종','검수 강종','강종명','강종']},
+    {name:'소강종',test:/소강종/,select:['#finalSub','[id^="inspectionSub-"]','#editFinalSub','#bagSub','[id*="SubGrade"]'],words:['소강종']},
+    {name:'중량',test:/(중량|수량|G\/W|N\/W|GW|NW)/i,select:['#finalWeight','[id^="inspectionWeight-"]','#editFinalWeight','#weight','#soWeight','[id*="Weight"]','[id*="weight"]','[id*="Quantity"]'],words:['확정 중량','이동 중량','작업대기 중량','남은 예상수량','중량','수량','g/w','n/w','gw','nw']},
+    {name:'날짜',test:/(날짜|일자|출하예정일|입고확정일|입항예정일)/,select:['#soDate','input[type="date"]'],words:['출하예정일','입고확정일','입항예정일','날짜','일자']},
+    {name:'시간',test:/(시간|시·분)/,select:['input[type="time"]','[id*="Hour"]','[id*="Minute"]','[id*="Time"]'],words:['가공시간','확정시간','시간','시·분']},
+    {name:'형상 사진',test:/(형상 사진|물품사진|작업후 사진)/,select:['#shapePhoto','[id*="ResultPhoto"]','[id*="ItemPhoto"]'],words:['형상 사진','물품사진','작업후 사진']},
+    {name:'분석기 사진',test:/(분석기 사진|분석치 사진)/,select:['#analyzerPhoto','[id*="AnalyzerPhoto"]','[id*="AnalysisPhoto"]'],words:['분석기 사진','분석치 사진']},
+    {name:'미작업 사진',test:/미작업 사진/,select:['#handoverPhoto'],words:['미작업 사진']},
+    {name:'계근표 사진',test:/계근표 사진/,select:['[id*="weightSlip" i]'],words:['계근표 사진']},
+    {name:'수정 사유',test:/수정 사유/,select:['#editReason','[id*="Reason"]'],words:['수정 사유']},
+    {name:'로스 처리 사유',test:/로스 처리 사유/,select:['[id*="lossReason" i]'],words:['로스 처리 사유']},
+    {name:'작업 종류',test:/작업 종류/,select:['[id*="workType" i]','[name*="workType" i]'],words:['작업 종류']},
+    {name:'작업대기 장소',test:/(작업대기 장소|작업 대기장소|작업장)/,select:['[id*="workWaitLocation" i]','[id*="workLocation" i]'],words:['작업대기 장소','작업 대기장소','작업장']},
+    {name:'포장대기 장소',test:/(포장대기장|포장대기 장소)/,select:['[id*="waitingLocation" i]','[id*="packingWait" i]'],words:['포장대기장','포장대기 장소']},
+    {name:'이동 장소',test:/(이동장소|재고 이동장소|이동 후 장소)/,select:['[id*="moveLocation" i]','[id*="destination" i]'],words:['이동장소','재고 이동장소','이동 후 장소']},
+    {name:'완료번호',test:/완료번호/,select:['[id*="bagNo" i]','[id*="completionNo" i]','[id*="completeNo" i]'],words:['완료번호']},
+    {name:'상세작업지침',test:/상세작업지침/,select:['[id*="Instruction"]','[id*="instruction"]'],words:['상세작업지침']}
   ];
 
   function norm(value){return String(value||'').replace(/\s+/g,' ').trim().toLowerCase()}
@@ -68,13 +68,13 @@
     }
     return norm([el.id,el.name,el.getAttribute('aria-label'),el.placeholder,labelText].filter(Boolean).join(' '));
   }
-  function displayName(el,fallback='?꾩닔 ?낅젰??ぉ'){
+  function displayName(el,fallback='필수 입력항목'){
     const label=el.closest('label');
     if(label){
       const clone=label.cloneNode(true);
       clone.querySelectorAll('input,select,textarea,button,datalist,option,small').forEach(node=>node.remove());
-      const text=String(clone.textContent||'').replace(/[竊?횞]/g,' ').replace(/\s+/g,' ').trim();
-      if(text)return text.replace(/\s*(寃???좏깮|吏곸젒 ?낅젰).*$/,'').trim()||text;
+      const text=String(clone.textContent||'').replace(/[＋+×]/g,' ').replace(/\s+/g,' ').trim();
+      if(text)return text.replace(/\s*(검색|선택|직접 입력).*$/,'').trim()||text;
     }
     return el.getAttribute('aria-label')||el.placeholder||fallback;
   }
@@ -88,7 +88,7 @@
     if(el.type==='file')return !(el.files&&el.files.length)&&el.dataset.photoReady!=='1'&&!el.closest('.photo-uploaded,[data-photo-ready="1"]');
     const value=String(el.value==null?'':el.value).trim();
     if(!value)return true;
-    if((el.type==='number'||/以묐웾|?섎웾|weight|quantity/.test(controlText(el)))&&Number(value)<=0)return true;
+    if((el.type==='number'||/중량|수량|weight|quantity/.test(controlText(el)))&&Number(value)<=0)return true;
     return false;
   }
   function activeView(){return doc.querySelector('.view.on')||doc.body}
@@ -138,7 +138,7 @@
     const result=[];
     allControls(root).forEach(el=>{
       const text=controlText(el);
-      if(el.required||el.getAttribute('aria-required')==='true'||el.dataset.required==='true'||(text.includes('?꾩닔')&&!OPTIONAL.test(text)))addUnique(result,el,displayName(el));
+      if(el.required||el.getAttribute('aria-required')==='true'||el.dataset.required==='true'||(text.includes('필수')&&!OPTIONAL.test(text)))addUnique(result,el,displayName(el));
     });
     return result;
   }
@@ -146,7 +146,7 @@
     const result=[];
     allControls(root).forEach(el=>{
       const text=controlText(el);
-      if(OPTIONAL.test(text)||el.type==='search'||/寃??寃곌낵|紐⑸줉 寃??.test(text))return;
+      if(OPTIONAL.test(text)||el.type==='search'||/검색 결과|목록 검색/.test(text))return;
       addUnique(result,el,displayName(el));
     });
     return result;
@@ -156,11 +156,11 @@
     controlsForSchema(root,handler).forEach(item=>addUnique(result,item.el,item.name));
     const matched=categories.filter(category=>category.test.test(message));
     matched.forEach(category=>{
-      const force=/(寃?됲빐 ?좏깮|?좏깮?섏꽭???뺤씤?섏꽭??/.test(message)&&!/(紐⑤뱺 .*??紐⑤뱺 .*??ぉ)/.test(message);
+      const force=/(검색해 선택|선택하세요|확인하세요)/.test(message)&&!/(모든 .*행|모든 .*항목)/.test(message);
       controlsForCategory(root,category,force).forEach(item=>addUnique(result,item.el,item.name,force));
     });
     explicitRequired(root).forEach(item=>addUnique(result,item.el,item.name));
-    if(!result.length&&/(紐⑤뱺 .*??ぉ|紐⑤몢 ?낅젰|?뺥솗???낅젰)/.test(message))fallbackAllFields(root).forEach(item=>addUnique(result,item.el,item.name));
+    if(!result.length&&/(모든 .*항목|모두 입력|정확히 입력)/.test(message))fallbackAllFields(root).forEach(item=>addUnique(result,item.el,item.name));
     return result.sort((a,b)=>{
       if(a.el===b.el)return 0;
       const pos=a.el.compareDocumentPosition(b.el);
@@ -179,7 +179,7 @@
     doc.head.appendChild(style);
     const notice=doc.createElement('div');
     notice.id='fieldRequiredNotice';notice.hidden=true;notice.setAttribute('role','alert');notice.setAttribute('aria-live','assertive');
-    notice.innerHTML='<b>???꾩닔?ы빆???뺤씤??二쇱꽭??/b><p class="required-list"></p><p class="required-progress"></p>';
+    notice.innerHTML='<b>⚠ 필수사항을 확인해 주세요</b><p class="required-list"></p><p class="required-progress"></p>';
     doc.body.appendChild(notice);state.notice=notice;return notice;
   }
   function clearMarks(){doc.querySelectorAll('.field-required-missing,.field-required-current').forEach(el=>el.classList.remove('field-required-missing','field-required-current'))}
@@ -205,9 +205,9 @@
     const notice=ensureNotice(),remaining=remainingItems();
     if(!remaining.length){notice.hidden=true;return}
     const names=[...new Set(remaining.map(item=>item.name))];
-    notice.querySelector('.required-list').textContent='?꾩닔?ы빆: '+names.map((name,index)=>`${index+1}. ${name}`).join(' 쨌 ');
+    notice.querySelector('.required-list').textContent='필수사항: '+names.map((name,index)=>`${index+1}. ${name}`).join(' · ');
     const current=remaining.find(item=>item.key===state.currentKey)||remaining[0];
-    notice.querySelector('.required-progress').textContent=`癒쇱? ??{current.name}???낅젰移몄쑝濡??대룞?⑸땲??${message?' 쨌 '+message:''}`;
+    notice.querySelector('.required-progress').textContent=`먼저 “${current.name}” 입력칸으로 이동합니다.${message?' · '+message:''}`;
     notice.hidden=false;
   }
   function startFlow(items,message=''){
@@ -227,13 +227,13 @@
     const next=remainingItems()[0];
     if(next){focusItem(next)}else{
       state.currentKey='';ensureNotice().hidden=true;clearMarks();
-      if(typeof window.showFlowToast==='function')window.showFlowToast('?꾩닔?ы빆 ?낅젰 ?꾨즺');
+      if(typeof window.showFlowToast==='function')window.showFlowToast('필수사항 입력 완료');
     }
     return true;
   }
   function guideFromError(messageId,text){
     const message=String(text||'').trim();
-    if(!ACTIONABLE_ERROR.test(message)||NON_FIELD_ERROR.test(message)&&!/?낅젰|?좏깮|?꾩닔/.test(message))return;
+    if(!ACTIONABLE_ERROR.test(message)||NON_FIELD_ERROR.test(message)&&!/입력|선택|필수/.test(message))return;
     const items=locateMissing(message,messageId);
     if(items.length)startFlow(items,message);
   }
@@ -260,7 +260,7 @@
   },true);
   doc.addEventListener('invalid',event=>{
     const root=event.target.closest('.view.on,.card,form')||activeView(),items=explicitRequired(root);
-    if(items.length){event.preventDefault();startFlow(items,'?꾩닔 ?낅젰媛믪쓣 ?뺤씤?섏꽭??');}
+    if(items.length){event.preventDefault();startFlow(items,'필수 입력값을 확인하세요.');}
   },true);
   doc.addEventListener('change',event=>{
     const el=event.target;
@@ -291,4 +291,3 @@
   wrapMsg();ensureNotice();
   window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260814-1'};
 })();
-
