@@ -95,19 +95,19 @@
       var controls=document.createElement('div');
       controls.id='mesScaleControls';
       controls.className='mes-scale-controls';
-      controls.setAttribute('aria-label','?붾㈃ ?ш린 議곗젅');
-      controls.innerHTML="<button type='button' onclick='mesChangeScale(-0.1)' title='?붾㈃ 10% 以꾩씠湲? aria-label='?붾㈃ 10% 以꾩씠湲?>??/button><button type='button' id='mesScaleValue' class='mes-scale-value' onclick='mesResetScale()' title='湲곕낯 ?ш린濡??섎룎由ш린'>100%</button><button type='button' onclick='mesChangeScale(0.1)' title='?붾㈃ 10% ?ш쾶 ?섍린' aria-label='?붾㈃ 10% ?ш쾶 ?섍린'>竊?/button>";
+      controls.setAttribute('aria-label','화면 크기 조절');
+      controls.innerHTML="<button type='button' onclick='mesChangeScale(-0.1)' title='화면 10% 줄이기' aria-label='화면 10% 줄이기'>−</button><button type='button' id='mesScaleValue' class='mes-scale-value' onclick='mesResetScale()' title='기본 크기로 되돌리기'>100%</button><button type='button' onclick='mesChangeScale(0.1)' title='화면 10% 크게 하기' aria-label='화면 10% 크게 하기'>＋</button>";
       var sync=document.getElementById('sync');
       top.insertBefore(controls,sync||null);
       applyScale(factor,false);
     }
     root.mesChangeScale=function(amount){
       var next=applyScale(factor+number(amount,0),true);
-      if(typeof root.toast==='function')root.toast('?붾㈃ ?ш린 '+Math.round(next*100)+'%');
+      if(typeof root.toast==='function')root.toast('화면 크기 '+Math.round(next*100)+'%');
     };
     root.mesResetScale=function(){
       applyScale(DEFAULT_FACTOR,true);
-      if(typeof root.toast==='function')root.toast('?붾㈃ ?ш린 100%');
+      if(typeof root.toast==='function')root.toast('화면 크기 100%');
     };
 
     function readCurrentSchedulePrefs(){
@@ -129,7 +129,7 @@
       if(!box||box.querySelector('.schedule-pref-note'))return;
       var note=document.createElement('small');
       note.className='schedule-pref-note';
-      note.textContent='?좏깮???쇱젙 醫낅쪟?????ъ슜??怨꾩젙???먮룞 ??λ맗?덈떎.';
+      note.textContent='선택한 일정 종류는 이 사용자 계정에 자동 저장됩니다.';
       box.appendChild(note);
     }
     function restoreSchedulePrefs(){
