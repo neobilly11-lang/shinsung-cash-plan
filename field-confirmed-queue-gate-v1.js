@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.4 seconds
-Output:
 (function(root,factory){
   'use strict';
   var api=factory();
