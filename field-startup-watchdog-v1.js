@@ -1,8 +1,11 @@
 (function fieldStartupWatchdogV1(){
   'use strict';
   var attempts=0;
-  var mesReturn=new URLSearchParams(location.search).get('authReturn')==='mes'||sessionStorage.getItem('shinsung-auth-return')==='mes';
-  if(new URLSearchParams(location.search).get('authReturn')==='mes')sessionStorage.setItem('shinsung-auth-return','mes');
+  var startupParams=new URLSearchParams(location.search);
+  var enteredFromMes=startupParams.get('from')==='mes'||startupParams.get('authBridge')==='1';
+  if(enteredFromMes)sessionStorage.removeItem('shinsung-auth-return');
+  var mesReturn=!enteredFromMes&&(startupParams.get('authReturn')==='mes'||sessionStorage.getItem('shinsung-auth-return')==='mes');
+  if(startupParams.get('authReturn')==='mes')sessionStorage.setItem('shinsung-auth-return','mes');
   function installMesEntry(){
     var nav=document.querySelector('nav.bottom');
     if(!nav)return;
@@ -28,6 +31,7 @@
   function isPending(){return /연결 중/.test(String(badge()&&badge().textContent||''))}
   async function rescue(){
     if(!isPending())return;
+    if(typeof authUser==='undefined'||!authUser)return;
     attempts+=1;
     try{
       if(typeof loadState!=='function')throw new Error('현장관리 시작 함수를 불러오지 못했습니다.');
