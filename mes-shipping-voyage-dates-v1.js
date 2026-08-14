@@ -19,8 +19,8 @@
   function enrichedRows(){
     return baseRows().map(function(row){
       var shipments=list(row.shipments),items=list(row.items);
+      row.etdExpectedDate=firstDate(shipments,['etdExpectedDate','expectedEtdDate','departurePlanDate'])||firstDate(items,['etdExpectedDate','expectedEtdDate','departurePlanDate']);
       row.etdConfirmedDate=firstDate(shipments,['etdConfirmedDate','departureConfirmedDate'])||firstDate(items,['etdConfirmedDate','departureConfirmedDate']);
-      row.etaExpectedDate=firstDate(shipments,['etaExpectedDate','arrivalExpectedDate'])||firstDate(items,['etaExpectedDate','arrivalExpectedDate']);
       return row;
     });
   }
@@ -35,32 +35,34 @@
 
   window.openMesVoyageDates=function(id){
     var row=findRow(id);if(!row){if(typeof toast==='function')toast('출고자료를 찾을 수 없습니다.',true);return;}
-    $('modalTitle').textContent='ETD·ETA 날짜 입력';
-    $('modalBody').innerHTML="<div class='detail-banner'><h2>"+escapeHtml(row.soNo||'출고 일정')+"</h2><p>출항 확정일과 도착 예상일을 입력하면 출고현황과 일정에 함께 저장됩니다.</p></div>"
+    $('modalTitle').textContent='예상 ETD·확정 ETD 입력';
+    $('modalBody').innerHTML="<div class='detail-banner'><h2>"+escapeHtml(row.soNo||'출고 일정')+"</h2><p>예상 출항일과 확정 출항일을 입력하면 출고현황과 출항 일정표에 함께 저장됩니다.</p></div>"
       +"<form class='form-grid' onsubmit=\"event.preventDefault();saveMesVoyageDates(decodeURIComponent('"+encodeURIComponent(text(row.id))+"'),this)\">"
-      +"<label>ETD 확정 날짜<input type='date' name='etdConfirmedDate' value='"+escapeHtml(row.etdConfirmedDate)+"'></label>"
-      +"<label>ETA 예상일<input type='date' name='etaExpectedDate' value='"+escapeHtml(row.etaExpectedDate)+"'></label>"
-      +"<div class='wide voyage-date-guide'>ETD는 실제 출항이 확정된 날짜, ETA는 도착 예상일입니다. 날짜를 지우고 저장하면 미입력 상태로 돌아갑니다.</div>"
-      +"<div class='wide actions'><button class='btn primary' type='submit'>ETD·ETA 저장</button><button class='btn' type='button' onclick='closeModal()'>취소</button></div></form>";
+      +"<label>예상 ETD<input type='date' name='etdExpectedDate' value='"+escapeHtml(row.etdExpectedDate)+"'></label>"
+      +"<label>확정 ETD<input type='date' name='etdConfirmedDate' value='"+escapeHtml(row.etdConfirmedDate)+"'></label>"
+      +"<div class='wide voyage-date-guide'>예상 ETD는 일정표의 ‘출항 예정일’, 확정 ETD는 ‘출항 확정일’로 표시됩니다. ETA 입력란은 사용하지 않습니다.</div>"
+      +"<div class='wide actions'><button class='btn primary' type='submit'>ETD 날짜 저장</button><button class='btn' type='button' onclick='closeModal()'>취소</button></div></form>";
     document.querySelector('#modal .modal-card')?.classList.add('wide-modal');
     $('modal').classList.add('on');
   };
   window.saveMesVoyageDates=async function(id,form){
     var row=findRow(id);if(!row){if(typeof toast==='function')toast('출고자료를 찾을 수 없습니다.',true);return;}
-    var data=new FormData(form),etd=dateOnly(data.get('etdConfirmedDate')),eta=dateOnly(data.get('etaExpectedDate'));
+    var data=new FormData(form),expectedEtd=dateOnly(data.get('etdExpectedDate')),confirmedEtd=dateOnly(data.get('etdConfirmedDate'));
     var itemIds=new Set(list(row.items).map(function(item){return text(item.id);}).filter(Boolean));
-    await commit('ETD·ETA 날짜',['shipments','salesOrders'],function(shared){
+    await commit('예상 ETD·확정 ETD 날짜',['shipments','salesOrders'],function(shared){
       var shipmentMatched=false;
       list(shared.shipments).forEach(function(shipment){
         var matched=(row.shipmentId&&text(shipment.id)===text(row.shipmentId))
           ||(shipment.salesOrderId&&itemIds.has(text(shipment.salesOrderId)))
           ||(!row.shipmentId&&text(shipment.soNo)===text(row.soNo));
         if(!matched)return;shipmentMatched=true;
-        Object.assign(shipment,{etdConfirmedDate:etd,departureConfirmedDate:etd,etaExpectedDate:eta,arrivalExpectedDate:eta,updatedAt:new Date().toISOString(),updatedByName:typeof currentUserName==='function'?currentUserName():''});
+        Object.assign(shipment,{etdExpectedDate:expectedEtd,expectedEtdDate:expectedEtd,departurePlanDate:expectedEtd,etdConfirmedDate:confirmedEtd,departureConfirmedDate:confirmedEtd,updatedAt:new Date().toISOString(),updatedByName:typeof currentUserName==='function'?currentUserName():''});
+        delete shipment.etaExpectedDate;delete shipment.arrivalExpectedDate;
       });
       list(shared.salesOrders).forEach(function(order){
         if((itemIds.size&&itemIds.has(text(order.id)))||(!itemIds.size&&text(order.soNo)===text(row.soNo))){
-          Object.assign(order,{etdConfirmedDate:etd,departureConfirmedDate:etd,etaExpectedDate:eta,arrivalExpectedDate:eta,updatedAt:new Date().toISOString(),updatedByName:typeof currentUserName==='function'?currentUserName():''});
+          Object.assign(order,{etdExpectedDate:expectedEtd,expectedEtdDate:expectedEtd,departurePlanDate:expectedEtd,etdConfirmedDate:confirmedEtd,departureConfirmedDate:confirmedEtd,updatedAt:new Date().toISOString(),updatedByName:typeof currentUserName==='function'?currentUserName():''});
+          delete order.etaExpectedDate;delete order.arrivalExpectedDate;
         }
       });
       if(!shipmentMatched){
@@ -68,8 +70,8 @@
         list(shared.shipments).push({
           id:row.shipmentId||crypto.randomUUID(),salesOrderId:firstItem.id||'',soNo:row.soNo||firstItem.soNo||'',status:row.status||firstItem.status||'SHIPPED',
           weight:Number(row.shippedWeight||row.weight||firstItem.weight)||0,shippedWeight:Number(row.shippedWeight||row.weight||firstItem.weight)||0,
-          shippedAt:row.shippedAt||firstItem.shippedAt||new Date().toISOString(),etdConfirmedDate:etd,departureConfirmedDate:etd,
-          etaExpectedDate:eta,arrivalExpectedDate:eta,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+          shippedAt:row.shippedAt||firstItem.shippedAt||new Date().toISOString(),etdExpectedDate:expectedEtd,expectedEtdDate:expectedEtd,departurePlanDate:expectedEtd,
+          etdConfirmedDate:confirmedEtd,departureConfirmedDate:confirmedEtd,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
           updatedByName:typeof currentUserName==='function'?currentUserName():''
         });
       }
@@ -82,11 +84,11 @@
   if(schema){
     window.__mesVoyageBaseShippingRows=schema.rows;
     schema.rows=enrichedRows;
-    var previous=list(schema.cols).filter(function(column){return !['ETD 확정 날짜','ETA 예상일'].includes(text(column&&column[0]));});
+    var previous=list(schema.cols).filter(function(column){return !['예상 ETD','확정 ETD','ETD 확정 날짜','ETA 예상일'].includes(text(column&&column[0]));});
     var insertAt=Math.min(2,previous.length);
     previous.splice(insertAt,0,
-      ['ETD 확정 날짜',function(row){return dateButton(row)(row.etdConfirmedDate,'ETD 확정 날짜');}],
-      ['ETA 예상일',function(row){return dateButton(row)(row.etaExpectedDate,'ETA 예상일');}]
+      ['예상 ETD',function(row){return dateButton(row)(row.etdExpectedDate,'예상 ETD');}],
+      ['확정 ETD',function(row){return dateButton(row)(row.etdConfirmedDate,'확정 ETD');}]
     );
     schema.cols=previous;
   }
@@ -96,7 +98,7 @@
     window.mesDetailMarkup=function(view,row){
       var html=originalDetail.apply(this,arguments);if(view!=='shipping')return html;
       var current=findRow(row.id)||row;
-      return html+"<section class='detail-section'><h3>선박 일정</h3><div class='voyage-summary'><div><span>ETD 확정 날짜</span><b>"+escapeHtml(current.etdConfirmedDate||'미입력')+"</b></div><div><span>ETA 예상일</span><b>"+escapeHtml(current.etaExpectedDate||'미입력')+"</b></div></div><button class='btn primary' onclick=\"openMesVoyageDates(decodeURIComponent('"+encodeURIComponent(text(current.id))+"'))\">ETD·ETA 수정</button></section>";
+      return html+"<section class='detail-section'><h3>선박 일정</h3><div class='voyage-summary'><div><span>예상 ETD</span><b>"+escapeHtml(current.etdExpectedDate||'미입력')+"</b></div><div><span>확정 ETD</span><b>"+escapeHtml(current.etdConfirmedDate||'미입력')+"</b></div></div><button class='btn primary' onclick=\"openMesVoyageDates(decodeURIComponent('"+encodeURIComponent(text(current.id))+"'))\">ETD 날짜 수정</button></section>";
     };
   }
 
@@ -106,4 +108,3 @@
   document.documentElement.dataset.mesShippingVoyageDatesV1='loaded';
   if(typeof currentView!=='undefined'&&currentView==='shipping'&&typeof render==='function')render();
 })();
-

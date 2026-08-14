@@ -11,7 +11,7 @@
   var MIN_FACTOR=0.7;
   var MAX_FACTOR=1.4;
   var STEP=0.1;
-  var FILTER_TYPES=['purchase','arrival','sales','departurePlan','departureConfirmed'];
+  var FILTER_TYPES=['purchase','arrival','sales','departurePlan','containerWork','departureConfirmed'];
 
   function number(value,fallback){
     var parsed=Number(value);
