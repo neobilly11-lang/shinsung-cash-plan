@@ -37,8 +37,11 @@
   function copperKind(row) {
     var text = searchableGrade(row);
     var compact = text.replace(/\s+/g, "");
-    if (/^(70|70COPPER)$/.test(compact) || /(?:^|[^0-9])70\/(?:20|30)(?:[^0-9]|$)/.test(text) || /COPPER\s*70\/(?:20|30)/.test(text)) return "70";
-    if (/^(90|90COPPER)$/.test(compact) || /(?:^|[^0-9])90\/(?:10|20)(?:[^0-9]|$)/.test(text) || /COPPER\s*90\/(?:10|20)/.test(text)) return "90";
+    var fields = [row && row.grade, row && row.sourceGrade, row && row.mainGrade, row && row.marking]
+      .filter(Boolean)
+      .map(function (value) { return String(value).toUpperCase().replace(/\s+/g, " ").trim(); });
+    if (fields.some(function (value) { return /^(?:CU\s*·?\s*)?(?:COPPER\s*)?70(?:\s*\/\s*(?:20|30))?(?:\s*COPPER)?$/.test(value); }) || /(?:^|[^0-9])70\/(?:20|30)(?:[^0-9]|$)/.test(text) || /COPPER\s*70\/(?:20|30)/.test(text)) return "70";
+    if (fields.some(function (value) { return /^(?:CU\s*·?\s*)?(?:COPPER\s*)?90(?:\s*\/\s*(?:10|20))?(?:\s*COPPER)?$/.test(value); }) || /(?:^|[^0-9])90\/(?:10|20)(?:[^0-9]|$)/.test(text) || /COPPER\s*90\/(?:10|20)/.test(text)) return "90";
     return "";
   }
 
