@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.5 seconds
-Output:
 (function(){
   'use strict';
   if(window.__mesKakaoStageAlertV1)return;
@@ -43,11 +40,11 @@ Output:
     ensureStyle();closeAlert();
     var layer=document.createElement('div');
     layer.id='mesKakaoStageAlert';layer.className='mes-kakao-alert';
-    layer.innerHTML='<section class="mes-kakao-alert-card" role="dialog" aria-modal="true" aria-labelledby="mesKakaoStageAlertTitle"><small>'+encode(reason==='saved'?'저장 완료 · 알림 선택':'PC 카카오톡 공유')+'</small><h2 id="mesKakaoStageAlertTitle">담당자에게 카톡으로 알림</h2><p>'+(reason==='saved'?'저장된 내용을 담당자에게 바로 보낼 수 있습니다. 전송하기를 누른 뒤 카카오톡 앱과 대화창을 선택하세요.':'전송하기를 누른 뒤 카카오톡 앱과 대화창을 선택하세요. 상세내용 링크가 메시지에 함께 포함됩니다.')+'</p><div class="mes-kakao-alert-summary">'+encode(kind+'\n관련번호: '+(key||'-'))+'</div><div class="mes-kakao-alert-actions"><button type="button" class="btn primary mes-kakao-alert-send">전송하기</button><button type="button" class="btn mes-kakao-alert-close">창 닫기</button></div></section>';
+    layer.innerHTML='<section class="mes-kakao-alert-card" role="dialog" aria-modal="true" aria-labelledby="mesKakaoStageAlertTitle"><small>'+encode(reason==='saved'?'????꾨즺 쨌 ?뚮┝ ?좏깮':'PC 移댁뭅?ㅽ넚 怨듭쑀')+'</small><h2 id="mesKakaoStageAlertTitle">?대떦?먯뿉寃?移댄넚?쇰줈 ?뚮┝</h2><p>'+(reason==='saved'?'??λ맂 ?댁슜???대떦?먯뿉寃?諛붾줈 蹂대궪 ???덉뒿?덈떎. ?꾩넚?섍린瑜??꾨Ⅸ ??移댁뭅?ㅽ넚 ?깃낵 ??붿갹???좏깮?섏꽭??':'?꾩넚?섍린瑜??꾨Ⅸ ??移댁뭅?ㅽ넚 ?깃낵 ??붿갹???좏깮?섏꽭?? ?곸꽭?댁슜 留곹겕媛 硫붿떆吏???④퍡 ?ы븿?⑸땲??')+'</p><div class="mes-kakao-alert-summary">'+encode(kind+'\n愿?⑤쾲?? '+(key||'-'))+'</div><div class="mes-kakao-alert-actions"><button type="button" class="btn primary mes-kakao-alert-send">?꾩넚?섍린</button><button type="button" class="btn mes-kakao-alert-close">李??リ린</button></div></section>';
     layer.querySelector('.mes-kakao-alert-close').onclick=closeAlert;
     layer.querySelector('.mes-kakao-alert-send').onclick=async function(){
-      var button=this;button.disabled=true;button.textContent='공유창 여는 중…';
-      try{closeAlert();await send();setTimeout(enhancePcFallback,30);}catch(error){button.disabled=false;button.textContent='전송하기';if(typeof window.toast==='function')window.toast('카카오톡 공유 실패: '+(error&&error.message||error),true);}
+      var button=this;button.disabled=true;button.textContent='怨듭쑀李??щ뒗 以묅?;
+      try{closeAlert();await send();setTimeout(enhancePcFallback,30);}catch(error){button.disabled=false;button.textContent='?꾩넚?섍린';if(typeof window.toast==='function')window.toast('移댁뭅?ㅽ넚 怨듭쑀 ?ㅽ뙣: '+(error&&error.message||error),true);}
     };
     layer.addEventListener('click',function(event){if(event.target===layer)closeAlert();});
     document.body.appendChild(layer);
@@ -58,19 +55,19 @@ Output:
     var overlay=document.getElementById('mesPcShareOverlay');
     if(!overlay||overlay.querySelector('.mes-pc-share-native'))return;
     var actions=overlay.querySelector('.actions');if(!actions)return;
-    var button=document.createElement('button');button.type='button';button.className='btn mes-pc-share-native';button.textContent='내용 복사 후 카카오톡 앱 열기';
+    var button=document.createElement('button');button.type='button';button.className='btn mes-pc-share-native';button.textContent='?댁슜 蹂듭궗 ??移댁뭅?ㅽ넚 ???닿린';
     button.onclick=async function(){
       var area=overlay.querySelector('.mes-pc-share-text'),value=area&&area.value||'';
       try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(value);}catch(_){ }
       try{location.href='kakaotalk://launch';}catch(_){ }
-      var guide=overlay.querySelector('.mes-pc-share-guide');if(guide)guide.textContent='공유 내용과 상세 링크를 복사했습니다. 열린 카카오톡 대화창에서 Ctrl+V로 붙여넣으세요.';
+      var guide=overlay.querySelector('.mes-pc-share-guide');if(guide)guide.textContent='怨듭쑀 ?댁슜怨??곸꽭 留곹겕瑜?蹂듭궗?덉뒿?덈떎. ?대┛ 移댁뭅?ㅽ넚 ??붿갹?먯꽌 Ctrl+V濡?遺숈뿬?ｌ쑝?몄슂.';
     };
     actions.insertBefore(button,actions.firstChild);
   }
 
   function recordStamp(kind,key){
     var current=state();
-    if(kind.indexOf('입고')===0){var row=list(current.purchaseRequests).find(function(item){return text(item.id)===text(key)||text(item.requestNo)===text(key)||text(item.poNo)===text(key);});return text(row&&row.updatedAt)+'|'+text(row&&row.status);}
+    if(kind.indexOf('?낃퀬')===0){var row=list(current.purchaseRequests).find(function(item){return text(item.id)===text(key)||text(item.requestNo)===text(key)||text(item.poNo)===text(key);});return text(row&&row.updatedAt)+'|'+text(row&&row.status);}
     return list(current.salesOrders).filter(function(item){return text(item.soNo)===text(key)||text(item.id)===text(key);}).map(function(item){return text(item.updatedAt)+'|'+text(item.shippingRequestStatus);}).sort().join(';');
   }
 
@@ -95,10 +92,10 @@ Output:
   function install(){
     ensureStyle();
     installShareGate();
-    wrapSave('saveInboundStageRequest','입고요청',2);
-    wrapSave('saveInboundStageConfirm','입고예정확정',2);
-    wrapSave('saveShippingStageRequest','배차요청',2);
-    wrapSave('saveShippingStageConfirm','상차예정확정',2);
+    wrapSave('saveInboundStageRequest','?낃퀬?붿껌',2);
+    wrapSave('saveInboundStageConfirm','?낃퀬?덉젙?뺤젙',2);
+    wrapSave('saveShippingStageRequest','諛곗감?붿껌',2);
+    wrapSave('saveShippingStageConfirm','?곸감?덉젙?뺤젙',2);
   }
 
   function openCapturedDetail(attempt){
@@ -122,4 +119,3 @@ Output:
   var tries=0,timer=setInterval(function(){install();tries++;if(tries>40)clearInterval(timer);},250);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){install();setTimeout(function(){openCapturedDetail(0);},250);});else setTimeout(function(){install();openCapturedDetail(0);},0);
 })();
-
