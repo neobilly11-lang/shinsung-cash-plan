@@ -255,7 +255,41 @@
   function mappingListHtml(){
     var rows=mappingRows();
     if(!rows.length)return'<div class="empty" style="padding:18px">직접 지정한 원문 표기가 없습니다.</div>';
-    return'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>원 강종</th><t…1973 tokens truncated…g();root.toast('유사강종 묶음을 복원했습니다.');}
+    return'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>원 강종</th><th>예상재고 표기</th><th>작업</th></tr></thead><tbody>'+rows.map(function(row){var target=row.target||row;return'<tr><td>'+encode(row.sourceLabel||row.sourceGrade)+'</td><td>'+encode(displayGrade(gradeParts(target)))+'</td><td><button class="btn" data-mapping-id="'+encode(row.id)+'" onclick="editInventoryGradeMapping(this.dataset.mappingId)">수정</button> <button class="btn danger" data-mapping-id="'+encode(row.id)+'" onclick="deleteInventoryGradeMapping(this.dataset.mappingId)">삭제</button></td></tr>';}).join('')+'</tbody></table></div>';
+  }
+  function groupedFamilyListHtml(){
+    var rows=forecastRows().filter(function(row){return row.isFamilySummary;});
+    var excluded=familyExclusionRows();
+    var html=rows.length?'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>묶음 이름</th><th>현재 묶인 강종</th><th>유사강종 재고</th><th>출하예정</th><th>예상재고</th><th>작업</th></tr></thead><tbody>'+rows.map(function(row){return'<tr><td><b>'+encode(row.mainGrade)+'</b></td><td>'+row.memberLabels.map(encode).join('<br>')+'</td><td>'+root.fmt(row.familyStock)+' kg</td><td>'+root.fmt(row.shippingPlanned)+' kg</td><td><b style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+' kg</b></td><td><button class="btn" data-family-key="'+encode(row.familyKey)+'" onclick="editInventoryFamily(this.dataset.familyKey)">수정</button> <button class="btn danger" data-family-key="'+encode(row.familyKey)+'" onclick="deleteInventoryFamily(this.dataset.familyKey)">묶음 삭제</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty" style="padding:24px">현재 두 개 이상 강종이 묶인 유사강종 자료가 없습니다.</div>';
+    if(excluded.length)html+='<details style="margin-top:14px"><summary>삭제한 묶음 '+excluded.length+'건 · 복원하기</summary><div class="actions" style="margin-top:12px">'+excluded.map(function(row){return'<button class="btn" data-family-key="'+encode(row.familyKey)+'" onclick="restoreInventoryFamily(this.dataset.familyKey)">'+encode(row.familyLabel||row.familyKey)+' 묶음 복원</button>';}).join('')+'</div></details>';
+    return html;
+  }
+  root.openInventoryGradeMapping=function(){
+    ensureState();
+    var sources=mappingSourceOptions(),candidates=finalCandidates();
+    root.$('modalTitle').textContent='재고표기 방식 · 비슷한 그레이드 묶기';
+    root.$('modalBody').innerHTML='<section class="detail-section"><h3>현재 묶인 유사강종만 확인·수정·삭제</h3><p>예: IN 718과 718 AS는 각각의 행을 유지하고, 바로 아래 718 유사강종 예상재고 행으로 합산됩니다.</p><div id="inventoryFamilyList">'+groupedFamilyListHtml()+'</div></section><form id="inventoryFamilyForm" class="form-grid" style="display:none;margin-top:18px" onsubmit="saveInventoryFamily(event)"><input type="hidden" name="familyKey"><label class="wide">묶음 표시명<input name="familyLabel" placeholder="예: 718"></label><label class="wide">현재 묶인 강종<textarea name="members" readonly></textarea></label><div class="wide actions"><button class="btn primary" type="submit">묶음 이름 저장</button><button class="btn" type="button" onclick="this.form.style.display=\'none\'">취소</button></div></form><details style="margin-top:20px"><summary>원 강종을 다른 강종으로 직접 지정</summary><form id="inventoryGradeMappingForm" class="form-grid" onsubmit="saveInventoryGradeMapping(event)" style="margin-top:14px"><input type="hidden" name="id"><label class="wide">입항예정·미검수 원 강종<input name="sourceLabel" list="inventorySourceGrades" placeholder="예: IN 718 SOLIDS"><datalist id="inventorySourceGrades">'+sources.map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>품종<select name="productType"><option value="">품종 선택</option>'+['NI','TI','STS','CO','MO','CU','OTHER'].map(function(value){return'<option>'+value+'</option>';}).join('')+'</select></label><label>예상재고 강종<input name="mainGrade" list="inventoryTargetMain" placeholder="검색·직접입력"><datalist id="inventoryTargetMain">'+Array.from(new Set(candidates.map(function(row){return row.mainGrade;}))).map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>소강종<input name="subGrade" list="inventoryTargetSub" placeholder="선택 입력"><datalist id="inventoryTargetSub">'+Array.from(new Set(candidates.map(function(row){return row.subGrade;}).filter(Boolean))).map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>상세강종<input name="detailGrade" placeholder="선택 입력"></label><div class="wide actions"><button class="btn primary" type="submit">표기방식 저장</button><button class="btn" type="button" onclick="resetInventoryGradeMappingForm()">새로 입력</button></div></form><div id="inventoryGradeMappingList">'+mappingListHtml()+'</div></details>';
+    root.$('modal').classList.add('on');
+  };
+  root.editInventoryFamily=function(key){
+    var row=forecastRows().find(function(item){return item.isFamilySummary&&text(item.familyKey)===text(key);}),form=root.$('inventoryFamilyForm');if(!row||!form)return;
+    form.style.display='grid';form.elements.familyKey.value=row.familyKey;form.elements.familyLabel.value=text(familyConfig(row.familyKey)&&familyConfig(row.familyKey).familyLabel)||text(row.mainGrade).replace(/\s*유사강종 예상재고\s*$/,'');form.elements.members.value=row.memberLabels.join('\n');form.scrollIntoView({behavior:'smooth',block:'center'});form.elements.familyLabel.focus();
+  };
+  root.saveInventoryFamily=async function(event){
+    event.preventDefault();var data=new FormData(event.currentTarget),key=text(data.get('familyKey')),label=text(data.get('familyLabel'));if(!key||!label)return root.toast('묶음 표시명을 입력하세요.',true);
+    var row={id:'family-'+key,kind:'FAMILY',familyKey:key,familyLabel:label,updatedAt:new Date().toISOString(),updatedByName:root.currentUserName()};
+    var ok=await root.commit('유사강종 묶음 수정',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return !(text(item.familyKey)===key&&/^FAMILY/.test(upper(item.kind)));});next.inventoryGradeMappings.push(row);});
+    if(ok){root.openInventoryGradeMapping();root.toast(label+' 유사강종 묶음 수정완료');}
+  };
+  root.deleteInventoryFamily=async function(key){
+    var row=forecastRows().find(function(item){return item.isFamilySummary&&text(item.familyKey)===text(key);});if(!row||!confirm(row.mainGrade+' 묶음 합계행을 삭제할까요? 개별 강종 재고행은 유지됩니다.'))return;
+    var exclusion={id:'family-exclusion-'+key,kind:'FAMILY_EXCLUSION',familyKey:key,familyLabel:text(row.mainGrade).replace(/\s*유사강종 예상재고\s*$/,''),updatedAt:new Date().toISOString(),updatedByName:root.currentUserName()};
+    var ok=await root.commit('유사강종 묶음 삭제',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return text(item.familyKey)!==text(key);});next.inventoryGradeMappings.push(exclusion);});
+    if(ok){root.openInventoryGradeMapping();root.toast('묶음 합계행을 삭제했습니다. 개별 강종 재고는 유지됩니다.');}
+  };
+  root.restoreInventoryFamily=async function(key){
+    var ok=await root.commit('유사강종 묶음 복원',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return !(upper(item.kind)==='FAMILY_EXCLUSION'&&text(item.familyKey)===text(key));});});
+    if(ok){root.openInventoryGradeMapping();root.toast('유사강종 묶음을 복원했습니다.');}
   };
   root.resetInventoryGradeMappingForm=function(){var form=root.$('inventoryGradeMappingForm');if(form)form.reset();};
   root.editInventoryGradeMapping=function(id){
@@ -365,4 +399,3 @@
   }
   install();
 })(window);
-
