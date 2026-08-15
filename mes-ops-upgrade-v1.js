@@ -71,7 +71,15 @@
 
   window.previewMesWorkLog=function(){var groups=workLogGroups(nowDate());$('modalTitle').textContent=nowDate()+' · 작업일지 미리보기';$('modalBody').innerHTML=workLogMarkup(groups,true)+"<div class='actions'><button class='btn' onclick='shareMesWorkLog()'>카톡공유</button><button class='btn primary' onclick='downloadMesWorkLogPdf()'>PDF 내려받기</button><button class='btn' onclick='closeModal()'>닫기</button></div>";$('modal').classList.add('on');};
   function workLogText(){var groups=workLogGroups(nowDate());return ['[신성금속 MES 일일 작업일지]',nowDate()].concat(groups.map(function(group){return '• '+group.name+': '+group.count+'건 / '+fmt(group.weight)+' kg';})).join('\n');}
-  window.shareMesWorkLog=async function(){var shareData={title:'신성금속 MES 일일 작업일지 '+nowDate(),text:workLogText()};try{if(navigator.share){await navigator.share(shareData);return;}await navigator.clipboard.writeText(shareData.text);toast('작업일지를 복사했습니다. 카카오톡에 붙여넣으세요.');}catch(error){if(error&&error.name!=='AbortError')toast('공유할 내용을 복사하지 못했습니다.',true);}};
+  window.shareMesWorkLog=async function(){
+    var title='신성금속 MES 일일 작업일지 '+nowDate(),body=workLogText();
+    if(typeof window.mesShareText==='function')return window.mesShareText(title,body);
+    try{if(navigator.share){await navigator.share({title:title,text:body});return;}}catch(error){if(error&&error.name==='AbortError')return;}
+    var copied=false;
+    try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(body);copied=true;}}catch(_){ }
+    if(!copied)try{var area=document.createElement('textarea');area.value=body;area.style.cssText='position:fixed;left:-9999px;top:-9999px';document.body.appendChild(area);area.focus();area.select();copied=!!(document.execCommand&&document.execCommand('copy'));area.remove();}catch(_){ }
+    toast(copied?'PC 공유 준비완료 · 카카오톡 대화창에 붙여넣으세요.':'공유할 내용을 복사하지 못했습니다.',!copied);
+  };
 
   function bytesFromBase64(base64){var binary=atob(base64),out=new Uint8Array(binary.length);for(var i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}
   function textBytes(value){return new TextEncoder().encode(value);}
