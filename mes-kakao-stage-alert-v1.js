@@ -2,6 +2,7 @@
   'use strict';
   if(window.__mesKakaoStageAlertV1)return;
   window.__mesKakaoStageAlertV1=true;
+  if(document.documentElement)document.documentElement.setAttribute('data-mes-kakao-stage-alert','loaded');
 
   var capturedShare=(function(){
     try{
@@ -91,11 +92,11 @@
 
   function install(){
     ensureStyle();
-    installShareGate();
-    wrapSave('saveInboundStageRequest','입고요청',2);
-    wrapSave('saveInboundStageConfirm','입고예정확정',2);
-    wrapSave('saveShippingStageRequest','배차요청',2);
-    wrapSave('saveShippingStageConfirm','상차예정확정',2);
+    if(installShareGate()&&document.documentElement)document.documentElement.setAttribute('data-mes-kakao-share','ready');
+    if(wrapSave('saveInboundStageRequest','입고요청',2)&&document.documentElement)document.documentElement.setAttribute('data-mes-kakao-inbound-request','ready');
+    if(wrapSave('saveInboundStageConfirm','입고예정확정',2)&&document.documentElement)document.documentElement.setAttribute('data-mes-kakao-inbound-confirm','ready');
+    if(wrapSave('saveShippingStageRequest','배차요청',2)&&document.documentElement)document.documentElement.setAttribute('data-mes-kakao-shipping-request','ready');
+    if(wrapSave('saveShippingStageConfirm','상차예정확정',2)&&document.documentElement)document.documentElement.setAttribute('data-mes-kakao-shipping-confirm','ready');
   }
 
   function openCapturedDetail(attempt){
