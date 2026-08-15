@@ -308,12 +308,12 @@ window.loadState=async function(shouldRender){
 window.filterControls=function(){
   var draft=mesDraft();
   var inventoryView=currentView==="inventory"||currentView==="stockDetail";
+  var inventorySummary=currentView==="inventory";
   return "<div class='mes-search-note'>검색어 입력 중에는 화면이 바뀌지 않습니다. 조건 입력 후 반드시 <b>조회</b>를 눌러 주세요. 기본 목록은 최근 저장 순입니다.</div>"
     +"<div class='control'><label>통합 검색</label><input value='"+esc(draft.q||"")+"' placeholder='번호·회사·강종' oninput=\"mesDraftSet('q',this.value)\" onkeydown='mesDraftKey(event)'></div>"
     +(inventoryView?"<div class='control'><label>장소 검색</label><input value='"+esc(draft.location||"")+"' placeholder='창고·구역·미지정' oninput=\"mesDraftSet('location',this.value)\" onkeydown='mesDraftKey(event)'></div>":"")
-    +"<div class='control'><label>저장일 시작</label><input type='date' value='"+esc(draft.from||"")+"' onchange=\"mesDraftSet('from',this.value)\"></div>"
-    +"<div class='control'><label>저장일 종료</label><input type='date' value='"+esc(draft.to||"")+"' onchange=\"mesDraftSet('to',this.value)\"></div>"
-    +(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":"")
+    +(inventorySummary?"<div class='control'><label>상태별 선택</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="입항예정"?"selected":"")+">입항예정</option><option "+(draft.status==="미검수"?"selected":"")+">미검수</option><option "+(draft.status==="작업대기"?"selected":"")+">작업대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option><option "+(draft.status==="유사강종"?"selected":"")+">유사강종</option></select></div>":(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":""))
+    +(inventorySummary?"<div class='control'><label>재고 표기방식</label><select onchange=\"mesDraftSet('inventoryMode',this.value)\"><option value='original' "+(!draft.inventoryMode||draft.inventoryMode==="original"?"selected":"")+">원문유지</option><option value='grouped' "+(draft.inventoryMode==="grouped"?"selected":"")+">묶음표기</option></select></div>":"")
     +"<div class='control'><label>표시건수</label><select onchange=\"mesDraftSet('limit',this.value)\"><option "+(!draft.limit||draft.limit==="50"?"selected":"")+">50</option><option "+(draft.limit==="100"?"selected":"")+">100</option><option "+(draft.limit==="500"?"selected":"")+">500</option></select></div>";
 };
 window.rowDate=function(row){
@@ -357,10 +357,18 @@ window.filtered=function(rows){
   if(q) out=out.filter(function(row){return mesSearchText(row).includes(q);});
   var location=String(filters.location||"").trim().toLowerCase();
   if(location) out=out.filter(function(row){return String(row.location||row.locations||"").toLowerCase().includes(location);});
-  if(filters.from) out=out.filter(function(row){var value=rowDate(row);return value!=="-"&&value>=filters.from;});
-  if(filters.to) out=out.filter(function(row){var value=rowDate(row);return value!=="-"&&value<=filters.to;});
-  if(filters.status==="대기") out=out.filter(function(row){return !/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
-  if(filters.status==="완료") out=out.filter(function(row){return /완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
+  if(currentView==="inventory"){
+    var inventoryMode=filters.status==="유사강종"?"grouped":String(filters.inventoryMode||"original");
+    out=out.filter(function(row){return inventoryMode==="grouped"?!!row.isFamilySummary:!row.isFamilySummary;});
+    if(filters.status==="입항예정")out=out.filter(function(row){return num(row.arrival)>0;});
+    if(filters.status==="미검수")out=out.filter(function(row){return num(row.uninspected)>0;});
+    if(filters.status==="작업대기")out=out.filter(function(row){return num(row.workWaiting)>0;});
+    if(filters.status==="완료")out=out.filter(function(row){return num(row.completed)>0;});
+    if(filters.status==="유사강종")out=out.filter(function(row){return !!row.isFamilySummary;});
+  }else{
+    if(filters.status==="대기") out=out.filter(function(row){return !/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
+    if(filters.status==="완료") out=out.filter(function(row){return /완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
+  }
   return out.slice(0,num(filters.limit)||50);
 };
 function mesWireSearchButtons(){
@@ -1160,7 +1168,7 @@ document.documentElement.dataset.mesShippingRequestV2="loaded";
 <script src="mes-sales-detail-fix-v1.js?v=20260814-2"></script>
 <script src="mes-plan-cascade-delete-v1.js?v=20260814-1"></script>
 <script src="mes-ui-scale-schedule-pref-v1.js?v=20260815-schedule-order-1"></script>
-<script src="mes-workflow-suite-v1.js?v=20260815-pc-share-4"></script>
+<script src="mes-workflow-suite-v1.js?v=20260815-pc-share-5"></script>
 <script src="mes-departure-label-fix-v1.js?v=20260815-1"></script>
 <script src="mes-sales-balance-v1.js?v=20260815-1"></script>
 <script src="mes-so-grade-picker-v1.js?v=20260814-2"></script>
@@ -1172,6 +1180,6 @@ window.__mesRuntime={
   getCommit:()=>commit,getRender:()=>render,getToast:()=>toast
 };
 </script>
-<script src="mes-inventory-family-stock-v2.js?v=20260815-search-stock-audit-8"></script>
+<script src="mes-inventory-family-stock-v2.js?v=20260815-inventory-view-kakao-9"></script>
 </body>
 </html>
