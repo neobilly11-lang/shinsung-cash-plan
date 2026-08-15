@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260815-family-stock-1';
+  var VERSION='20260815-family-detail-4';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
   try{sharedExpectedSoId=text(new URLSearchParams(location.search).get('expectedSo'));}catch(_){sharedExpectedSoId='';}
@@ -55,15 +55,18 @@
   }
   function gradeLabel(row){
     if(!row)return'';
-    return text(row.grade||[row.productType,row.mainGrade,row.subGrade,row.detailGrade].filter(Boolean).join(' · '));
+    var structuredMain=text(row.mainGrade||row.finalGrade);
+    if(structuredMain)return [row.productType,structuredMain,row.subGrade,row.detailGrade].filter(Boolean).join(' · ');
+    return text(row.grade||row.originalGrade||row.itemName);
   }
   function gradeParts(row){
     row=row||{};
     var label=gradeLabel(row),segments=label.split(/\s*[·|/]\s*/).filter(Boolean);
+    var first=upper(segments[0]),hasType=/^(NI|TI|STS|CO|MO|CU|OTHER)$/.test(first);
     return{
-      productType:text(row.productType||''),
-      mainGrade:text(row.mainGrade||row.finalGrade||segments[segments.length>2?1:0]||label),
-      subGrade:text(row.subGrade||''),
+      productType:text(row.productType||(hasType?segments[0]:'')),
+      mainGrade:text(row.mainGrade||row.finalGrade||segments[hasType?1:0]||label),
+      subGrade:text(row.subGrade||(hasType?segments[2]:'')),
       detailGrade:text(row.detailGrade||''),
       label:label
     };
@@ -136,13 +139,16 @@
   }
   function activeWorkWaitingRows(){
     var rows=[];
-    list(root.state&&root.state.workWaits).filter(function(row){return active(row)&&upper(row.status)==='WAITING';}).forEach(function(row){
+    list(root.state&&root.state.workWaits).filter(function(row){
+      var status=upper(row&&row.status||row&&row.workStatus);
+      return active(row)&&!/COMPLETE|COMPLETED|DONE|FINAL|FINISHED|CLOSED|DEPLETED/.test(status);
+    }).forEach(function(row){
       var weights=row.settlementGradeWeights&&typeof row.settlementGradeWeights==='object'?row.settlementGradeWeights:null;
       if(weights){
         Object.keys(weights).forEach(function(grade){var weight=number(weights[grade]);if(weight>0)rows.push({grade:grade,weight:weight,record:row});});
         return;
       }
-      var grade=text(row.grade||row.originalGrade),weight=number(row.remainingWeight||row.weight);
+      var grade=text(gradeLabel(row)||row.grade||row.originalGrade),weight=number(row.remainingWeight||row.pendingWeight||row.weight);
       if(weight>0)rows.push({grade:grade||'미분류',weight:weight,record:row});
     });
     return rows;
@@ -188,7 +194,7 @@
       var memberLabels=Array.from(new Set(family.rows.map(function(row){return row.gradeLabel;}).filter(Boolean)));
       if(memberLabels.length<2||familyExcluded(family.key))return;
       var config=familyConfig(family.key),label=text(config&&config.familyLabel)||family.label;
-      var summary={id:'family:'+family.key,familyKey:family.key,isFamilySummary:true,productType:Array.from(new Set(family.rows.map(function(row){return row.productType;}).filter(Boolean))).join('/')||'-',mainGrade:label+' 유사강종 예상재고',subGrade:memberLabels.length+'개 강종',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],memberLabels:memberLabels,mapping:config?'유사강종 직접 묶음':'유사강종 자동 합산'};
+      var summary={id:'family:'+family.key,familyKey:family.key,isFamilySummary:true,productType:Array.from(new Set(family.rows.map(function(row){return row.productType;}).filter(Boolean))).join('/')||'-',mainGrade:label+' 유사강종 예상재고',subGrade:memberLabels.length+'개 강종',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],memberLabels:memberLabels,memberIds:family.rows.map(function(row){return row.id;}),members:family.rows,mapping:config?'유사강종 직접 묶음':'유사강종 자동 합산'};
       family.rows.forEach(function(row){['arrival','uninspected','workWaiting','unpacked','completed','shippingPlanned'].forEach(function(stage){summary[stage]=round(summary[stage]+number(row[stage]));});summary.sources=summary.sources.concat(row.sources||[]);});
       summary.expectedStock=round(summary.arrival+summary.uninspected+summary.workWaiting+summary.unpacked+summary.completed);
       summary.familyStock=summary.expectedStock;summary.forecastRemaining=round(summary.familyStock-summary.shippingPlanned);summary.stock=summary.forecastRemaining;summary.gradeLabel=summary.mainGrade;
@@ -203,7 +209,7 @@
       weight=round(weight);if(!weight)return;
       var resolved=detailGrade(source),key=groupKey(resolved)||normalize(displayGrade(resolved));
       if(!groups.has(key))groups.set(key,{id:key,productType:resolved.productType,mainGrade:resolved.mainGrade||resolved.label||'미분류',subGrade:resolved.subGrade||'',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],mapping:resolved.mapping});
-      var row=groups.get(key);row[stage]=round(row[stage]+weight);row.sources.push({stage:stage,weight:weight,record:record,sourceLabel:resolved.sourceLabel||gradeLabel(source),mapping:resolved.mapping});
+      var row=groups.get(key),canonicalLabel=displayGrade(resolved);row[stage]=round(row[stage]+weight);row.sources.push({stage:stage,weight:weight,record:record,groupId:key,sourceLabel:canonicalLabel,rawSourceLabel:text(source&&source.grade),mapping:resolved.mapping});
       if(resolved.mapping==='직접 지정')row.mapping='직접 지정';
     }
     list(root.state.pos).filter(active).forEach(function(row){
@@ -242,8 +248,10 @@
   function inventoryDetail(row){
     var parts=['arrival','uninspected','workWaiting','unpacked','completed','shippingPlanned'];
     var summary='<section class="detail-section"><h3>'+encode(row.gradeLabel)+' · 강종별 재고 총량</h3><div class="kpis">'+parts.map(function(key){return '<div class="kpi"><small>'+stageName(key)+'</small><strong>'+root.fmt(row[key])+' kg</strong></div>';}).join('')+'<div class="kpi"><small>예상남은재고</small><strong style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+' kg</strong></div></div></section>';
-    var rows=row.sources||[];
-    return summary+root.mesSection('단계별 원본 내역', [['재고단계',function(x){return stageName(x.stage);}],['원 강종',function(x){return x.sourceLabel||'-';}],['표기방식',function(x){return x.mapping;}],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',function(x){return x.record&& (x.record.poNo||x.record.soNo||x.record.packageNo||x.record.completionNo)||'-';}]],rows);
+    var allowed=new Set(row.isFamilySummary?list(row.memberIds):[row.id]);
+    var rows=list(row.sources).filter(function(source){return allowed.has(source.groupId);});
+    var members=row.isFamilySummary?root.mesSection('유사강종 구성', [['강종',function(x){return x.gradeLabel||displayGrade(x);}],['입항예정',function(x){return root.fmt(x.arrival);}],['미검수',function(x){return root.fmt(x.uninspected);}],['작업대기',function(x){return root.fmt(x.workWaiting);}],['미포장',function(x){return root.fmt(x.unpacked);}],['완료재고',function(x){return root.fmt(x.completed);}],['출하예정',function(x){return root.fmt(x.shippingPlanned);}],['예상남은재고',function(x){return root.fmt(x.forecastRemaining);}]],list(row.members)):'';
+    return summary+members+root.mesSection('단계별 원본 내역', [['재고단계',function(x){return stageName(x.stage);}],['재고 강종',function(x){return x.sourceLabel||'-';}],['표기방식',function(x){return x.mapping;}],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',function(x){return x.record&& (x.record.poNo||x.record.soNo||x.record.packageNo||x.record.completionNo)||'-';}]],rows);
   }
 
   function mappingSourceOptions(){
