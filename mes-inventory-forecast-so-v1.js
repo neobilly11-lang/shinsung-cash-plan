@@ -1,7 +1,10 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260815-1';
+  var VERSION='20260815-2';
+  var sharedExpectedSoId='';
+  var sharedExpectedSoOpened='';
+  try{sharedExpectedSoId=text(new URLSearchParams(location.search).get('expectedSo'));}catch(_){sharedExpectedSoId='';}
   var runtime=root.__mesRuntime||{};
   if(runtime.getState&&!Object.prototype.hasOwnProperty.call(root,'state'))Object.defineProperty(root,'state',{configurable:true,get:runtime.getState,set:runtime.setState});
   if(runtime.getView&&!Object.prototype.hasOwnProperty.call(root,'currentView'))Object.defineProperty(root,'currentView',{configurable:true,get:runtime.getView});
@@ -22,6 +25,17 @@
   function active(row){return row&&upper(row.status)!=='CANCELLED';}
   function round(value){return Math.round(number(value)*100)/100;}
   function encode(value){return String(value==null?'':value).replace(/[&<>"']/g,function(char){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char];});}
+  async function copyShareText(value){
+    try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(value);return true;}}catch(_){ }
+    try{var area=document.createElement('textarea');area.value=value;area.style.cssText='position:fixed;left:-9999px;top:-9999px';document.body.appendChild(area);area.focus();area.select();var copied=document.execCommand&&document.execCommand('copy');area.remove();return!!copied;}catch(_){return false;}
+  }
+  async function shareMessage(titleValue,message,url){
+    var full=[message,url].filter(Boolean).join('\n');
+    try{if(navigator.share){await navigator.share({title:titleValue,text:message,url:url});return true;}}catch(error){if(error&&error.name==='AbortError')return false;}
+    var copied=await copyShareText(full);
+    root.toast(copied?'PC 공유 준비완료 · 카카오톡 대화창에 붙여넣으세요.':'공유문구를 자동 복사하지 못했습니다. 다시 시도해 주세요.',!copied);
+    return copied;
+  }
   function normalize(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').replace(/[^A-Z0-9가-힣]/g,'');}
   function tokens(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').split(/[^A-Z0-9가-힣]+/).filter(Boolean);}
   function bigrams(value){var source=normalize(value),out=[];if(source.length<2)return source?[source]:[];for(var i=0;i<source.length-1;i++)out.push(source.slice(i,i+2));return out;}
@@ -216,6 +230,14 @@
     var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-number(row.weight));
     return'<div class="kpis mes-expected-preview"><div class="kpi"><small>현재 예상남은재고</small><strong>'+root.fmt(forecast.forecastRemaining)+' kg</strong></div><div class="kpi"><small>예상 S.O 중량</small><strong>'+root.fmt(row.weight)+' kg</strong></div><div class="kpi"><small>작성 후 예상남은재고</small><strong style="color:'+(remaining<0?'#b4232d':'#087566')+'">'+root.fmt(remaining)+' kg</strong></div><div class="kpi"><small>예상 판매금액</small><strong>'+root.fmt(number(row.weight)*number(row.unitPrice))+' '+encode(row.currency)+'</strong></div></div><p class="mes-mapping-note">재고 연결: '+encode(forecast.mapping||'자동 계산')+' · 입항예정·미검수·미포장·완료재고 합계에서 실제 출하요청만 차감합니다.</p>';
   }
+  function expectedSharedMarkup(row){
+    var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-number(row.weight)),date=String(row.updatedAt||row.createdAt||'').slice(0,10)||'-';
+    return'<div class="mes-expected-shared"><div class="detail-banner"><small>신성금속 예상 판매 견적</small><h2>'+encode(row.expectedSoNo)+'</h2><p>실제 판매·출하 재고와 분리된 예상 S.O입니다.</p></div><div class="detail-scroll"><table class="detail-table"><tbody><tr><th>작성일</th><td>'+encode(date)+'</td><th>판매처</th><td>'+encode(row.customer||'-')+'</td></tr><tr><th>강종</th><td colspan="3">'+encode(displayGrade(gradeParts(row)))+'</td></tr><tr><th>예상 중량</th><td>'+root.fmt(row.weight)+' kg</td><th>예상 단가</th><td>'+root.fmt(row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>예상 판매금액</th><td colspan="3">'+root.fmt(number(row.weight)*number(row.unitPrice))+' '+encode(row.currency)+'</td></tr><tr><th>메모</th><td colspan="3" style="white-space:pre-wrap">'+encode(row.memo||'')+'</td></tr></tbody></table></div>'+expectedPreview(row)+'<div class="actions"><button class="btn primary" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF 파일 만들기</button><button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">카카오톡 공유</button><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">수정</button><button class="btn" onclick="closeModal()">닫기</button></div></div>';
+  }
+  root.openExpectedSoPreview=function(id){
+    ensureState();var row=expectedOrder(id);if(!row)return false;
+    root.$('modalTitle').textContent='예상 S.O 미리보기';root.$('modalBody').innerHTML=expectedSharedMarkup(row);root.$('modal').classList.add('on');return true;
+  };
   root.refreshExpectedSoPreview=function(){var row=expectedFormValue(),target=root.$('mesExpectedSoPreview');if(row&&target)target.innerHTML=expectedPreview(row);};
   root.openExpectedSoComposer=function(id){
     ensureState();var saved=id&&expectedOrder(id),row=saved||{id:'',expectedSoNo:nextExpectedNo(),customer:'',productType:'',mainGrade:'',subGrade:'',detailGrade:'',weight:0,unitPrice:0,currency:'USD',memo:''};
@@ -238,13 +260,14 @@
   root.shareExpectedSo=async function(id){
     var row=id?expectedOrder(id):expectedFormValue();if(!row)return;var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-row.weight),message='[신성금속 예상 S.O]\n'+row.expectedSoNo+'\n판매처: '+(row.customer||'-')+'\n강종: '+displayGrade(gradeParts(row))+'\n중량: '+root.fmt(row.weight)+' kg\n단가: '+root.fmt(row.unitPrice)+' '+row.currency+'\n작성 후 예상남은재고: '+root.fmt(remaining)+' kg\n※ 실제 판매·출하 재고에는 반영되지 않습니다.';
     var url=location.origin+location.pathname+'?expectedSo='+encodeURIComponent(row.id||'')+'#sales';
-    try{if(navigator.share){await navigator.share({title:row.expectedSoNo,text:message,url:url});return;}await navigator.clipboard.writeText(message+'\n'+url);root.toast('공유내용을 복사했습니다. 카카오톡에 붙여넣으세요.');}catch(error){if(error&&error.name!=='AbortError')root.toast('공유 실패: '+error.message,true);}
+    if(!expectedOrder(row.id))return root.toast('카카오톡 공유 전에 예상 S.O를 전체저장해 주세요.',true);
+    await shareMessage(row.expectedSoNo,message,url);
   };
   root.deleteExpectedSo=async function(id){if(!confirm('선택한 예상 S.O를 삭제할까요? 실제 판매자료에는 영향이 없습니다.'))return;var ok=await root.commit('예상 S.O 삭제',['expectedSalesOrders'],function(next){next.expectedSalesOrders=list(next.expectedSalesOrders).filter(function(row){return text(row.id)!==text(id);});});if(ok)root.openExpectedSoList();};
   root.openExpectedSoList=function(){
     ensureState();var rows=list(root.state.expectedSalesOrders).filter(active).sort(function(a,b){return text(b.updatedAt||b.createdAt).localeCompare(text(a.updatedAt||a.createdAt));});
     root.$('modalTitle').textContent='예상 S.O 목록 · 실제 판매와 분리';
-    root.$('modalBody').innerHTML='<div class="actions" style="margin:14px 0"><button class="btn primary" onclick="openExpectedSoComposer()">+ 예상 S.O 새로 작성</button></div>'+(rows.length?'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>번호</th><th>판매처</th><th>강종</th><th>중량</th><th>금액</th><th>작업</th></tr></thead><tbody>'+rows.map(function(row){return'<tr><td>'+encode(row.expectedSoNo)+'</td><td>'+encode(row.customer||'-')+'</td><td>'+encode(displayGrade(gradeParts(row)))+'</td><td>'+root.fmt(row.weight)+' kg</td><td>'+root.fmt(row.amount||row.weight*row.unitPrice)+' '+encode(row.currency)+'</td><td><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">수정</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">카톡</button> <button class="btn danger" data-id="'+encode(row.id)+'" onclick="deleteExpectedSo(this.dataset.id)">삭제</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">저장된 예상 S.O가 없습니다.</div>');
+    root.$('modalBody').innerHTML='<div class="actions" style="margin:14px 0"><button class="btn primary" onclick="openExpectedSoComposer()">+ 예상 S.O 새로 작성</button></div>'+(rows.length?'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>번호</th><th>판매처</th><th>강종</th><th>중량</th><th>금액</th><th>작업</th></tr></thead><tbody>'+rows.map(function(row){return'<tr><td>'+encode(row.expectedSoNo)+'</td><td>'+encode(row.customer||'-')+'</td><td>'+encode(displayGrade(gradeParts(row)))+'</td><td>'+root.fmt(row.weight)+' kg</td><td>'+root.fmt(row.amount||row.weight*row.unitPrice)+' '+encode(row.currency)+'</td><td><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoPreview(this.dataset.id)">미리보기</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">수정</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">카톡</button> <button class="btn danger" data-id="'+encode(row.id)+'" onclick="deleteExpectedSo(this.dataset.id)">삭제</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">저장된 예상 S.O가 없습니다.</div>');
     root.$('modal').classList.add('on');
   };
   function actualSalesForecastPreview(){
@@ -261,6 +284,7 @@
     if(root.currentView==='inventory'&&actions&&!actions.querySelector('.mes-inventory-mapping'))actions.insertAdjacentHTML('afterbegin','<button class="btn mes-inventory-mapping" onclick="openInventoryGradeMapping()">재고표기 방식</button>');
     if(root.currentView==='sales'&&actions&&!actions.querySelector('.mes-expected-so'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-expected-so" onclick="openExpectedSoComposer()">+ 예상 S.O 작성하기</button><button class="btn mes-expected-so-list" onclick="openExpectedSoList()">예상 S.O 목록 '+list(root.state.expectedSalesOrders).filter(active).length+'건</button>');
     actualSalesForecastPreview();
+    if(sharedExpectedSoId&&sharedExpectedSoOpened!==sharedExpectedSoId&&expectedOrder(sharedExpectedSoId)){sharedExpectedSoOpened=sharedExpectedSoId;requestAnimationFrame(function(){root.openExpectedSoPreview(sharedExpectedSoId);});}
   }
   function install(){
     if(!root.schemas||!root.schemas.inventory||document.documentElement.dataset.mesInventoryForecastSoV1==='ready')return;
@@ -282,3 +306,4 @@
   }
   install();
 })(window);
+
