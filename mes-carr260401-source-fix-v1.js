@@ -51,7 +51,7 @@
     report.changed = true;
   }
 
-  function correctPurchaseRow(row, report) {
+  function correctPurchaseRow(row, report, primary) {
     var kind = copperKind(row);
     if (!kind) return;
     var isPackingRow = Boolean(row.inboundRequestId || row.inboundRequestNo || row.packingPackageNo);
@@ -60,9 +60,29 @@
     var grossWeight = kind === "70" && isPackingRow ? 498 : netWeight;
     var unitPrice = kind === "70" ? 9 : 6.9;
 
+    if (primary === false) {
+      assign(row, "grade", canonical, report);
+      assign(row, "mainGrade", canonical, report);
+      assign(row, "productType", "CU", report);
+      assign(row, "weight", 0, report);
+      assign(row, "netWeight", 0, report);
+      assign(row, "grossWeight", 0, report);
+      assign(row, "inboundRequestSuperseded", true, report);
+      assign(row, "sourceCorrectionExcluded", true, report);
+      assign(row, "sourceCorrectionPrimary", false, report);
+      assign(row, "sourceCorrectionReason", "CARR260401 duplicate source row", report);
+      report.rows.push({ kind: kind, grade: canonical, netWeight: 0, duplicate: true });
+      return;
+    }
+
     assign(row, "grade", canonical, report);
+    assign(row, "mainGrade", canonical, report);
+    assign(row, "productType", "CU", report);
     if (Object.prototype.hasOwnProperty.call(row, "sourceGrade")) assign(row, "sourceGrade", canonical, report);
     if (Object.prototype.hasOwnProperty.call(row, "marking")) assign(row, "marking", canonical, report);
+    assign(row, "inboundRequestSuperseded", false, report);
+    assign(row, "sourceCorrectionExcluded", false, report);
+    assign(row, "sourceCorrectionPrimary", true, report);
     assign(row, "weight", netWeight, report);
     assign(row, "netWeight", netWeight, report);
     assign(row, "grossWeight", grossWeight, report);
@@ -76,16 +96,30 @@
     report.rows.push({ kind: kind, grade: canonical, netWeight: netWeight, grossWeight: grossWeight });
   }
 
-  function correctRequestItem(item, report) {
+  function correctRequestItem(item, report, primary) {
     var kind = copperKind(item);
     if (!kind) return;
     var canonical = kind === "70" ? "70/30 COPPER" : "90/10 COPPER";
     var netWeight = kind === "70" ? 494 : 4218;
     var grossWeight = kind === "70" ? 498 : 4218;
     assign(item, "grade", canonical, report);
+    assign(item, "mainGrade", canonical, report);
+    assign(item, "productType", "CU", report);
     ["marking", "description", "sourceGrade"].forEach(function (key) {
       if (Object.prototype.hasOwnProperty.call(item, key)) assign(item, key, canonical, report);
     });
+    if (primary === false) {
+      assign(item, "weight", 0, report);
+      assign(item, "nw", 0, report);
+      assign(item, "netWeight", 0, report);
+      assign(item, "gw", 0, report);
+      assign(item, "grossWeight", 0, report);
+      assign(item, "sourceCorrectionExcluded", true, report);
+      assign(item, "sourceCorrectionPrimary", false, report);
+      return;
+    }
+    assign(item, "sourceCorrectionExcluded", false, report);
+    assign(item, "sourceCorrectionPrimary", true, report);
     assign(item, "weight", netWeight, report);
     assign(item, "nw", netWeight, report);
     assign(item, "netWeight", netWeight, report);
@@ -94,18 +128,43 @@
     if (Object.prototype.hasOwnProperty.call(item, "tareWeight")) assign(item, "tareWeight", grossWeight - netWeight, report);
   }
 
+  function primaryScore(row) {
+    var score = 0;
+    if (row && row.sourceCorrectionPrimary === true) score += 100;
+    if (row && (row.inboundRequestId || row.inboundRequestNo)) score += 8;
+    if (row && (row.packageNo || row.packingPackageNo)) score += 4;
+    if (row && (row.receivedAt || row.receiptConfirmedAt)) score += 2;
+    if (row && !row.sourceCorrectionExcluded) score += 1;
+    return score;
+  }
+
+  function correctGroups(rows, corrector, report) {
+    ["70", "90"].forEach(function (kind) {
+      var matched = rows.filter(function (row) { return active(row) && copperKind(row) === kind; });
+      if (!matched.length) return;
+      matched.sort(function (left, right) { return primaryScore(right) - primaryScore(left); });
+      matched.forEach(function (row, index) { corrector(row, report, index === 0); });
+    });
+  }
+
   function correctCarr260401State(state) {
     var report = { changed: false, rows: [] };
     if (!state || typeof state !== "object") return report;
 
-    (Array.isArray(state.pos) ? state.pos : []).forEach(function (row) {
-      if (active(row) && samePo(row)) correctPurchaseRow(row, report);
-    });
+    correctGroups((Array.isArray(state.pos) ? state.pos : []).filter(samePo), correctPurchaseRow, report);
 
-    (Array.isArray(state.purchaseRequests) ? state.purchaseRequests : []).forEach(function (request) {
+    var requestEntries = [];
+    var matchingRequests = (Array.isArray(state.purchaseRequests) ? state.purchaseRequests : []).filter(function (request) {
+      return active(request) && samePo(request);
+    });
+    matchingRequests.forEach(function (request) {
       if (!active(request) || !samePo(request)) return;
       var items = Array.isArray(request.items) ? request.items : [];
-      items.forEach(function (item) { correctRequestItem(item, report); });
+      items.forEach(function (item) { requestEntries.push(item); });
+    });
+    correctGroups(requestEntries, correctRequestItem, report);
+    matchingRequests.forEach(function (request) {
+      var items = Array.isArray(request.items) ? request.items : [];
       if (items.length) {
         var summary = items.map(function (item) {
           return String(item.grade || item.marking || "").trim();
