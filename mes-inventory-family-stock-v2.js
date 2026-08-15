@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260815-family-members-6';
+  var VERSION='20260815-family-cross-7';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
   try{sharedExpectedSoId=text(new URLSearchParams(location.search).get('expectedSo'));}catch(_){sharedExpectedSoId='';}
@@ -82,6 +82,8 @@
   function familyConfigRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY';});}
   function familyExclusionRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY_EXCLUSION';});}
   function familyMemberExclusionRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY_MEMBER_EXCLUSION';});}
+  function familyMemberAssignmentRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY_MEMBER_ASSIGNMENT';});}
+  function familyMemberAssignment(row){return familyMemberAssignmentRows().find(function(item){return text(item.memberId)===text(row.id)||normalize(item.memberLabel)===normalize(row.gradeLabel);});}
   function familyMemberExcluded(key,row){return familyMemberExclusionRows().some(function(item){return text(item.familyKey)===text(key)&&(text(item.memberId)===text(row.id)||normalize(item.memberLabel)===normalize(row.gradeLabel));});}
   function finalCandidates(){
     ensureState();
@@ -176,6 +178,10 @@
     }
     return{key:key||normalize(main)||'미분류',label:label||main||'미분류'};
   }
+  function effectiveFamilyIdentity(row){
+    var assigned=familyMemberAssignment(row);if(!assigned)return familyIdentity(row);
+    return{key:text(assigned.familyKey),label:text(assigned.familyLabel||assigned.familyKey)||familyIdentity(row).label};
+  }
   function familyConfig(key){return familyConfigRows().find(function(row){return text(row.familyKey)===text(key);});}
   function familyExcluded(key){return familyExclusionRows().some(function(row){return text(row.familyKey)===text(key);});}
   function detailGrade(source){
@@ -187,7 +193,7 @@
   function familySummaryRows(details){
     var families=new Map();
     details.forEach(function(row){
-      var identity=familyIdentity(row),key=identity.key;
+      var identity=effectiveFamilyIdentity(row),key=identity.key;
       if(!families.has(key))families.set(key,{key:key,label:identity.label,rows:[]});
       families.get(key).rows.push(row);
     });
@@ -232,7 +238,7 @@
       return row;
     });
     var summaries=familySummaryRows(details),summaryByKey=new Map(summaries.map(function(row){return[row.familyKey,row];})),families=new Map();
-    details.forEach(function(row){var identity=familyIdentity(row);if(!families.has(identity.key))families.set(identity.key,[]);families.get(identity.key).push(row);});
+    details.forEach(function(row){var identity=effectiveFamilyIdentity(row);if(!families.has(identity.key))families.set(identity.key,[]);families.get(identity.key).push(row);});
     var output=[];
     Array.from(families.keys()).sort(function(a,b){return text(a).localeCompare(text(b),'ko',{numeric:true});}).forEach(function(key){
       families.get(key).sort(function(a,b){return a.gradeLabel.localeCompare(b.gradeLabel,'ko',{numeric:true});}).forEach(function(row){output.push(row);});
@@ -241,7 +247,7 @@
     return output;
   }
   function forecastFor(source){
-    var identity=familyIdentity(source),rows=forecastRows(),family=rows.find(function(row){return row.isFamilySummary&&row.familyKey===identity.key;});
+    var probe=detailGrade(source),identity=effectiveFamilyIdentity(Object.assign({id:groupKey(probe)||normalize(displayGrade(probe)),gradeLabel:displayGrade(probe)},probe)),rows=forecastRows(),family=rows.find(function(row){return row.isFamilySummary&&row.familyKey===identity.key;});
     if(family)return family;
     var resolved=detailGrade(source),key=groupKey(resolved)||normalize(displayGrade(resolved));
     return rows.find(function(row){return row.id===key;})||{id:key,productType:resolved.productType,mainGrade:resolved.mainGrade||resolved.label,subGrade:resolved.subGrade,arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,expectedStock:0,forecastRemaining:0,mapping:resolved.mapping};
@@ -271,7 +277,7 @@
   function familyManagementRows(){
     var groups=new Map();
     forecastRows().filter(function(row){return !row.isFamilySummary;}).forEach(function(row){
-      var identity=familyIdentity(row),key=identity.key;
+      var identity=effectiveFamilyIdentity(row),key=identity.key;
       if(!groups.has(key))groups.set(key,{familyKey:key,label:identity.label,rows:[]});
       groups.get(key).rows.push(row);
     });
@@ -295,12 +301,16 @@
     root.$('modal').classList.add('on');
   };
   function familyMemberChoices(rows,name){
-    return rows.map(function(row){return'<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #d8e3df;border-radius:12px;background:#fff"><input type="checkbox" name="'+name+'" value="'+encode(row.id)+'" style="width:24px;height:24px;flex:0 0 auto"><span><b>'+encode(row.gradeLabel)+'</b><br><small>예상재고 '+root.fmt(row.expectedStock)+' kg · 출하예정 '+root.fmt(row.shippingPlanned)+' kg</small></span></label>';}).join('');
+    return rows.map(function(row){return'<label data-family-candidate="'+encode(normalize(row.gradeLabel))+'" style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #d8e3df;border-radius:12px;background:#fff"><input type="checkbox" name="'+name+'" value="'+encode(row.id)+'" style="width:24px;height:24px;flex:0 0 auto"><span><b>'+encode(row.gradeLabel)+'</b><br><small>예상재고 '+root.fmt(row.expectedStock)+' kg · 출하예정 '+root.fmt(row.shippingPlanned)+' kg</small></span></label>';}).join('');
+  }
+  function familyOtherCandidates(key){
+    return forecastRows().filter(function(row){return !row.isFamilySummary&&text(effectiveFamilyIdentity(row).key)!==text(key);}).sort(function(a,b){return a.gradeLabel.localeCompare(b.gradeLabel,'ko',{numeric:true});});
   }
   function renderInventoryFamilyMembers(row){
-    var target=root.$('inventoryFamilyMemberEditor');if(!target)return;
-    target.innerHTML='<section class="detail-section" style="margin:0"><h3>현재 묶인 강종 · '+row.included.length+'개</h3><p>제외할 강종을 체크한 후 아래 버튼을 누르세요.</p><div style="display:grid;gap:8px">'+(row.included.length?familyMemberChoices(row.included,'familyIncludedMember'):'<div class="empty">현재 묶인 강종이 없습니다.</div>')+'</div>'+(row.included.length?'<button class="btn danger" type="button" style="margin-top:12px" onclick="excludeInventoryFamilyMembers()">선택 강종 묶음에서 제외</button>':'')+'</section><section class="detail-section" style="margin-top:14px"><h3>묶음에서 제외된 강종 · '+row.excluded.length+'개</h3><p>다시 합류시킬 강종을 체크한 후 아래 버튼을 누르세요.</p><div style="display:grid;gap:8px">'+(row.excluded.length?familyMemberChoices(row.excluded,'familyExcludedMember'):'<div class="empty">제외된 강종이 없습니다.</div>')+'</div>'+(row.excluded.length?'<button class="btn primary" type="button" style="margin-top:12px" onclick="joinInventoryFamilyMembers()">선택 강종 묶음에 합류</button>':'')+'</section>';
+    var target=root.$('inventoryFamilyMemberEditor'),others=familyOtherCandidates(row.familyKey);if(!target)return;
+    target.innerHTML='<section class="detail-section" style="margin:0"><h3>현재 묶인 강종 · '+row.included.length+'개</h3><p>제외할 강종을 체크한 후 아래 버튼을 누르세요.</p><div style="display:grid;gap:8px">'+(row.included.length?familyMemberChoices(row.included,'familyIncludedMember'):'<div class="empty">현재 묶인 강종이 없습니다.</div>')+'</div>'+(row.included.length?'<button class="btn danger" type="button" style="margin-top:12px" onclick="excludeInventoryFamilyMembers()">선택 강종 묶음에서 제외</button>':'')+'</section><section class="detail-section" style="margin-top:14px"><h3>묶음에서 제외된 강종 · '+row.excluded.length+'개</h3><p>다시 합류시킬 강종을 체크한 후 아래 버튼을 누르세요.</p><div style="display:grid;gap:8px">'+(row.excluded.length?familyMemberChoices(row.excluded,'familyExcludedMember'):'<div class="empty">제외된 강종이 없습니다.</div>')+'</div>'+(row.excluded.length?'<button class="btn primary" type="button" style="margin-top:12px" onclick="joinInventoryFamilyMembers()">선택 강종 묶음에 합류</button>':'')+'</section><section class="detail-section" style="margin-top:14px"><h3>다른 강종을 이 묶음에 합류</h3><p>다른 묶음 또는 개별 강종을 검색하고 체크하면 이 묶음으로 이동합니다.</p><input type="search" placeholder="강종 검색" oninput="filterInventoryFamilyCandidates(this.value)" style="margin-bottom:10px"><div id="inventoryFamilyOtherMembers" style="display:grid;gap:8px;max-height:360px;overflow:auto">'+(others.length?familyMemberChoices(others,'familyOtherMember'):'<div class="empty">합류 가능한 다른 강종이 없습니다.</div>')+'</div>'+(others.length?'<button class="btn primary" type="button" style="margin-top:12px" onclick="assignInventoryFamilyMembers()">선택한 다른 강종 묶음에 합류</button>':'')+'</section>';
   }
+  root.filterInventoryFamilyCandidates=function(value){var query=normalize(value);Array.from(document.querySelectorAll('#inventoryFamilyOtherMembers [data-family-candidate]')).forEach(function(label){label.style.display=!query||text(label.dataset.familyCandidate).indexOf(query)>=0?'flex':'none';});};
   root.editInventoryFamily=function(key){
     var row=familyManagementRows().find(function(item){return text(item.familyKey)===text(key);}),form=root.$('inventoryFamilyForm');if(!row||!form)return;
     form.style.display='grid';form.elements.familyKey.value=row.familyKey;form.elements.familyLabel.value=text(familyConfig(row.familyKey)&&familyConfig(row.familyKey).familyLabel)||text(row.mainGrade).replace(/\s*유사강종 예상재고\s*$/,'');renderInventoryFamilyMembers(row);form.scrollIntoView({behavior:'smooth',block:'start'});
@@ -308,8 +318,8 @@
   root.excludeInventoryFamilyMembers=async function(){
     var form=root.$('inventoryFamilyForm'),key=form&&text(form.elements.familyKey.value),row=familyManagementRows().find(function(item){return text(item.familyKey)===key;});if(!form||!row)return;
     var selected=Array.from(form.querySelectorAll('input[name="familyIncludedMember"]:checked')).map(function(input){return text(input.value);});if(!selected.length)return root.toast('묶음에서 제외할 강종을 체크하세요.',true);
-    var members=row.rows.filter(function(item){return selected.indexOf(text(item.id))>=0;}),now=new Date().toISOString();
-    var ok=await root.commit('유사강종 묶음 구성 제외',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return !(upper(item.kind)==='FAMILY_MEMBER_EXCLUSION'&&text(item.familyKey)===key&&selected.indexOf(text(item.memberId))>=0);});members.forEach(function(item){next.inventoryGradeMappings.push({id:'family-member-exclusion-'+key+'-'+normalize(item.id),kind:'FAMILY_MEMBER_EXCLUSION',familyKey:key,memberId:item.id,memberLabel:item.gradeLabel,updatedAt:now,updatedByName:root.currentUserName()});});});
+    var members=row.rows.filter(function(item){return selected.indexOf(text(item.id))>=0;}),naturalMembers=members.filter(function(item){return text(familyIdentity(item).key)===key;}),now=new Date().toISOString();
+    var ok=await root.commit('유사강종 묶음 구성 제외',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){var kind=upper(item.kind),selectedMember=selected.indexOf(text(item.memberId))>=0;return !((kind==='FAMILY_MEMBER_EXCLUSION'&&text(item.familyKey)===key&&selectedMember)||(kind==='FAMILY_MEMBER_ASSIGNMENT'&&selectedMember));});naturalMembers.forEach(function(item){next.inventoryGradeMappings.push({id:'family-member-exclusion-'+key+'-'+normalize(item.id),kind:'FAMILY_MEMBER_EXCLUSION',familyKey:key,memberId:item.id,memberLabel:item.gradeLabel,updatedAt:now,updatedByName:root.currentUserName()});});});
     if(ok){root.openInventoryGradeMapping();root.editInventoryFamily(key);root.toast(selected.length+'개 강종을 묶음에서 제외했습니다.');}
   };
   root.joinInventoryFamilyMembers=async function(){
@@ -317,6 +327,13 @@
     var selected=Array.from(form.querySelectorAll('input[name="familyExcludedMember"]:checked')).map(function(input){return text(input.value);});if(!selected.length)return root.toast('묶음에 합류할 강종을 체크하세요.',true);
     var ok=await root.commit('유사강종 묶음 구성 합류',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return !(upper(item.kind)==='FAMILY_MEMBER_EXCLUSION'&&text(item.familyKey)===key&&selected.indexOf(text(item.memberId))>=0);});});
     if(ok){root.openInventoryGradeMapping();root.editInventoryFamily(key);root.toast(selected.length+'개 강종을 묶음에 다시 합류했습니다.');}
+  };
+  root.assignInventoryFamilyMembers=async function(){
+    var form=root.$('inventoryFamilyForm'),key=form&&text(form.elements.familyKey.value);if(!form||!key)return;
+    var selected=Array.from(form.querySelectorAll('input[name="familyOtherMember"]:checked')).map(function(input){return text(input.value);});if(!selected.length)return root.toast('합류할 다른 강종을 체크하세요.',true);
+    var members=forecastRows().filter(function(item){return !item.isFamilySummary&&selected.indexOf(text(item.id))>=0;}),label=text(form.elements.familyLabel.value)||key,now=new Date().toISOString();
+    var ok=await root.commit('다른 강종 유사강종 묶음 합류',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){var kind=upper(item.kind),selectedMember=selected.indexOf(text(item.memberId))>=0;return !((kind==='FAMILY_MEMBER_ASSIGNMENT'&&selectedMember)||(kind==='FAMILY_MEMBER_EXCLUSION'&&text(item.familyKey)===key&&selectedMember));});members.forEach(function(item){next.inventoryGradeMappings.push({id:'family-member-assignment-'+normalize(item.id),kind:'FAMILY_MEMBER_ASSIGNMENT',familyKey:key,familyLabel:label,memberId:item.id,memberLabel:item.gradeLabel,updatedAt:now,updatedByName:root.currentUserName()});});});
+    if(ok){root.openInventoryGradeMapping();root.editInventoryFamily(key);root.toast(selected.length+'개 다른 강종을 '+label+' 묶음에 합류했습니다.');}
   };
   root.saveInventoryFamily=async function(event){
     event.preventDefault();var data=new FormData(event.currentTarget),key=text(data.get('familyKey')),label=text(data.get('familyLabel'));if(!key||!label)return root.toast('묶음 표시명을 입력하세요.',true);
