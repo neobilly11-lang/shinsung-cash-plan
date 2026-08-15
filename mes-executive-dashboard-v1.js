@@ -8,7 +8,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260816-1";
+  var VERSION = "20260816-2";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -62,6 +62,7 @@
     if (!state.systemSettings || typeof state.systemSettings !== "object") state.systemSettings = {};
     if (!Array.isArray(state.systemSettings.executiveUsers)) state.systemSettings.executiveUsers = [];
     if (!state.systemSettings.executiveExchangeRates || typeof state.systemSettings.executiveExchangeRates !== "object") state.systemSettings.executiveExchangeRates = {};
+    if (!Array.isArray(state.systemSettings.executiveExchangeRateHistory)) state.systemSettings.executiveExchangeRateHistory = [];
     return state.systemSettings;
   }
   function executiveUsers(state) {
@@ -224,6 +225,35 @@
     };
   }
 
+  function createExchangeRateHistoryEntry(beforeReport, afterReport, previousRates, nextRates, previousEffectiveAt, changedAt, changedBy) {
+    beforeReport = beforeReport || { totals: {} };
+    afterReport = afterReport || { totals: {} };
+    changedAt = changedAt || new Date().toISOString();
+    function totals(report) {
+      return {
+        total: round(report.totals && report.totals.total),
+        unsold: round(report.totals && report.totals.unsold),
+        planned: round(report.totals && report.totals.planned)
+      };
+    }
+    var before = totals(beforeReport), after = totals(afterReport);
+    return {
+      id: "fx-" + changedAt,
+      previousEffectiveAt: previousEffectiveAt || changedAt,
+      changedAt: changedAt,
+      changedBy: text(changedBy),
+      previousRates: Object.assign({}, previousRates || {}),
+      nextRates: Object.assign({}, nextRates || {}),
+      previousTotals: before,
+      nextTotals: after,
+      differences: {
+        total: round(after.total - before.total),
+        unsold: round(after.unsold - before.unsold),
+        planned: round(after.planned - before.planned)
+      }
+    };
+  }
+
   function install(root) {
     var runtime = root.__mesRuntime;
     if (!runtime || root.__mesExecutiveDashboardInstalled) return false;
@@ -307,6 +337,23 @@
         return '<tr><td>' + (row.category === "planned" ? "판매계획완료" : "미판매") + '</td><td>' + encode(STAGE_LABELS[row.stage] || row.stage) + '</td><td class="left">' + encode(row.grade || row.rawGrade) + '</td><td class="left">' + encode(row.partner || row.supplier || "-") + '</td><td>' + encode([row.poNo, row.soNo].filter(Boolean).join(" / ") || "-") + '</td><td>' + fmt(row.weight) + ' kg</td><td>' + (row.unitPrice ? fmt(row.unitPrice) : "단가 미입력") + '</td><td>' + encode(normalizeCurrency(row.currency)) + '</td><td>' + (row.rate ? fmt(row.rate) : "환율 미입력") + '</td><td><b>' + fmt(row.convertedAmount) + '</b></td></tr>';
       }).join("") + '</tbody><tfoot><tr><th colspan="5">검색 결과 합계</th><th>' + fmt(weight) + ' kg</th><th colspan="3"></th><th>' + fmt(total) + '원</th></tr></tfoot></table></div>';
     }
+    function localDate(value) {
+      if (!value) return "-";
+      var parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? text(value) : parsed.toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    }
+    function exchangeHistoryTable() {
+      var history = list(settings(state()).executiveExchangeRateHistory);
+      if (!history.length) return '<div class="panel mes-exec-history"><h2>환율 변경 이력</h2><div class="empty">아직 환율 변경 이력이 없습니다.</div></div>';
+      var categories = [{ key: "total", label: "총재고" }, { key: "unsold", label: "미판매 예상재고" }, { key: "planned", label: "판매계획완료 재고" }];
+      return '<div class="panel mes-exec-history"><div class="dashboard-head"><div><h2>환율 변경 이력 · 예상 환차손익</h2><p>변경 전 금액과 변경 후 금액을 기준일별로 보존합니다.</p></div></div><div class="mes-exec-table"><table><thead><tr><th>구분</th><th>변경 전 기준일</th><th>변경 전 금액</th><th>변경일</th><th>변경 후 금액</th><th>환차익 / 환차손</th><th>적용 환율</th><th>변경자</th></tr></thead><tbody>' + history.flatMap(function (entry) {
+        return categories.map(function (category) {
+          var difference = number(entry.differences && entry.differences[category.key]);
+          var rateText = ["USD", "JPY", "EURO"].map(function (currency) { return currency + " " + fmt(entry.nextRates && entry.nextRates[currency]); }).join(" · ");
+          return '<tr><td class="left"><b>' + category.label + '</b></td><td>' + encode(localDate(entry.previousEffectiveAt)) + '</td><td>' + fmt(entry.previousTotals && entry.previousTotals[category.key]) + '원</td><td>' + encode(localDate(entry.changedAt)) + '</td><td>' + fmt(entry.nextTotals && entry.nextTotals[category.key]) + '원</td><td class="' + (difference >= 0 ? "gain" : "loss") + '"><b>' + (difference > 0 ? "+" : "") + fmt(difference) + '원</b></td><td>' + encode(rateText) + '</td><td>' + encode(entry.changedBy || "-") + '</td></tr>';
+        });
+      }).join("") + '</tbody></table></div></div>';
+    }
     function renderExecutive() {
       if (!allowed()) { baseOpenView.call(root, "dashboard"); return; }
       var data = report(), rows = visibleRows(data), totals = data.totals;
@@ -316,7 +363,7 @@
       if (pageTitle) pageTitle.textContent = "임원용 현황판";
       content.innerHTML = '<div class="dashboard-head"><div><h1>임원용 현황판</h1><p>지정된 임원 2명만 조회할 수 있습니다. 금액은 적용환율 기준 원화 환산액입니다.</p></div><div class="actions"><button class="btn" onclick="openExecutiveExchangeRates()">예상환차손 · 환율 일괄변경</button><button class="btn" onclick="openExecutiveUserManager()">임원 2명 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료 조회</button></div></div>' +
         '<div class="mes-exec-kpis"><button class="mes-exec-kpi ' + (category === "total" ? "on" : "") + '" onclick="setExecutiveCategory(\'total\')"><small>총재고 환산액</small><strong>' + fmt(totals.total) + '원</strong><span>' + fmt(totals.totalWeight) + ' kg</span></button><button class="mes-exec-kpi ' + (category === "unsold" ? "on" : "") + '" onclick="setExecutiveCategory(\'unsold\')"><small>미판매 예상재고액</small><strong>' + fmt(totals.unsold) + '원</strong><span>' + fmt(totals.unsoldWeight) + ' kg</span></button><button class="mes-exec-kpi ' + (category === "planned" ? "on" : "") + '" onclick="setExecutiveCategory(\'planned\')"><small>판매계획완료 재고액</small><strong>' + fmt(totals.planned) + '원</strong><span>' + fmt(totals.plannedWeight) + ' kg</span></button></div>' +
-        '<div class="panel"><div class="dashboard-head"><div><h2>' + title + ' 상세 재고</h2><p>S.O 출하확정 재고는 제외됩니다.</p></div></div><form id="mesExecutiveFilter" class="mes-exec-filter" onsubmit="event.preventDefault();applyExecutiveFilters()"><label>강종<input name="grade" value="' + encode(filters.grade) + '" placeholder="강종 검색"></label><label>거래처<input name="partner" value="' + encode(filters.partner) + '" placeholder="공급사·판매처 검색"></label><label>P.O / S.O<input name="po" value="' + encode(filters.po) + '" placeholder="P.O·S.O·사내번호 검색"></label><label>통화<select name="currency"><option value="">전체</option>' + ["KRW", "USD", "JPY", "EURO"].map(function (value) { return '<option ' + (filters.currency === value ? "selected" : "") + '>' + value + '</option>'; }).join("") + '</select></label><button class="btn primary">검색</button><button type="button" class="btn" onclick="clearExecutiveFilters()">초기화</button></form>' + rowTable(rows) + '</div>';
+        '<div class="panel"><div class="dashboard-head"><div><h2>' + title + ' 상세 재고</h2><p>S.O 출하확정 재고는 제외됩니다.</p></div></div><form id="mesExecutiveFilter" class="mes-exec-filter" onsubmit="event.preventDefault();applyExecutiveFilters()"><label>강종<input name="grade" value="' + encode(filters.grade) + '" placeholder="강종 검색"></label><label>거래처<input name="partner" value="' + encode(filters.partner) + '" placeholder="공급사·판매처 검색"></label><label>P.O / S.O<input name="po" value="' + encode(filters.po) + '" placeholder="P.O·S.O·사내번호 검색"></label><label>통화<select name="currency"><option value="">전체</option>' + ["KRW", "USD", "JPY", "EURO"].map(function (value) { return '<option ' + (filters.currency === value ? "selected" : "") + '>' + value + '</option>'; }).join("") + '</select></label><button class="btn primary">검색</button><button type="button" class="btn" onclick="clearExecutiveFilters()">초기화</button></form>' + rowTable(rows) + '</div>' + exchangeHistoryTable();
       decorateCurrencies();
       var nav = root.document.getElementById("nav");
       if (nav) nav.querySelectorAll(".nav-btn").forEach(function (button) { button.classList.toggle("on", button.dataset.id === "executive"); });
@@ -355,17 +402,24 @@
       if (!form) return;
       var data = new FormData(form), nextRates = { USD: number(data.get("USD")), JPY: number(data.get("JPY")), EURO: number(data.get("EURO")) };
       if (Object.keys(nextRates).some(function (key) { return nextRates[key] < 0; })) { root.toast("환율은 0 이상으로 입력하세요.", true); return; }
-      var before = report().totals.total;
+      var currentState = state(), config = settings(currentState);
+      var forecasts = typeof root.mesForecastRows === "function" ? root.mesForecastRows() : [];
+      var previousRates = deriveRates(currentState, config.executiveExchangeRates);
+      var beforeReport = buildExecutiveReport(currentState, forecasts, previousRates);
+      var afterReport = buildExecutiveReport(currentState, forecasts, nextRates);
+      var changedAt = new Date().toISOString();
+      var historyEntry = createExchangeRateHistoryEntry(beforeReport, afterReport, previousRates, nextRates, config.executiveExchangeRatesUpdatedAt || changedAt, changedAt, email());
       var ok = await root.commit("임원용 예상환율 일괄변경", ["systemSettings"], function (next) {
         var config = settings(next);
         config.executiveExchangeRates = nextRates;
-        config.executiveExchangeRatesUpdatedAt = new Date().toISOString();
+        config.executiveExchangeRatesUpdatedAt = changedAt;
         config.executiveExchangeRatesUpdatedBy = email();
+        config.executiveExchangeRateHistory = [historyEntry].concat(list(config.executiveExchangeRateHistory)).slice(0, 200);
       });
       if (ok) {
-        var after = report().totals.total;
         root.closeModal(); renderExecutive();
-        root.toast("환율 적용 완료 · 예상 환차손익 " + (after - before >= 0 ? "+" : "") + fmt(after - before) + "원");
+        var difference = historyEntry.differences.total;
+        root.toast("환율 적용 완료 · 예상 환차손익 " + (difference >= 0 ? "+" : "") + fmt(difference) + "원");
       }
     };
 
@@ -413,7 +467,7 @@
 
     var style = root.document.createElement("style");
     style.id = "mesExecutiveDashboardV1Style";
-    style.textContent = '.mes-exec-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 18px}.mes-exec-kpi{border:1px solid #cddbd8;border-radius:20px;background:#fff;padding:22px;text-align:left;cursor:pointer}.mes-exec-kpi.on{background:linear-gradient(135deg,#0b3040,#0b8778);color:#fff}.mes-exec-kpi small,.mes-exec-kpi span{display:block}.mes-exec-kpi strong{display:block;font-size:28px;margin:10px 0}.mes-exec-filter{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto auto;gap:10px;align-items:end;margin-bottom:16px}.mes-exec-filter label{display:grid;gap:6px;font-weight:700}.mes-exec-filter input,.mes-exec-filter select{width:100%;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-exec-table{overflow:auto;max-height:58vh}.mes-exec-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-exec-table th,.mes-exec-table td{border:1px solid #dbe3e1;padding:10px;text-align:right}.mes-exec-table th{background:#eef5f4}.mes-exec-table .left{text-align:left}.mes-exec-note{padding:16px;border-radius:12px;background:#eef7f5;line-height:1.7}@media(max-width:760px){.mes-exec-kpis{grid-template-columns:1fr}.mes-exec-filter{grid-template-columns:1fr 1fr}.mes-exec-kpi strong{font-size:24px}.mes-exec-table{max-height:52vh}.mes-exec-filter .btn{min-height:48px}}';
+    style.textContent = '.mes-exec-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 18px}.mes-exec-kpi{border:1px solid #cddbd8;border-radius:20px;background:#fff;padding:22px;text-align:left;cursor:pointer}.mes-exec-kpi.on{background:linear-gradient(135deg,#0b3040,#0b8778);color:#fff}.mes-exec-kpi small,.mes-exec-kpi span{display:block}.mes-exec-kpi strong{display:block;font-size:28px;margin:10px 0}.mes-exec-filter{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto auto;gap:10px;align-items:end;margin-bottom:16px}.mes-exec-filter label{display:grid;gap:6px;font-weight:700}.mes-exec-filter input,.mes-exec-filter select{width:100%;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-exec-table{overflow:auto;max-height:58vh}.mes-exec-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-exec-table th,.mes-exec-table td{border:1px solid #dbe3e1;padding:10px;text-align:right}.mes-exec-table th{background:#eef5f4}.mes-exec-table .left{text-align:left}.mes-exec-table .gain{color:#08785f}.mes-exec-table .loss{color:#b4232f}.mes-exec-history{margin-top:18px}.mes-exec-note{padding:16px;border-radius:12px;background:#eef7f5;line-height:1.7}@media(max-width:760px){.mes-exec-kpis{grid-template-columns:1fr}.mes-exec-filter{grid-template-columns:1fr 1fr}.mes-exec-kpi strong{font-size:24px}.mes-exec-table{max-height:52vh}.mes-exec-filter .btn{min-height:48px}}';
     root.document.head.appendChild(style);
     root.buildNav();
     root.requestAnimationFrame(decorateDashboard);
@@ -425,6 +479,7 @@
     normalizeCurrency: normalizeCurrency,
     deriveRates: deriveRates,
     buildExecutiveReport: buildExecutiveReport,
+    createExchangeRateHistoryEntry: createExchangeRateHistoryEntry,
     executiveUsers: executiveUsers,
     isExecutive: isExecutive,
     canManageExecutives: canManageExecutives,
