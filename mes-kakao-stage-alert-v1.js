@@ -75,7 +75,11 @@
   function installShareGate(){
     if(typeof window.shareStageRecord!=='function'||window.shareStageRecord.__mesKakaoAlertWrapped)return false;
     var original=window.shareStageRecord;
-    var wrapped=function(kind,key){showAlert(kind,key,'manual',function(){return original.call(window,kind,key);});};
+    var wrapped=async function(kind,key){
+      var result=await original.call(window,kind,key);
+      setTimeout(enhancePcFallback,30);
+      return result;
+    };
     wrapped.__mesKakaoAlertWrapped=true;wrapped.__original=original;window.shareStageRecord=wrapped;
     return true;
   }
