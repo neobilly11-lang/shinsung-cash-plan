@@ -79,6 +79,14 @@
 
   installMesAccess();
 
+  if(!document.querySelector('script[data-waiting-location-picker-v1]')){
+    var waitingPickerScript=document.createElement('script');
+    waitingPickerScript.src='field-waiting-location-picker-v1.js?v=20260815-2';
+    waitingPickerScript.async=false;
+    waitingPickerScript.dataset.waitingLocationPickerV1='loader';
+    document.head.appendChild(waitingPickerScript);
+  }
+
   document.documentElement.dataset.fieldPackingDraftGuardV1='loaded';
 })();
 
