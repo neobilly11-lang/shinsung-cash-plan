@@ -74,7 +74,8 @@
   window.shareMesWorkLog=async function(){
     var title='신성금속 MES 일일 작업일지 '+nowDate(),body=workLogText();
     if(typeof window.mesShareText==='function')return window.mesShareText(title,body);
-    try{if(navigator.share){await navigator.share({title:title,text:body});return;}}catch(error){if(error&&error.name==='AbortError')return;}
+    var mobile=!!navigator.share&&(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')||(navigator.maxTouchPoints>1&&/Macintosh/i.test(navigator.userAgent||'')));
+    try{if(mobile){await navigator.share({title:title,text:body});return;}}catch(error){if(error&&error.name==='AbortError')return;}
     var copied=false;
     try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(body);copied=true;}}catch(_){ }
     if(!copied)try{var area=document.createElement('textarea');area.value=body;area.style.cssText='position:fixed;left:-9999px;top:-9999px';document.body.appendChild(area);area.focus();area.select();copied=!!(document.execCommand&&document.execCommand('copy'));area.remove();}catch(_){ }
