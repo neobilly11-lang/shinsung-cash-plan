@@ -112,9 +112,6 @@ function renderDaily(){const rows=todayAudits().sort((a,b)=>String(b.createdAt).
 function openDailyForm(){$('modalTitle').textContent='작업일지 추가';$('modalBody').innerHTML=formWrap('new','daily',input('category','작업구분','일반업무')+input('reference','관련번호','')+`<label class="wide">작업내용<textarea name="note" required></textarea></label>`);$('modal').classList.add('on')}
 const saveEditBase=saveEdit;saveEdit=async function(id,type,form){if(type!=='daily')return saveEditBase(id,type,form);const v=formData(form);await commit('작업일지 등록',['auditLogs'],s=>s.auditLogs.push({id:crypto.randomUUID(),action:'MES_DAILY_NOTE',category:v.category,reference:v.reference,label:v.note,note:v.note,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()}));closeModal();renderDaily()}
 function exportView(){const schema=schemas[currentView];if(!schema)return;const rows=filtered(schema.rows()),headers=schema.cols.map(x=>x[0]),plain=html=>{const d=document.createElement('div');d.innerHTML=html;return d.textContent};const body=[headers,...rows.map(r=>schema.cols.map(c=>plain(String(c[1](r)))))];const html=`<html><head><meta charset="utf-8"></head><body><table border="1"><tr>${headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>${body.slice(1).map(row=>`<tr>${row.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>
-
-
-<script src="mes-kakao-stage-alert-v1.js?v=20260816-1"></script>
 </body></html>`,blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`신성금속_MES_${schema.title}_${nowDate()}.xls`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 buildNav();currentView=location.hash.slice(1)||'dashboard';openView(currentView);setTimeout(initAuth,0);setInterval(realtimePoll,2500);addEventListener('focus',realtimePoll);addEventListener('online',realtimePoll);
 </script>
@@ -1181,6 +1178,7 @@ window.__mesRuntime={
   getCommit:()=>commit,getRender:()=>render,getToast:()=>toast
 };
 </script>
-<script src="mes-carr260401-source-fix-v1.js?v=20260816-3"></script>\n<script src="mes-inventory-family-stock-v2.js?v=20260815-inventory-view-kakao-9"></script>
+<script src="mes-carr260401-source-fix-v1.js?v=20260816-3"></script>
+<script src="mes-inventory-family-stock-v2.js?v=20260815-inventory-view-kakao-9"></script>
 </body>
 </html>
