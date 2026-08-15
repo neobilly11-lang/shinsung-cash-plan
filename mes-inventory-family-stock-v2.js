@@ -49,11 +49,11 @@
     if(typeof root.mesShareText==='function')return root.mesShareText(titleValue,message,url);
     try{if(typeof navigator.share==='function'){await navigator.share({title:titleValue,text:message,url:url});return true;}}catch(error){if(error&&error.name==='AbortError')return false;}
     var copied=await copyShareText(full);
-    root.toast(copied?'PC 怨듭쑀 以鍮꾩셿猷?쨌 移댁뭅?ㅽ넚 ??붿갹??遺숈뿬?ｌ쑝?몄슂.':'怨듭쑀臾멸뎄瑜??먮룞 蹂듭궗?섏? 紐삵뻽?듬땲?? ?ㅼ떆 ?쒕룄??二쇱꽭??',!copied);
+    root.toast(copied?'PC 공유 준비완료 · 카카오톡 대화창에 붙여넣으세요.':'공유문구를 자동 복사하지 못했습니다. 다시 시도해 주세요.',!copied);
     return copied;
   }
-  function normalize(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').replace(/[^A-Z0-9媛-??/g,'');}
-  function tokens(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').split(/[^A-Z0-9媛-??+/).filter(Boolean);}
+  function normalize(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').replace(/[^A-Z0-9가-힣]/g,'');}
+  function tokens(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').split(/[^A-Z0-9가-힣]+/).filter(Boolean);}
   function bigrams(value){var source=normalize(value),out=[];if(source.length<2)return source?[source]:[];for(var i=0;i<source.length-1;i++)out.push(source.slice(i,i+2));return out;}
   function similarity(a,b){
     var left=normalize(a),right=normalize(b);
@@ -70,7 +70,7 @@
   function gradeLabel(row){
     if(!row)return'';
     var structuredMain=text(row.mainGrade||row.finalGrade);
-    if(structuredMain)return [row.productType,structuredMain,row.subGrade,row.detailGrade].filter(Boolean).join(' 쨌 ');
+    if(structuredMain)return [row.productType,structuredMain,row.subGrade,row.detailGrade].filter(Boolean).join(' · ');
     return text(row.grade||row.originalGrade||row.itemName);
   }
   function incomingGradeSource(row){
@@ -81,7 +81,7 @@
     row=row||{};
     // A slash is part of many real alloy names (for example 70/30 COPPER and
     // 90/10 COPPER).  Treat only the visual separators as field delimiters.
-    var label=gradeLabel(row),segments=label.split(/\s*[쨌|]\s*/).filter(Boolean);
+    var label=gradeLabel(row),segments=label.split(/\s*[·|]\s*/).filter(Boolean);
     var first=upper(segments[0]),hasType=/^(NI|TI|STS|CO|MO|CU|OTHER)$/.test(first);
     return{
       productType:text(row.productType||(hasType?segments[0]:'')),
@@ -92,7 +92,7 @@
     };
   }
   function groupKey(parts){return[parts.productType,parts.mainGrade,parts.subGrade].map(normalize).join('|');}
-  function displayGrade(parts){return[parts.productType,parts.mainGrade,parts.subGrade].filter(Boolean).join(' 쨌 ')||parts.label||'誘몃텇瑜?;}
+  function displayGrade(parts){return[parts.productType,parts.mainGrade,parts.subGrade].filter(Boolean).join(' · ')||parts.label||'미분류';}
   function ensureState(){
     if(!root.state)return;
     if(!Array.isArray(root.state.expectedSalesOrders))root.state.expectedSalesOrders=[];
@@ -126,15 +126,15 @@
     var manual=mappingRows().find(function(row){return normalize(row.sourceLabel||row.sourceGrade)===sourceNorm;});
     if(manual){
       var target=manual.target||manual;
-      return Object.assign(gradeParts(target),{mapping:'吏곸젒 吏??,sourceLabel:sourceLabel,score:1});
+      return Object.assign(gradeParts(target),{mapping:'직접 지정',sourceLabel:sourceLabel,score:1});
     }
     var candidates=finalCandidates(),best=null;
     candidates.forEach(function(candidate){
       var score=Math.max(similarity(sourceLabel,candidate.label),similarity(sourceParts.mainGrade,candidate.mainGrade));
       if(!best||score>best.score)best={candidate:candidate,score:score};
     });
-    if(best&&best.score>=.7)return Object.assign({},best.candidate,{mapping:'?먮룞 ?좎궗 '+Math.round(best.score*100)+'%',sourceLabel:sourceLabel,score:best.score});
-    return Object.assign({},sourceParts,{mapping:'?먮Ц ?좎?',sourceLabel:sourceLabel,score:0});
+    if(best&&best.score>=.7)return Object.assign({},best.candidate,{mapping:'자동 유사 '+Math.round(best.score*100)+'%',sourceLabel:sourceLabel,score:best.score});
+    return Object.assign({},sourceParts,{mapping:'원문 유지',sourceLabel:sourceLabel,score:0});
   }
   function received(row){
     var status=upper(row&&row.receiptStatus);
@@ -173,7 +173,7 @@
         return;
       }
       var grade=text(gradeLabel(row)||row.grade||row.originalGrade),weight=number(row.remainingWeight||row.pendingWeight||row.weight);
-      if(weight>0)rows.push({grade:grade||'誘몃텇瑜?,weight:weight,record:row});
+      if(weight>0)rows.push({grade:grade||'미분류',weight:weight,record:row});
     });
     return rows;
   }
@@ -194,9 +194,9 @@
     else{
       var ignored={IN:1,INCO:1,INCONEL:1,AISI:1,SUS:1,SOLID:1,TURNING:1,AS:1,VS:1,VT:1,SCRAP:1,ALLOY:1};
       var meaningful=tokens(main).filter(function(token){return !ignored[token];});
-      label=meaningful.slice(0,2).join(' ')||main||'誘몃텇瑜?;key=normalize(label);
+      label=meaningful.slice(0,2).join(' ')||main||'미분류';key=normalize(label);
     }
-    return{key:key||normalize(main)||'誘몃텇瑜?,label:label||main||'誘몃텇瑜?};
+    return{key:key||normalize(main)||'미분류',label:label||main||'미분류'};
   }
   function effectiveFamilyIdentity(row){
     var assigned=familyMemberAssignment(row);if(!assigned)return familyIdentity(row);
@@ -207,8 +207,8 @@
   function detailGrade(source){
     var sourceParts=gradeParts(source),sourceLabel=sourceParts.label||displayGrade(sourceParts),sourceNorm=normalize(sourceLabel);
     var manual=mappingRows().find(function(row){return normalize(row.sourceLabel||row.sourceGrade)===sourceNorm;});
-    if(manual){var target=manual.target||manual;return Object.assign(gradeParts(target),{mapping:'吏곸젒 吏??,sourceLabel:sourceLabel,score:1});}
-    return Object.assign({},sourceParts,{mapping:'?먮Ц ?좎?',sourceLabel:sourceLabel,score:0});
+    if(manual){var target=manual.target||manual;return Object.assign(gradeParts(target),{mapping:'직접 지정',sourceLabel:sourceLabel,score:1});}
+    return Object.assign({},sourceParts,{mapping:'원문 유지',sourceLabel:sourceLabel,score:0});
   }
   function familySummaryRows(details){
     var families=new Map();
@@ -223,7 +223,7 @@
       var memberLabels=Array.from(new Set(family.rows.map(function(row){return row.gradeLabel;}).filter(Boolean)));
       if(memberLabels.length<2||familyExcluded(family.key))return;
       var config=familyConfig(family.key),label=text(config&&config.familyLabel)||family.label;
-      var summary={id:'family:'+family.key,familyKey:family.key,isFamilySummary:true,productType:Array.from(new Set(family.rows.map(function(row){return row.productType;}).filter(Boolean))).join('/')||'-',mainGrade:label+' ?좎궗媛뺤쥌 ?덉긽?ш퀬',subGrade:memberLabels.length+'媛?媛뺤쥌',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],memberLabels:memberLabels,memberIds:family.rows.map(function(row){return row.id;}),members:family.rows,mapping:config?'?좎궗媛뺤쥌 吏곸젒 臾띠쓬':'?좎궗媛뺤쥌 ?먮룞 ?⑹궛'};
+      var summary={id:'family:'+family.key,familyKey:family.key,isFamilySummary:true,productType:Array.from(new Set(family.rows.map(function(row){return row.productType;}).filter(Boolean))).join('/')||'-',mainGrade:label+' 유사강종 예상재고',subGrade:memberLabels.length+'개 강종',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],memberLabels:memberLabels,memberIds:family.rows.map(function(row){return row.id;}),members:family.rows,mapping:config?'유사강종 직접 묶음':'유사강종 자동 합산'};
       family.rows.forEach(function(row){['arrival','uninspected','workWaiting','unpacked','completed','shippingPlanned'].forEach(function(stage){summary[stage]=round(summary[stage]+number(row[stage]));});summary.sources=summary.sources.concat(row.sources||[]);});
       summary.expectedStock=round(summary.arrival+summary.uninspected+summary.workWaiting+summary.unpacked+summary.completed);
       summary.familyStock=summary.expectedStock;summary.forecastRemaining=round(summary.familyStock-summary.shippingPlanned);summary.stock=summary.forecastRemaining;summary.gradeLabel=summary.mainGrade;
@@ -237,9 +237,9 @@
     function add(source,stage,weight,record){
       weight=round(weight);if(!weight)return;
       var resolved=detailGrade(source),key=groupKey(resolved)||normalize(displayGrade(resolved));
-      if(!groups.has(key))groups.set(key,{id:key,productType:resolved.productType,mainGrade:resolved.mainGrade||resolved.label||'誘몃텇瑜?,subGrade:resolved.subGrade||'',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],mapping:resolved.mapping});
+      if(!groups.has(key))groups.set(key,{id:key,productType:resolved.productType,mainGrade:resolved.mainGrade||resolved.label||'미분류',subGrade:resolved.subGrade||'',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],mapping:resolved.mapping});
       var row=groups.get(key),canonicalLabel=displayGrade(resolved);row[stage]=round(row[stage]+weight);row.sources.push({stage:stage,weight:weight,record:record,groupId:key,sourceLabel:canonicalLabel,rawSourceLabel:text(source&&source.grade),mapping:resolved.mapping});
-      if(resolved.mapping==='吏곸젒 吏??)row.mapping='吏곸젒 吏??;
+      if(resolved.mapping==='직접 지정')row.mapping='직접 지정';
     }
     currentRows(root.state.pos).forEach(function(row){
       var weight=packageWeight(row);
@@ -263,19 +263,27 @@
     var output=[];
     Array.from(families.keys()).sort(function(a,b){return text(a).localeCompare(text(b),'ko',{numeric:true});}).forEach(function(key){
       families.get(key).sort(function(a,b){return a.gradeLabel.localeCompare(b.gradeLabel,'ko',{numeric:true});}).forEach(function(row){output.push(row);});
-      if(summaryB…5139 tokens truncated…d)===text(id);}),form=root.$('inventoryGradeMappingForm');if(!row||!form)return;
+      if(summaryByKey.has(key))output.push(summaryByKey.get(key));
+    });
+    return output;
+  }
+  fun…4925 tokens truncated…  if(ok){root.openInventoryGradeMapping();root.toast('유사강종 묶음을 복원했습니다.');}
+  };
+  root.resetInventoryGradeMappingForm=function(){var form=root.$('inventoryGradeMappingForm');if(form)form.reset();};
+  root.editInventoryGradeMapping=function(id){
+    var row=mappingRows().find(function(item){return text(item.id)===text(id);}),form=root.$('inventoryGradeMappingForm');if(!row||!form)return;
     var target=row.target||row;form.elements.id.value=row.id;form.elements.sourceLabel.value=row.sourceLabel||row.sourceGrade||'';form.elements.productType.value=target.productType||'';form.elements.mainGrade.value=target.mainGrade||'';form.elements.subGrade.value=target.subGrade||'';form.elements.detailGrade.value=target.detailGrade||'';form.scrollIntoView({behavior:'smooth',block:'start'});
   };
   root.saveInventoryGradeMapping=async function(event){
     event.preventDefault();var form=event.currentTarget,data=new FormData(form),sourceLabel=text(data.get('sourceLabel')),mainGrade=text(data.get('mainGrade'));
-    if(!sourceLabel||!mainGrade)return root.toast('??媛뺤쥌怨??덉긽?ш퀬 媛뺤쥌???낅젰?섏꽭??',true);
+    if(!sourceLabel||!mainGrade)return root.toast('원 강종과 예상재고 강종을 입력하세요.',true);
     var row={id:text(data.get('id'))||crypto.randomUUID(),sourceLabel:sourceLabel,target:{productType:text(data.get('productType')),mainGrade:mainGrade,subGrade:text(data.get('subGrade')),detailGrade:text(data.get('detailGrade'))},updatedAt:new Date().toISOString(),updatedByName:root.currentUserName()};
-    var ok=await root.commit('?ш퀬?쒓린 諛⑹떇 ???,['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return text(item.id)!==row.id&&normalize(item.sourceLabel||item.sourceGrade)!==normalize(sourceLabel);});next.inventoryGradeMappings.push(row);});
-    if(ok){root.openInventoryGradeMapping();root.toast('?ш퀬?쒓린 諛⑹떇 ??μ셿猷?쨌 ?ш퀬?꾪솴???ㅼ떆 怨꾩궛?덉뒿?덈떎.');}
+    var ok=await root.commit('재고표기 방식 저장',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return text(item.id)!==row.id&&normalize(item.sourceLabel||item.sourceGrade)!==normalize(sourceLabel);});next.inventoryGradeMappings.push(row);});
+    if(ok){root.openInventoryGradeMapping();root.toast('재고표기 방식 저장완료 · 재고현황을 다시 계산했습니다.');}
   };
   root.deleteInventoryGradeMapping=async function(id){
-    if(!confirm('?좏깮???ш퀬?쒓린 諛⑹떇????젣?좉퉴?? ?댄썑?먮뒗 70% ?좎궗 湲곗??쇰줈 ?먮룞 怨꾩궛?⑸땲??'))return;
-    var ok=await root.commit('?ш퀬?쒓린 諛⑹떇 ??젣',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return text(item.id)!==text(id);});});
+    if(!confirm('선택한 재고표기 방식을 삭제할까요? 이후에는 70% 유사 기준으로 자동 계산합니다.'))return;
+    var ok=await root.commit('재고표기 방식 삭제',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return text(item.id)!==text(id);});});
     if(ok)root.openInventoryGradeMapping();
   };
 
@@ -291,61 +299,61 @@
   }
   function expectedPreview(row){
     var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-number(row.weight));
-    return'<div class="kpis mes-expected-preview"><div class="kpi"><small>?꾩옱 ?덉긽?⑥??ш퀬</small><strong>'+root.fmt(forecast.forecastRemaining)+' kg</strong></div><div class="kpi"><small>?덉긽 S.O 以묐웾</small><strong>'+root.fmt(row.weight)+' kg</strong></div><div class="kpi"><small>?묒꽦 ???덉긽?⑥??ш퀬</small><strong style="color:'+(remaining<0?'#b4232d':'#087566')+'">'+root.fmt(remaining)+' kg</strong></div><div class="kpi"><small>?덉긽 ?먮ℓ湲덉븸</small><strong>'+root.fmt(number(row.weight)*number(row.unitPrice))+' '+encode(row.currency)+'</strong></div></div><p class="mes-mapping-note">?ш퀬 ?곌껐: '+encode(forecast.mapping||'?먮룞 怨꾩궛')+' 쨌 ?낇빆?덉젙쨌誘멸??샕룹옉?낅?湲걔룸??ъ옣쨌?꾨즺?ш퀬 ?⑷퀎?먯꽌 S.O 異쒗븯?덉젙?됱쓣 李④컧?⑸땲??</p>';
+    return'<div class="kpis mes-expected-preview"><div class="kpi"><small>현재 예상남은재고</small><strong>'+root.fmt(forecast.forecastRemaining)+' kg</strong></div><div class="kpi"><small>예상 S.O 중량</small><strong>'+root.fmt(row.weight)+' kg</strong></div><div class="kpi"><small>작성 후 예상남은재고</small><strong style="color:'+(remaining<0?'#b4232d':'#087566')+'">'+root.fmt(remaining)+' kg</strong></div><div class="kpi"><small>예상 판매금액</small><strong>'+root.fmt(number(row.weight)*number(row.unitPrice))+' '+encode(row.currency)+'</strong></div></div><p class="mes-mapping-note">재고 연결: '+encode(forecast.mapping||'자동 계산')+' · 입항예정·미검수·작업대기·미포장·완료재고 합계에서 S.O 출하예정량을 차감합니다.</p>';
   }
   function expectedSharedMarkup(row){
     var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-number(row.weight)),date=String(row.updatedAt||row.createdAt||'').slice(0,10)||'-';
-    return'<div class="mes-expected-shared"><div class="detail-banner"><small>?좎꽦湲덉냽 ?덉긽 ?먮ℓ 寃ъ쟻</small><h2>'+encode(row.expectedSoNo)+'</h2><p>?ㅼ젣 ?먮ℓ쨌異쒗븯 ?ш퀬? 遺꾨━???덉긽 S.O?낅땲??</p></div><div class="detail-scroll"><table class="detail-table"><tbody><tr><th>?묒꽦??/th><td>'+encode(date)+'</td><th>?먮ℓ泥?/th><td>'+encode(row.customer||'-')+'</td></tr><tr><th>媛뺤쥌</th><td colspan="3">'+encode(displayGrade(gradeParts(row)))+'</td></tr><tr><th>?덉긽 以묐웾</th><td>'+root.fmt(row.weight)+' kg</td><th>?덉긽 ?④?</th><td>'+root.fmt(row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>?덉긽 ?먮ℓ湲덉븸</th><td colspan="3">'+root.fmt(number(row.weight)*number(row.unitPrice))+' '+encode(row.currency)+'</td></tr><tr><th>硫붾え</th><td colspan="3" style="white-space:pre-wrap">'+encode(row.memo||'')+'</td></tr></tbody></table></div>'+expectedPreview(row)+'<div class="actions"><button class="btn primary" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF ?뚯씪 留뚮뱾湲?/button><button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">移댁뭅?ㅽ넚 怨듭쑀</button><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">?섏젙</button><button class="btn" onclick="closeModal()">?リ린</button></div></div>';
+    return'<div class="mes-expected-shared"><div class="detail-banner"><small>신성금속 예상 판매 견적</small><h2>'+encode(row.expectedSoNo)+'</h2><p>실제 판매·출하 재고와 분리된 예상 S.O입니다.</p></div><div class="detail-scroll"><table class="detail-table"><tbody><tr><th>작성일</th><td>'+encode(date)+'</td><th>판매처</th><td>'+encode(row.customer||'-')+'</td></tr><tr><th>강종</th><td colspan="3">'+encode(displayGrade(gradeParts(row)))+'</td></tr><tr><th>예상 중량</th><td>'+root.fmt(row.weight)+' kg</td><th>예상 단가</th><td>'+root.fmt(row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>예상 판매금액</th><td colspan="3">'+root.fmt(number(row.weight)*number(row.unitPrice))+' '+encode(row.currency)+'</td></tr><tr><th>메모</th><td colspan="3" style="white-space:pre-wrap">'+encode(row.memo||'')+'</td></tr></tbody></table></div>'+expectedPreview(row)+'<div class="actions"><button class="btn primary" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF 파일 만들기</button><button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">카카오톡 공유</button><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">수정</button><button class="btn" onclick="closeModal()">닫기</button></div></div>';
   }
   root.openExpectedSoPreview=function(id){
     ensureState();var row=expectedOrder(id);if(!row)return false;
-    root.$('modalTitle').textContent='?덉긽 S.O 誘몃━蹂닿린';root.$('modalBody').innerHTML=expectedSharedMarkup(row);root.$('modal').classList.add('on');return true;
+    root.$('modalTitle').textContent='예상 S.O 미리보기';root.$('modalBody').innerHTML=expectedSharedMarkup(row);root.$('modal').classList.add('on');return true;
   };
   root.refreshExpectedSoPreview=function(){var row=expectedFormValue(),target=root.$('mesExpectedSoPreview');if(row&&target)target.innerHTML=expectedPreview(row);};
   root.openExpectedSoComposer=function(id){
     ensureState();var saved=id&&expectedOrder(id),row=saved||{id:'',expectedSoNo:nextExpectedNo(),customer:'',productType:'',mainGrade:'',subGrade:'',detailGrade:'',weight:0,unitPrice:0,currency:'USD',memo:''};
     var mains=Array.from(new Set(finalCandidates().map(function(item){return item.mainGrade;}).filter(Boolean))),subs=Array.from(new Set(list(root.state.subGrades).concat(finalCandidates().map(function(item){return item.subGrade;})).filter(Boolean)));
-    root.$('modalTitle').textContent=(saved?'?덉긽 S.O ?섏젙':'?덉긽 S.O ?묒꽦')+' 쨌 ?ㅼ젣 ?먮ℓ? 蹂꾨룄 ???;
-    root.$('modalBody').innerHTML='<form id="mesExpectedSoForm" class="form-grid" oninput="refreshExpectedSoPreview()" onchange="refreshExpectedSoPreview()"><input type="hidden" name="id" value="'+encode(row.id)+'"><label>?덉긽 S.O 踰덊샇<input name="expectedSoNo" value="'+encode(row.expectedSoNo)+'"></label><label>?먮ℓ泥?input name="customer" value="'+encode(row.customer)+'" placeholder="?먮ℓ泥섎챸"></label><label>?덉쥌<select name="productType"><option value="">?덉쥌 ?좏깮</option>'+['NI','TI','STS','CO','MO','CU','OTHER'].map(function(value){return'<option '+(value===row.productType?'selected':'')+'>'+value+'</option>';}).join('')+'</select></label><label>媛뺤쥌 寃?됀룹꽑??input name="mainGrade" list="mesExpectedMainGrades" value="'+encode(row.mainGrade)+'" placeholder="???媛뺤쥌 寃??><datalist id="mesExpectedMainGrades">'+mains.map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>?뚭컯醫?寃?됀룹꽑??input name="subGrade" list="mesExpectedSubGrades" value="'+encode(row.subGrade)+'" placeholder="????뚭컯醫?寃??><datalist id="mesExpectedSubGrades">'+subs.map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>?곸꽭媛뺤쥌<input name="detailGrade" value="'+encode(row.detailGrade)+'" placeholder="?좏깮 ?낅젰"></label><label>?덉긽 ?먮ℓ以묐웾(kg)<input name="weight" type="number" min="0" step="any" value="'+(row.weight||'')+'"></label><label>?덉긽 ?④?<input name="unitPrice" type="number" min="0" step="any" value="'+(row.unitPrice||'')+'"></label><label>?듯솕<select name="currency">'+['USD','KRW','EUR'].map(function(value){return'<option '+(value===row.currency?'selected':'')+'>'+value+'</option>';}).join('')+'</select></label><label class="wide">硫붾え<textarea name="memo" placeholder="?덉긽 ?먮ℓ 李멸퀬?ы빆">'+encode(row.memo)+'</textarea></label><div id="mesExpectedSoPreview" class="wide">'+expectedPreview(row)+'</div><div class="wide actions"><button class="btn primary" type="button" onclick="saveExpectedSo()">?꾩껜???/button><button class="btn" type="button" onclick="printExpectedSo()">PDF ?뚯씪 留뚮뱾湲?/button><button class="btn" type="button" onclick="shareExpectedSo()">移댁뭅?ㅽ넚 怨듭쑀</button><button class="btn" type="button" onclick="openExpectedSoList()">?덉긽 S.O 紐⑸줉</button></div></form>';
+    root.$('modalTitle').textContent=(saved?'예상 S.O 수정':'예상 S.O 작성')+' · 실제 판매와 별도 저장';
+    root.$('modalBody').innerHTML='<form id="mesExpectedSoForm" class="form-grid" oninput="refreshExpectedSoPreview()" onchange="refreshExpectedSoPreview()"><input type="hidden" name="id" value="'+encode(row.id)+'"><label>예상 S.O 번호<input name="expectedSoNo" value="'+encode(row.expectedSoNo)+'"></label><label>판매처<input name="customer" value="'+encode(row.customer)+'" placeholder="판매처명"></label><label>품종<select name="productType"><option value="">품종 선택</option>'+['NI','TI','STS','CO','MO','CU','OTHER'].map(function(value){return'<option '+(value===row.productType?'selected':'')+'>'+value+'</option>';}).join('')+'</select></label><label>강종 검색·선택<input name="mainGrade" list="mesExpectedMainGrades" value="'+encode(row.mainGrade)+'" placeholder="저장 강종 검색"><datalist id="mesExpectedMainGrades">'+mains.map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>소강종 검색·선택<input name="subGrade" list="mesExpectedSubGrades" value="'+encode(row.subGrade)+'" placeholder="저장 소강종 검색"><datalist id="mesExpectedSubGrades">'+subs.map(function(value){return'<option value="'+encode(value)+'"></option>';}).join('')+'</datalist></label><label>상세강종<input name="detailGrade" value="'+encode(row.detailGrade)+'" placeholder="선택 입력"></label><label>예상 판매중량(kg)<input name="weight" type="number" min="0" step="any" value="'+(row.weight||'')+'"></label><label>예상 단가<input name="unitPrice" type="number" min="0" step="any" value="'+(row.unitPrice||'')+'"></label><label>통화<select name="currency">'+['USD','KRW','EUR'].map(function(value){return'<option '+(value===row.currency?'selected':'')+'>'+value+'</option>';}).join('')+'</select></label><label class="wide">메모<textarea name="memo" placeholder="예상 판매 참고사항">'+encode(row.memo)+'</textarea></label><div id="mesExpectedSoPreview" class="wide">'+expectedPreview(row)+'</div><div class="wide actions"><button class="btn primary" type="button" onclick="saveExpectedSo()">전체저장</button><button class="btn" type="button" onclick="printExpectedSo()">PDF 파일 만들기</button><button class="btn" type="button" onclick="shareExpectedSo()">카카오톡 공유</button><button class="btn" type="button" onclick="openExpectedSoList()">예상 S.O 목록</button></div></form>';
     root.$('modal').classList.add('on');
   };
   root.saveExpectedSo=async function(){
-    var row=expectedFormValue();if(!row||!row.mainGrade||row.weight<=0||row.unitPrice<0)return root.toast('媛뺤쥌쨌以묐웾쨌媛寃⑹쓣 ?뺤씤?섏꽭??',true);
+    var row=expectedFormValue();if(!row||!row.mainGrade||row.weight<=0||row.unitPrice<0)return root.toast('강종·중량·가격을 확인하세요.',true);
     var existing=expectedOrder(row.id);row.createdAt=existing&&existing.createdAt||new Date().toISOString();row.updatedAt=new Date().toISOString();row.createdByName=existing&&existing.createdByName||root.currentUserName();row.amount=round(row.weight*row.unitPrice);row.status='ESTIMATE';
-    var ok=await root.commit('?덉긽 S.O ???,['expectedSalesOrders'],function(next){next.expectedSalesOrders=list(next.expectedSalesOrders).filter(function(item){return text(item.id)!==row.id;});next.expectedSalesOrders.push(row);});
-    if(ok){root.openExpectedSoComposer(row.id);root.toast('?덉긽 S.O ??μ셿猷?쨌 ?ㅼ젣 ?먮ℓ쨌異쒗븯 ?ш퀬?먮뒗 諛섏쁺?섏? ?딆뒿?덈떎.');}
+    var ok=await root.commit('예상 S.O 저장',['expectedSalesOrders'],function(next){next.expectedSalesOrders=list(next.expectedSalesOrders).filter(function(item){return text(item.id)!==row.id;});next.expectedSalesOrders.push(row);});
+    if(ok){root.openExpectedSoComposer(row.id);root.toast('예상 S.O 저장완료 · 실제 판매·출하 재고에는 반영되지 않습니다.');}
   };
   function expectedPrintHtml(row){
     var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-row.weight);
-    return'<!doctype html><html><head><meta charset="utf-8"><title>'+encode(row.expectedSoNo)+'</title><style>@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;color:#172433}h1{text-align:center}table{border-collapse:collapse;width:100%;margin-top:22px}th,td{border:1px solid #333;padding:10px;text-align:left}.summary{margin-top:22px;padding:16px;background:#eef7f5}.note{white-space:pre-wrap}</style></head><body><h1>ESTIMATED SALES ORDER</h1><table><tr><th>Expected S.O</th><td>'+encode(row.expectedSoNo)+'</td><th>Date</th><td>'+encode(String(row.updatedAt||row.createdAt||'').slice(0,10))+'</td></tr><tr><th>Customer</th><td colspan="3">'+encode(row.customer||'-')+'</td></tr><tr><th>Grade</th><td colspan="3">'+encode(displayGrade(gradeParts(row)))+'</td></tr><tr><th>Quantity</th><td>'+root.fmt(row.weight)+' kg</td><th>Unit Price</th><td>'+root.fmt(row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>Total</th><td colspan="3">'+root.fmt(row.weight*row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>Memo</th><td class="note" colspan="3">'+encode(row.memo||'')+'</td></tr></table><div class="summary"><b>?ш퀬 ?덉긽</b><p>?꾩옱 ?덉긽?⑥??ш퀬 '+root.fmt(forecast.forecastRemaining)+' kg ???묒꽦 ??'+root.fmt(remaining)+' kg</p><p>蹂??덉긽 S.O???ㅼ젣 ?먮ℓ쨌異쒗븯 ?ш퀬??諛섏쁺?섏? ?딆뒿?덈떎.</p></div></body></html>';
+    return'<!doctype html><html><head><meta charset="utf-8"><title>'+encode(row.expectedSoNo)+'</title><style>@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;color:#172433}h1{text-align:center}table{border-collapse:collapse;width:100%;margin-top:22px}th,td{border:1px solid #333;padding:10px;text-align:left}.summary{margin-top:22px;padding:16px;background:#eef7f5}.note{white-space:pre-wrap}</style></head><body><h1>ESTIMATED SALES ORDER</h1><table><tr><th>Expected S.O</th><td>'+encode(row.expectedSoNo)+'</td><th>Date</th><td>'+encode(String(row.updatedAt||row.createdAt||'').slice(0,10))+'</td></tr><tr><th>Customer</th><td colspan="3">'+encode(row.customer||'-')+'</td></tr><tr><th>Grade</th><td colspan="3">'+encode(displayGrade(gradeParts(row)))+'</td></tr><tr><th>Quantity</th><td>'+root.fmt(row.weight)+' kg</td><th>Unit Price</th><td>'+root.fmt(row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>Total</th><td colspan="3">'+root.fmt(row.weight*row.unitPrice)+' '+encode(row.currency)+'</td></tr><tr><th>Memo</th><td class="note" colspan="3">'+encode(row.memo||'')+'</td></tr></table><div class="summary"><b>재고 예상</b><p>현재 예상남은재고 '+root.fmt(forecast.forecastRemaining)+' kg → 작성 후 '+root.fmt(remaining)+' kg</p><p>본 예상 S.O는 실제 판매·출하 재고에 반영되지 않습니다.</p></div></body></html>';
   }
-  root.printExpectedSo=function(id){var row=id?expectedOrder(id):expectedFormValue();if(!row)return;var popup=window.open('','_blank');if(!popup)return root.toast('?앹뾽 李⑤떒???댁젣??二쇱꽭??',true);popup.document.open();popup.document.write(expectedPrintHtml(row));popup.document.close();setTimeout(function(){popup.focus();popup.print();},250);};
+  root.printExpectedSo=function(id){var row=id?expectedOrder(id):expectedFormValue();if(!row)return;var popup=window.open('','_blank');if(!popup)return root.toast('팝업 차단을 해제해 주세요.',true);popup.document.open();popup.document.write(expectedPrintHtml(row));popup.document.close();setTimeout(function(){popup.focus();popup.print();},250);};
   root.shareExpectedSo=async function(id){
-    var row=id?expectedOrder(id):expectedFormValue();if(!row)return;var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-row.weight),message='[?좎꽦湲덉냽 ?덉긽 S.O]\n'+row.expectedSoNo+'\n?먮ℓ泥? '+(row.customer||'-')+'\n媛뺤쥌: '+displayGrade(gradeParts(row))+'\n以묐웾: '+root.fmt(row.weight)+' kg\n?④?: '+root.fmt(row.unitPrice)+' '+row.currency+'\n?묒꽦 ???덉긽?⑥??ш퀬: '+root.fmt(remaining)+' kg\n???ㅼ젣 ?먮ℓ쨌異쒗븯 ?ш퀬?먮뒗 諛섏쁺?섏? ?딆뒿?덈떎.';
+    var row=id?expectedOrder(id):expectedFormValue();if(!row)return;var forecast=forecastFor(row),remaining=round(forecast.forecastRemaining-row.weight),message='[신성금속 예상 S.O]\n'+row.expectedSoNo+'\n판매처: '+(row.customer||'-')+'\n강종: '+displayGrade(gradeParts(row))+'\n중량: '+root.fmt(row.weight)+' kg\n단가: '+root.fmt(row.unitPrice)+' '+row.currency+'\n작성 후 예상남은재고: '+root.fmt(remaining)+' kg\n※ 실제 판매·출하 재고에는 반영되지 않습니다.';
     var url=location.origin+location.pathname+'?expectedSo='+encodeURIComponent(row.id||'')+'#sales';
-    if(!expectedOrder(row.id))return root.toast('移댁뭅?ㅽ넚 怨듭쑀 ?꾩뿉 ?덉긽 S.O瑜??꾩껜??ν빐 二쇱꽭??',true);
+    if(!expectedOrder(row.id))return root.toast('카카오톡 공유 전에 예상 S.O를 전체저장해 주세요.',true);
     await shareMessage(row.expectedSoNo,message,url);
   };
-  root.deleteExpectedSo=async function(id){if(!confirm('?좏깮???덉긽 S.O瑜???젣?좉퉴?? ?ㅼ젣 ?먮ℓ?먮즺?먮뒗 ?곹뼢???놁뒿?덈떎.'))return;var ok=await root.commit('?덉긽 S.O ??젣',['expectedSalesOrders'],function(next){next.expectedSalesOrders=list(next.expectedSalesOrders).filter(function(row){return text(row.id)!==text(id);});});if(ok)root.openExpectedSoList();};
+  root.deleteExpectedSo=async function(id){if(!confirm('선택한 예상 S.O를 삭제할까요? 실제 판매자료에는 영향이 없습니다.'))return;var ok=await root.commit('예상 S.O 삭제',['expectedSalesOrders'],function(next){next.expectedSalesOrders=list(next.expectedSalesOrders).filter(function(row){return text(row.id)!==text(id);});});if(ok)root.openExpectedSoList();};
   root.openExpectedSoList=function(){
     ensureState();var rows=list(root.state.expectedSalesOrders).filter(active).sort(function(a,b){return text(b.updatedAt||b.createdAt).localeCompare(text(a.updatedAt||a.createdAt));});
-    root.$('modalTitle').textContent='?덉긽 S.O 紐⑸줉 쨌 ?ㅼ젣 ?먮ℓ? 遺꾨━';
-    root.$('modalBody').innerHTML='<div class="actions" style="margin:14px 0"><button class="btn primary" onclick="openExpectedSoComposer()">+ ?덉긽 S.O ?덈줈 ?묒꽦</button></div>'+(rows.length?'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>踰덊샇</th><th>?먮ℓ泥?/th><th>媛뺤쥌</th><th>以묐웾</th><th>湲덉븸</th><th>?묒뾽</th></tr></thead><tbody>'+rows.map(function(row){return'<tr><td>'+encode(row.expectedSoNo)+'</td><td>'+encode(row.customer||'-')+'</td><td>'+encode(displayGrade(gradeParts(row)))+'</td><td>'+root.fmt(row.weight)+' kg</td><td>'+root.fmt(row.amount||row.weight*row.unitPrice)+' '+encode(row.currency)+'</td><td><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoPreview(this.dataset.id)">誘몃━蹂닿린</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">?섏젙</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">移댄넚</button> <button class="btn danger" data-id="'+encode(row.id)+'" onclick="deleteExpectedSo(this.dataset.id)">??젣</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">??λ맂 ?덉긽 S.O媛 ?놁뒿?덈떎.</div>');
+    root.$('modalTitle').textContent='예상 S.O 목록 · 실제 판매와 분리';
+    root.$('modalBody').innerHTML='<div class="actions" style="margin:14px 0"><button class="btn primary" onclick="openExpectedSoComposer()">+ 예상 S.O 새로 작성</button></div>'+(rows.length?'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>번호</th><th>판매처</th><th>강종</th><th>중량</th><th>금액</th><th>작업</th></tr></thead><tbody>'+rows.map(function(row){return'<tr><td>'+encode(row.expectedSoNo)+'</td><td>'+encode(row.customer||'-')+'</td><td>'+encode(displayGrade(gradeParts(row)))+'</td><td>'+root.fmt(row.weight)+' kg</td><td>'+root.fmt(row.amount||row.weight*row.unitPrice)+' '+encode(row.currency)+'</td><td><button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoPreview(this.dataset.id)">미리보기</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="openExpectedSoComposer(this.dataset.id)">수정</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="printExpectedSo(this.dataset.id)">PDF</button> <button class="btn" data-id="'+encode(row.id)+'" onclick="shareExpectedSo(this.dataset.id)">카톡</button> <button class="btn danger" data-id="'+encode(row.id)+'" onclick="deleteExpectedSo(this.dataset.id)">삭제</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="empty">저장된 예상 S.O가 없습니다.</div>');
     root.$('modal').classList.add('on');
   };
   function actualSalesForecastPreview(){
     var modal=root.$('modal'),body=root.$('modalBody');if(!modal||!modal.classList.contains('on')||!body||body.querySelector('#mesExpectedSoForm'))return;
-    var title=text(root.$('modalTitle')&&root.$('modalTitle').textContent);if(!/?먮ℓ|S\.O/.test(title))return;
+    var title=text(root.$('modalTitle')&&root.$('modalTitle').textContent);if(!/판매|S\.O/.test(title))return;
     var main=body.querySelector('[name="mainGrade"]'),sub=body.querySelector('[name="subGrade"]'),type=body.querySelector('[name="productType"]'),weight=body.querySelector('[name="weight"]');if(!main)return;
     var forecast=forecastFor({productType:type&&type.value,mainGrade:main.value,subGrade:sub&&sub.value}),amount=number(weight&&weight.value),target=body.querySelector('#mesActualSalesForecastPreview');
     if(!target){target=document.createElement('div');target.id='mesActualSalesForecastPreview';target.className='wide mes-actual-forecast';var form=body.querySelector('form');if(form)form.appendChild(target);else body.appendChild(target);}
-    target.innerHTML='<b>?덉긽?ш퀬 ?먮룞?곌껐</b><span>'+encode(forecast.gradeLabel||displayGrade(forecast))+' 쨌 ?꾩옱 ?덉긽?⑥? '+root.fmt(forecast.forecastRemaining)+' kg 쨌 ?낅젰 ??'+root.fmt(forecast.forecastRemaining-amount)+' kg</span>';
+    target.innerHTML='<b>예상재고 자동연결</b><span>'+encode(forecast.gradeLabel||displayGrade(forecast))+' · 현재 예상남은 '+root.fmt(forecast.forecastRemaining)+' kg · 입력 후 '+root.fmt(forecast.forecastRemaining-amount)+' kg</span>';
   }
   function decorate(){
     ensureState();
     var actions=document.querySelector('#content .dashboard-head .actions');
-    if(root.currentView==='inventory'&&actions&&!actions.querySelector('.mes-inventory-mapping'))actions.insertAdjacentHTML('afterbegin','<button class="btn mes-inventory-mapping" onclick="openInventoryGradeMapping()">?ш퀬?쒓린 諛⑹떇</button>');
-    if(root.currentView==='sales'&&actions&&!actions.querySelector('.mes-expected-so'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-expected-so" onclick="openExpectedSoComposer()">+ ?덉긽 S.O ?묒꽦?섍린</button><button class="btn mes-expected-so-list" onclick="openExpectedSoList()">?덉긽 S.O 紐⑸줉 '+list(root.state.expectedSalesOrders).filter(active).length+'嫄?/button>');
+    if(root.currentView==='inventory'&&actions&&!actions.querySelector('.mes-inventory-mapping'))actions.insertAdjacentHTML('afterbegin','<button class="btn mes-inventory-mapping" onclick="openInventoryGradeMapping()">재고표기 방식</button>');
+    if(root.currentView==='sales'&&actions&&!actions.querySelector('.mes-expected-so'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-expected-so" onclick="openExpectedSoComposer()">+ 예상 S.O 작성하기</button><button class="btn mes-expected-so-list" onclick="openExpectedSoList()">예상 S.O 목록 '+list(root.state.expectedSalesOrders).filter(active).length+'건</button>');
     actualSalesForecastPreview();
     if(sharedExpectedSoId&&sharedExpectedSoOpened!==sharedExpectedSoId&&expectedOrder(sharedExpectedSoId)){sharedExpectedSoOpened=sharedExpectedSoId;requestAnimationFrame(function(){root.openExpectedSoPreview(sharedExpectedSoId);});}
   }
@@ -355,10 +363,10 @@
     var baseDefaults=root.defaults;root.defaults=function(value){var next=baseDefaults(value);if(!Array.isArray(next.expectedSalesOrders))next.expectedSalesOrders=[];if(!Array.isArray(next.inventoryGradeMappings))next.inventoryGradeMappings=[];return next;};
     root.schemas.inventory.rows=forecastRows;
     root.schemas.inventory.cols=[
-      ['?덉쥌',function(row){return row.productType||'-';}],['媛뺤쥌',function(row){return row.mainGrade||'-';},'left'],['?뚭컯醫?,function(row){return row.subGrade||'-';}],
-      ['?낇빆?덉젙?ш퀬(kg)',function(row){return root.fmt(row.arrival);}],['誘멸??섏옱怨?kg)',function(row){return root.fmt(row.uninspected);}],['?묒뾽?湲곗옱怨?kg)',function(row){return root.fmt(row.workWaiting);} ],['誘명룷?μ옱怨?kg)',function(row){return root.fmt(row.unpacked);}],
-      ['?꾨즺?ш퀬(kg)',function(row){return root.fmt(row.completed);}],['?좎궗媛뺤쥌 ?ш퀬(kg)',function(row){return row.isFamilySummary?'<b>'+root.fmt(row.familyStock)+'</b>':root.fmt(row.expectedStock);}],['?좎궗媛뺤쥌 異쒗븯?덉젙(kg)',function(row){return root.fmt(row.shippingPlanned);}],
-      ['?좎궗媛뺤쥌 ?덉긽?ш퀬(kg)',function(row){return '<b style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+'</b>';}],['?쒓린諛⑹떇',function(row){return row.isFamilySummary?'臾띠쓬?쒓린':'?먮Ц?좎?';}]
+      ['품종',function(row){return row.productType||'-';}],['강종',function(row){return row.mainGrade||'-';},'left'],['소강종',function(row){return row.subGrade||'-';}],
+      ['입항예정재고(kg)',function(row){return root.fmt(row.arrival);}],['미검수재고(kg)',function(row){return root.fmt(row.uninspected);}],['작업대기재고(kg)',function(row){return root.fmt(row.workWaiting);} ],['미포장재고(kg)',function(row){return root.fmt(row.unpacked);}],
+      ['완료재고(kg)',function(row){return root.fmt(row.completed);}],['유사강종 재고(kg)',function(row){return row.isFamilySummary?'<b>'+root.fmt(row.familyStock)+'</b>':root.fmt(row.expectedStock);}],['유사강종 출하예정(kg)',function(row){return root.fmt(row.shippingPlanned);}],
+      ['유사강종 예상재고(kg)',function(row){return '<b style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+'</b>';}],['표기방식',function(row){return row.isFamilySummary?'묶음표기':'원문유지';}]
     ];
     var baseDetail=root.mesDetailMarkup;root.mesDetailMarkup=function(view,row){if(view==='inventory')return inventoryDetail(row);return baseDetail(view,row);};
     var baseRender=root.render;root.render=function(){var result=baseRender.apply(this,arguments);requestAnimationFrame(decorate);return result;};
