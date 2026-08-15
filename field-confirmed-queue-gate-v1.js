@@ -97,7 +97,9 @@
       try{return fn.apply(context,args)}finally{shared.salesOrders=allRows}
     }
 
-    ['renderShippingModeMenu','renderShippingWork','renderInstantShipping','renderShippingRequests'].forEach(function(name){
+    // The progress dashboard must show every active S.O from the planning stage.
+    // Only the actual field shipping screens are gated by dispatch confirmation.
+    ['renderShippingModeMenu','renderShippingWork','renderInstantShipping'].forEach(function(name){
       var original=win[name];
       if(typeof original!=='function')return;
       win[name]=function confirmedShippingRender(){
@@ -131,4 +133,3 @@
     install:install
   };
 });
-
