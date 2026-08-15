@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260815-search-stock-audit-8';
+  var VERSION='20260815-inventory-view-kakao-9';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
   try{sharedExpectedSoId=text(new URLSearchParams(location.search).get('expectedSo'));}catch(_){sharedExpectedSoId='';}
@@ -46,9 +46,8 @@
   }
   async function shareMessage(titleValue,message,url){
     var full=[message,url].filter(Boolean).join('\n');
-    if(typeof root.mesShareText==='function')return root.mesShareText(titleValue,full);
-    var mobile=!!navigator.share&&(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')||(navigator.maxTouchPoints>1&&/Macintosh/i.test(navigator.userAgent||'')));
-    try{if(mobile){await navigator.share({title:titleValue,text:message,url:url});return true;}}catch(error){if(error&&error.name==='AbortError')return false;}
+    if(typeof root.mesShareText==='function')return root.mesShareText(titleValue,message,url);
+    try{if(typeof navigator.share==='function'){await navigator.share({title:titleValue,text:message,url:url});return true;}}catch(error){if(error&&error.name==='AbortError')return false;}
     var copied=await copyShareText(full);
     root.toast(copied?'PC 공유 준비완료 · 카카오톡 대화창에 붙여넣으세요.':'공유문구를 자동 복사하지 못했습니다. 다시 시도해 주세요.',!copied);
     return copied;
