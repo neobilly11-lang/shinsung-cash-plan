@@ -362,12 +362,18 @@ window.filtered=function(rows){
   if(location) out=out.filter(function(row){return String(row.location||row.locations||"").toLowerCase().includes(location);});
   if(currentView==="inventory"){
     var inventoryMode=filters.status==="유사강종"?"grouped":String(filters.inventoryMode||"original");
-    out=out.filter(function(row){return inventoryMode==="grouped"?!!row.isFamilySummary:!row.isFamilySummary;});
+    var familyInventoryRows=out.filter(function(row){return !!row.isFamilySummary;});
+    var originalInventoryRows=out.filter(function(row){return !row.isFamilySummary;});
+    var preferredInventoryRows=inventoryMode==="grouped"?familyInventoryRows:originalInventoryRows;
+    var fallbackInventoryRows=inventoryMode==="grouped"?originalInventoryRows:familyInventoryRows;
+    // A stale view preference must never hide the shared inventory.  When the
+    // selected representation has no rows, show the available representation.
+    out=preferredInventoryRows.length?preferredInventoryRows:fallbackInventoryRows;
     if(filters.status==="입항예정")out=out.filter(function(row){return num(row.arrival)>0;});
     if(filters.status==="미검수")out=out.filter(function(row){return num(row.uninspected)>0;});
     if(filters.status==="작업대기")out=out.filter(function(row){return num(row.workWaiting)>0;});
     if(filters.status==="완료")out=out.filter(function(row){return num(row.completed)>0;});
-    if(filters.status==="유사강종")out=out.filter(function(row){return !!row.isFamilySummary;});
+    if(filters.status==="유사강종"&&out.some(function(row){return !!row.isFamilySummary;}))out=out.filter(function(row){return !!row.isFamilySummary;});
   }else{
     if(filters.status==="대기") out=out.filter(function(row){return !/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
     if(filters.status==="완료") out=out.filter(function(row){return /완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
@@ -1185,8 +1191,8 @@ window.__mesRuntime={
   getAuthUser:()=>authUser
 };
 </script>
-<script src="mes-carr260401-source-fix-v1.js?v=20260816-4"></script>
-<script src="mes-inventory-family-stock-v2.js?v=20260816-copper-slash-grade-10"></script>
+<script src="mes-carr260401-source-fix-v1.js?v=20260816-silent-5"></script>
+<script src="mes-inventory-family-stock-v2.js?v=20260816-inventory-restore-11"></script>
 <script src="mes-executive-dashboard-v1.js?v=20260816-fx-history-1"></script>
 <script src="mes-kakao-stage-alert-v1.js?v=20260816-9"></script>
 </body>
