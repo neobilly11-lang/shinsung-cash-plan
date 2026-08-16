@@ -1,10 +1,14 @@
+Exit code: 0
+Wall time: 2.7 seconds
+Total output lines: 1200
+Output:
 <!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#102542">
-<title>신성금속 MES</title>
+<title>?좎꽦湲덉냽 MES</title>
 <style>
 :root{--navy:#102542;--navy2:#233c62;--blue:#3273dc;--teal:#008ea1;--mint:#e7f7f5;--bg:#f3f6fa;--line:#dce3ec;--text:#182434;--muted:#6c7a8d;--danger:#d94c58;--shadow:0 12px 34px #19324f18}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;color:var(--text);background:var(--bg)}button,input,select,textarea{font:inherit}.hidden{display:none!important}
@@ -23,872 +27,43 @@
 </style>
 </head>
 <body>
-<div id="auth" class="auth"><div class="auth-card"><h1>신성금속 MES</h1><p>현장관리와 같은 계정으로 로그인하세요.</p><label>이름 또는 이메일<input id="loginId" autocomplete="username" placeholder="등록한 이름 또는 이메일"></label><label>비밀번호<input id="loginPassword" type="password" autocomplete="current-password"></label><label style="display:flex;gap:8px;align-items:center"><input id="remember" type="checkbox" checked style="width:22px;height:22px;margin:0"> 자동접속 유지</label><button class="btn primary" onclick="login()">로그인·접속</button><button class="btn" onclick="location.href='/stable-inspection-mobile-v4.html?authReturn=mes'">사용자 등록·비밀번호 찾기</button><div id="authMsg" class="auth-msg"></div></div></div>
+<div id="auth" class="auth"><div class="auth-card"><h1>?좎꽦湲덉냽 MES</h1><p>?꾩옣愿由ъ? 媛숈? 怨꾩젙?쇰줈 濡쒓렇?명븯?몄슂.</p><label>?대쫫 ?먮뒗 ?대찓??input id="loginId" autocomplete="username" placeholder="?깅줉???대쫫 ?먮뒗 ?대찓??></label><label>鍮꾨?踰덊샇<input id="loginPassword" type="password" autocomplete="current-password"></label><label style="display:flex;gap:8px;align-items:center"><input id="remember" type="checkbox" checked style="width:22px;height:22px;margin:0"> ?먮룞?묒냽 ?좎?</label><button class="btn primary" onclick="login()">濡쒓렇?맞룹젒??/button><button class="btn" onclick="location.href='/stable-inspection-mobile-v4.html?authReturn=mes'">?ъ슜???깅줉쨌鍮꾨?踰덊샇 李얘린</button><div id="authMsg" class="auth-msg"></div></div></div>
 <div class="shell">
-<aside id="side" class="side"><div class="brand" onclick="openView('dashboard')" style="cursor:pointer"><strong>신성금속 MES</strong><span>현장관리 실시간 연동 시스템</span></div><div id="nav"></div><button class="nav-btn field-link" onclick="openFieldManagement()"><b>↗</b> 현장관리 열기</button></aside>
-<main class="main"><header class="top"><button class="menu-toggle" onclick="side.classList.toggle('on')">☰</button><div id="pageTitle" class="page-title">통합 현황판</div><div id="sync" class="sync"><b>●</b><span>공용 서버 연결 중</span></div><button id="user" class="user" onclick="logout()">로그인</button></header><div id="content" class="content"></div></main>
+<aside id="side" class="side"><div class="brand" onclick="openView('dashboard')" style="cursor:pointer"><strong>?좎꽦湲덉냽 MES</strong><span>?꾩옣愿由??ㅼ떆媛??곕룞 ?쒖뒪??/span></div><div id="nav"></div><button class="nav-btn field-link" onclick="openFieldManagement()"><b>??/b> ?꾩옣愿由??닿린</button></aside>
+<main class="main"><header class="top"><button class="menu-toggle" onclick="side.classList.toggle('on')">??/button><div id="pageTitle" class="page-title">?듯빀 ?꾪솴??/div><div id="sync" class="sync"><b>??/b><span>怨듭슜 ?쒕쾭 ?곌껐 以?/span></div><button id="user" class="user" onclick="logout()">濡쒓렇??/button></header><div id="content" class="content"></div></main>
 </div>
-<div id="modal" class="modal"><div class="modal-card" onclick="event.stopPropagation()"><div class="modal-head"><h2 id="modalTitle">자료 수정</h2><button class="close" onclick="closeModal()">×</button></div><div id="modalBody"></div></div></div>
-<div id="progress" class="save-progress"><div><div class="spinner"></div><h2>공용 서버에 저장 중</h2><p>현장관리와 MES에 동시에 반영하고 있습니다.</p></div></div><div id="toast" class="toast"></div>
+<div id="modal" class="modal"><div class="modal-card" onclick="event.stopPropagation()"><div class="modal-head"><h2 id="modalTitle">?먮즺 ?섏젙</h2><button class="close" onclick="closeModal()">횞</button></div><div id="modalBody"></div></div></div>
+<div id="progress" class="save-progress"><div><div class="spinner"></div><h2>怨듭슜 ?쒕쾭?????以?/h2><p>?꾩옣愿由ъ? MES???숈떆??諛섏쁺?섍퀬 ?덉뒿?덈떎.</p></div></div><div id="toast" class="toast"></div>
 <script>
 const API='https://orpeybiqikrdydkhsjjs.supabase.co',KEY='sb_publishable_TerLvPZo7e5_X91A-P4qlQ_DaqBly0Q';
 const AUTH_LOCAL_KEY='scrap-auth-session-v1',AUTH_TEMP_KEY='scrap-auth-session-temp-v1',AUTH_NAME_MAP_KEY='scrap-auth-name-email-v1',AUTH_BRIDGE_KEY='shinsung-field-auth-bridge-v1';
 const VIEWS=[
- {group:'계획관리',id:'purchase',icon:'01',label:'구매계획'}, {group:'계획관리',id:'sales',icon:'02',label:'판매계획'},
- {group:'입고·생산',id:'inbound',icon:'03',label:'입고현황'}, {group:'입고·생산',id:'production',icon:'04',label:'생산현황'},
- {group:'입고·생산',id:'settlement',icon:'05',label:'세틀현황'}, {group:'재고·출하',id:'inventory',icon:'06',label:'재고현황'},
- {group:'재고·출하',id:'stockDetail',icon:'07',label:'재고상세'}, {group:'재고·출하',id:'shippingPlan',icon:'08',label:'출하계획'},
- {group:'재고·출하',id:'shipping',icon:'09',label:'출고현황'}, {group:'기록',id:'daily',icon:'10',label:'일일 작업일지'}
+ {group:'怨꾪쉷愿由?,id:'purchase',icon:'01',label:'援щℓ怨꾪쉷'}, {group:'怨꾪쉷愿由?,id:'sales',icon:'02',label:'?먮ℓ怨꾪쉷'},
+ {group:'?낃퀬쨌?앹궛',id:'inbound',icon:'03',label:'?낃퀬?꾪솴'}, {group:'?낃퀬쨌?앹궛',id:'production',icon:'04',label:'?앹궛?꾪솴'},
+ {group:'?낃퀬쨌?앹궛',id:'settlement',icon:'05',label:'?명??꾪솴'}, {group:'?ш퀬쨌異쒗븯',id:'inventory',icon:'06',label:'?ш퀬?꾪솴'},
+ {group:'?ш퀬쨌異쒗븯',id:'stockDetail',icon:'07',label:'?ш퀬?곸꽭'}, {group:'?ш퀬쨌異쒗븯',id:'shippingPlan',icon:'08',label:'異쒗븯怨꾪쉷'},
+ {group:'?ш퀬쨌異쒗븯',id:'shipping',icon:'09',label:'異쒓퀬?꾪솴'}, {group:'湲곕줉',id:'daily',icon:'10',label:'?쇱씪 ?묒뾽?쇱?'}
 ];
 let state={},revision=0,currentView='dashboard',filters={},authSession=null,authUser=null,pollBusy=false,lastLoad=0;
 const $=id=>document.getElementById(id),safe=value=>Array.isArray(value)?value:[],num=value=>Number(value)||0,esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=value=>num(value).toLocaleString('ko-KR',{maximumFractionDigits:2}),date=value=>String(value||'').slice(0,10)||'-',dt=value=>String(value||'').replace('T',' ').slice(0,16)||'-';
-const nowDate=()=>new Date().toLocaleDateString('sv-SE'),currentUserName=()=>String(authUser?.user_metadata?.display_name||authUser?.user_metadata?.name||authUser?.email?.split('@')[0]||'MES 사용자');
+const nowDate=()=>new Date().toLocaleDateString('sv-SE'),currentUserName=()=>String(authUser?.user_metadata?.display_name||authUser?.user_metadata?.name||authUser?.email?.split('@')[0]||'MES ?ъ슜??);
 function defaults(x={}){return{pos:[],splits:[],inputs:[],bags:[],losses:[],workWaits:[],salesOrders:[],packingLists:[],shipments:[],shipmentAllocations:[],returnReceipts:[],domesticReceipts:[],movements:[],waitingMoves:[],receiptWorks:[],shippingWorks:[],auditLogs:[],locations:[],mainGrades:[],subGrades:[],samples:[],analysisRecords:[],preSettlements:[],systemSettings:{},...x}}
 function authMap(){try{return JSON.parse(localStorage.getItem(AUTH_NAME_MAP_KEY)||'{}')}catch{return{}}}function resolveEmail(v){v=String(v||'').trim();return v.includes('@')?v.toLowerCase():authMap()[v.toLowerCase()]||''}
-async function authRequest(path,opt={}){const r=await fetch(`${API}/auth/v1/${path}`,{method:opt.method||'GET',headers:{apikey:KEY,'Content-Type':'application/json',...(opt.token?{Authorization:`Bearer ${opt.token}`}:{})},body:opt.body?JSON.stringify(opt.body):undefined}),text=await r.text();let out={};try{out=JSON.parse(text||'{}')}catch{out={message:text}}if(!r.ok)throw Error(out.message||out.error_description||out.error||`인증 HTTP ${r.status}`);return out}
+async function authRequest(path,opt={}){const r=await fetch(`${API}/auth/v1/${path}`,{method:opt.method||'GET',headers:{apikey:KEY,'Content-Type':'application/json',...(opt.token?{Authorization:`Bearer ${opt.token}`}:{})},body:opt.body?JSON.stringify(opt.body):undefined}),text=await r.text();let out={};try{out=JSON.parse(text||'{}')}catch{out={message:text}}if(!r.ok)throw Error(out.message||out.error_description||out.error||`?몄쬆 HTTP ${r.status}`);return out}
 function saveSession(session,remember){localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);(remember?localStorage:sessionStorage).setItem(remember?AUTH_LOCAL_KEY:AUTH_TEMP_KEY,JSON.stringify({...session,user:session?.user||authUser||null,remember}))}
 function savedSession(){const params=new URLSearchParams(location.search);if(params.get('authBridge')==='1'||params.get('from')==='field')for(const store of [sessionStorage,localStorage])try{const bridged=JSON.parse(store.getItem(AUTH_BRIDGE_KEY)||'null');if(bridged?.access_token){sessionStorage.removeItem(AUTH_BRIDGE_KEY);localStorage.removeItem(AUTH_BRIDGE_KEY);saveSession(bridged,bridged.remember!==false);return bridged}}catch(_){store.removeItem(AUTH_BRIDGE_KEY)}for(const [store,key] of [[localStorage,AUTH_LOCAL_KEY],[sessionStorage,AUTH_TEMP_KEY]])try{const x=JSON.parse(store.getItem(key)||'null');if(x?.access_token)return x}catch{}return null}
-function openFieldManagement(){if(!authSession?.access_token){$('auth').classList.add('on');$('authMsg').textContent='MES에 먼저 로그인해 주세요.';return}const bridge={...authSession,user:authUser||authSession.user||null,remember:authSession.remember!==false,source:'mes',createdAt:Date.now()};try{sessionStorage.removeItem('shinsung-auth-return');sessionStorage.setItem(AUTH_BRIDGE_KEY,JSON.stringify(bridge));saveSession(bridge,bridge.remember)}catch(error){toast('현장관리 로그인 연결 준비 실패: '+error.message,true);return}location.href='/stable-inspection-mobile-v4.html?from=mes&authBridge=1#home'}
-async function login(){const email=resolveEmail($('loginId').value),password=$('loginPassword').value;if(!email||!password)return $('authMsg').textContent='등록한 이메일과 비밀번호를 입력하세요.';$('authMsg').textContent='로그인 확인 중…';try{const s=await authRequest('token?grant_type=password',{method:'POST',body:{email,password}});unlock(s,s.user||await authRequest('user',{token:s.access_token}),$('remember').checked)}catch(e){$('authMsg').textContent='로그인 실패: '+e.message}}
-function unlock(session,user,remember=true){authSession=session;authUser=user;session.user=user;saveSession(session,remember);$('auth').classList.remove('on');$('user').textContent='👤 '+currentUserName()+' · 로그아웃';void loadState(true)}
-async function verifyFastSession(session){try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}authSession=session;authUser=user;session.user=user;saveSession(session,session.remember!==false);$('user').textContent='👤 '+currentUserName()+' · 로그아웃'}catch{localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);authSession=null;authUser=null;$('auth').classList.add('on');$('authMsg').textContent='로그인 시간이 만료되었습니다. 다시 로그인하세요.'}}
+function openFieldManagement(){if(!authSession?.access_token){$('auth').classList.add('on');$('authMsg').textContent='MES??癒쇱? 濡쒓렇?명빐 二쇱꽭??';return}const bridge={...authSession,user:authUser||authSession.user||null,remember:authSession.remember!==false,source:'mes',createdAt:Date.now()};try{sessionStorage.removeItem('shinsung-auth-return');sessionStorage.setItem(AUTH_BRIDGE_KEY,JSON.stringify(bridge));saveSession(bridge,bridge.remember)}catch(error){toast('?꾩옣愿由?濡쒓렇???곌껐 以鍮??ㅽ뙣: '+error.message,true);return}location.href='/stable-inspection-mobile-v4.html?from=mes&authBridge=1#home'}
+async function login(){const email=resolveEmail($('loginId').value),password=$('loginPassword').value;if(!email||!password)return $('authMsg').textContent='?깅줉???대찓?쇨낵 鍮꾨?踰덊샇瑜??낅젰?섏꽭??';$('authMsg').textContent='濡쒓렇???뺤씤 以묅?;try{const s=await authRequest('token?grant_type=password',{method:'POST',body:{email,password}});unlock(s,s.user||await authRequest('user',{token:s.access_token}),$('remember').checked)}catch(e){$('authMsg').textContent='濡쒓렇???ㅽ뙣: '+e.message}}
+function unlock(session,user,remember=true){authSession=session;authUser=user;session.user=user;saveSession(session,remember);$('auth').classList.remove('on');$('user').textContent='?뫀 '+currentUserName()+' 쨌 濡쒓렇?꾩썐';void loadState(true)}
+async function verifyFastSession(session){try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}authSession=session;authUser=user;session.user=user;saveSession(session,session.remember!==false);$('user').textContent='?뫀 '+currentUserName()+' 쨌 濡쒓렇?꾩썐'}catch{localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);authSession=null;authUser=null;$('auth').classList.add('on');$('authMsg').textContent='濡쒓렇???쒓컙??留뚮즺?섏뿀?듬땲?? ?ㅼ떆 濡쒓렇?명븯?몄슂.'}}
 let mesAuthInitPromise=null;
-async function initAuth(){if(mesAuthInitPromise)return mesAuthInitPromise;mesAuthInitPromise=(async()=>{if(['localhost','127.0.0.1'].includes(location.hostname)){return unlock({access_token:'test'},{id:'test',email:'mes@local',user_metadata:{display_name:'MES 테스트'}},false)}const session=savedSession();if(session?.user){unlock(session,session.user,session.remember!==false);void verifyFastSession(session);return}if(session)try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}return unlock(session,user,session.remember!==false)}catch{}$('auth').classList.add('on');setSync('로그인 후 공용자료를 불러옵니다.')} )();try{return await mesAuthInitPromise}finally{mesAuthInitPromise=null}}
+async function initAuth(){if(mesAuthInitPromise)return mesAuthInitPromise;mesAuthInitPromise=(async()=>{if(['localhost','127.0.0.1'].includes(location.hostname)){return unlock({access_token:'test'},{id:'test',email:'mes@local',user_metadata:{display_name:'MES ?뚯뒪??}},false)}const session=savedSession();if(session?.user){unlock(session,session.user,session.remember!==false);void verifyFastSession(session);return}if(session)try{let user;try{user=await authRequest('user',{token:session.access_token})}catch{const next=await authRequest('token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});Object.assign(session,next);user=next.user||await authRequest('user',{token:session.access_token})}return unlock(session,user,session.remember!==false)}catch{}$('auth').classList.add('on');setSync('濡쒓렇????怨듭슜?먮즺瑜?遺덈윭?듬땲??')} )();try{return await mesAuthInitPromise}finally{mesAuthInitPromise=null}}
 async function logout(){try{if(authSession?.access_token)await authRequest('logout?scope=local',{method:'POST',token:authSession.access_token})}catch{}localStorage.removeItem(AUTH_LOCAL_KEY);sessionStorage.removeItem(AUTH_TEMP_KEY);location.reload()}
-async function readState(){const r=await fetch('/api/scrap-state',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`서버 HTTP ${r.status}`);return out}
-async function readRevision(){const r=await fetch('/api/scrap-state?revision=1',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`서버 HTTP ${r.status}`);return num(out.revision)}
-function setSync(text,bad=false){$('sync').classList.toggle('bad',bad);$('sync').innerHTML=`<b>●</b><span>${esc(text)}</span>`}
-async function loadState(shouldRender=true){try{setSync('공용 서버 동기화 중');const out=await readState();state=defaults(out.payload);revision=num(out.revision);lastLoad=Date.now();setSync('실시간 연결 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));if(shouldRender)render()}catch(e){setSync('서버 연결 실패',true);toast(e.message,true)}}
-async function realtimePoll(){if(pollBusy||document.hidden||!authUser||$('progress').classList.contains('on')||($('modal').classList.contains('on')&&$('modalBody').querySelector('form')))return;pollBusy=true;try{const remote=await readRevision();if(remote>revision)await loadState(true)}catch(e){setSync('재연결 대기',true)}finally{pollBusy=false}}
-async function commit(label,collections,mutate){$('progress').classList.add('on');try{for(let attempt=0;attempt<3;attempt++){const latest=await readState(),draft=defaults(structuredClone(latest.payload));mutate(draft);const changes={};collections.forEach(key=>changes[key]=draft[key]);const audit={id:crypto.randomUUID(),action:'MES_UPDATE',label,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()};changes.auditLogs=[...safe(draft.auditLogs),audit];const r=await fetch('/api/scrap-state',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,baseRevision:num(latest.revision)})}),out=await r.json();if(r.status===409)continue;if(!r.ok)throw Error(out.error||`저장 HTTP ${r.status}`);await loadState(true);toast(label+' 저장 완료 · 현장관리에도 반영됨');return}throw Error('동시 저장 충돌이 반복되었습니다. 잠시 후 다시 저장하세요.')}catch(e){toast(label+' 실패: '+e.message,true)}finally{$('progress').classList.remove('on')}}
-function toast(text,bad=false){const t=$('toast');t.textContent=text;t.style.background=bad?'#a52e38':'#163a33';t.classList.add('on');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('on'),3500)}
-function buildNav(){let html='<div class="nav-group"><button class="nav-btn" data-id="dashboard" onclick="openView(\'dashboard\')"><b>⌂</b> 통합 현황판</button></div>',group='';VIEWS.forEach(v=>{if(group!==v.group){group=v.group;html+=`<div class="nav-group"><div class="nav-title">${group}</div>`}html+=`<button class="nav-btn" data-id="${v.id}" onclick="openView('${v.id}')"><b>${v.icon}</b> ${v.label}</button>`;if(VIEWS[VIEWS.indexOf(v)+1]?.group!==group)html+='</div>'});$('nav').innerHTML=html}
-function openView(id){currentView=id;filters={};$('side').classList.remove('on');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.id===id));render();history.replaceState(null,'','#'+id)}
-function groupBy(rows,key){const map=new Map;rows.forEach(r=>{const k=typeof key==='function'?key(r):r[key]||'미지정';if(!map.has(k))map.set(k,[]);map.get(k).push(r)});return map}
-function purchaseContractWeight(row){row=row||{};const candidates=[row.purchaseContractWeight,row.contractWeight,row.purchaseQuantity,row.contractQuantity,row.plannedPurchaseWeight,row.weight,row.netWeight,row.grossWeight];for(const value of candidates){const parsed=num(value);if(parsed>0)return parsed}return 0}
-function purchaseContractGrade(row){row=row||{};return row.purchaseContractGrade||row.contractGrade||row.grade||row.mainGrade||row.itemName||''}
-function packageUsed(no){return safe(state.splits).filter(x=>x.packageNo===no&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)+safe(state.losses).filter(x=>x.packageNo===no&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
-function bagCode(b){return b.completionNo||b.bagNo||b.code||b.id}function bagWeight(b){return num(b.netWeight||b.nw||b.weight)}function activeBags(){return safe(state.bags).filter(b=>!['DEPLETED','SHIPPED','CANCELLED'].includes(b.status)&&bagWeight(b)>0)}
-function poRows(){return[...groupBy(safe(state.pos).filter(p=>p.status!=='CANCELLED'&&!p.inboundRequestSuperseded),p=>p.poNo||'미지정')].map(([poNo,rows])=>{const contractWeight=rows.reduce((s,x)=>s+purchaseContractWeight(x),0);return{id:poNo,poNo,rows,company:rows[0]?.company||'',grade:[...new Set(rows.map(purchaseContractGrade).filter(Boolean))].join(' / '),packages:rows.length,gw:contractWeight,nw:contractWeight,expected:rows[0]?.expectedArrivalDate||rows[0]?.arrivalDate||rows[0]?.createdAt,status:rows.every(x=>x.receivedAt)?'입고완료':rows.some(x=>x.receivedAt)?'부분입고':rows[0]?.purchaseStatus||'입고대기',currency:rows[0]?.currency||((rows[0]?.type||'').includes('DOMESTIC')?'KRW':'USD'),rate:num(rows[0]?.exchangeRate)||1}})}
-function salesRows(){return safe(state.salesOrders).filter(x=>x.status!=='CANCELLED').map(x=>({id:x.id,soNo:x.soNo,customer:x.customer,grade:x.grade,weight:num(x.weight),shipDate:x.shipDate,status:x.status||'WAITING',type:x.packingListType==='OVERSEAS'?'수출':'국내',currency:x.currency||((x.packingListType==='OVERSEAS')?'USD':'KRW'),amount:num(x.amount||x.salesAmount)}))}
-function inboundRows(){return safe(state.pos).filter(x=>x.status!=='CANCELLED').map(x=>({id:x.id,packageNo:x.packageNo,poNo:x.poNo,company:x.company,grade:x.grade,planWeight:num(x.weight),receivedWeight:num(x.netWeight||x.weight),receivedAt:x.receivedAt,status:x.receiptStatus||(!x.receivedAt?'WAITING':'RECEIVED'),inspection:x.inspectionStatus||'WAITING',memo:x.receiptMemo||''}))}
-function productionRows(){const splitByPackage=groupBy(safe(state.splits).filter(x=>x.status!=='CANCELLED'),'packageNo');return inboundRows().map(p=>{const splits=splitByPackage.get(p.packageNo)||[],confirmed=splits.reduce((s,x)=>s+num(x.weight),0),loss=safe(state.losses).filter(x=>x.packageNo===p.packageNo&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0),wait=safe(state.workWaits).filter(x=>x.packageNo===p.packageNo&&x.status==='WAITING').reduce((s,x)=>s+num(x.weight),0);return{...p,confirmed,loss,wait,remain:Math.max(0,p.planWeight-confirmed-loss),finalGrade:[...new Set(splits.map(x=>[x.productType,x.mainGrade,x.subGrade,x.detailGrade].filter(Boolean).join(' · ')))].join(' / ')}})}
-function inventoryRows(){return activeBags().map(b=>({id:b.id,code:bagCode(b),productType:b.productType||'',mainGrade:b.mainGrade||b.grade||'',subGrade:b.subGrade||'',detailGrade:b.detailGrade||'',nw:bagWeight(b),packing:num(b.packagingWeight||b.tareWeight),gw:bagWeight(b)+num(b.packagingWeight||b.tareWeight),location:b.location||'미지정',status:b.status||'ACTIVE',packageNo:b.packageNo||b.sourcePackageNo||''}))}
-function shipmentRows(){const maps=new Map(safe(state.shipments).map(x=>[x.salesOrderId,x]));return salesRows().map(s=>{const x=maps.get(s.id)||safe(state.shipments).find(y=>y.soNo===s.soNo)||{};return{...s,shipmentId:x.id||'',shippedWeight:num(x.weight||x.shippedWeight),shippedAt:x.shippedAt||x.shippingCompletedAt,status:x.status||s.status,packingList:safe(state.packingLists).find(p=>p.salesOrderId===s.id&&p.status!=='CANCELLED')?.packingListNo||''}})}
-function settlementRows(){return poRows().map(po=>{const items=productionRows().filter(x=>x.poNo===po.poNo),done=items.filter(x=>x.remain<=.001).length,progress=items.length?Math.round(done/items.length*100):0;return{...po,progress,done,total:items.length,status:progress===100?'완료':'미완료',loss:items.reduce((s,x)=>s+x.loss,0),inspected:items.reduce((s,x)=>s+x.confirmed,0)}})}
-function dashboard(){const pos=inboundRows(),prod=productionRows(),inv=inventoryRows(),sales=salesRows();return`<div class="dashboard-head"><div><h1>신성금속 통합 생산현황</h1><p>현장관리와 동일한 공용자료를 실시간으로 집계합니다.</p></div><div class="actions"><button class="btn" onclick="loadState()">↻ 지금 동기화</button><button class="btn primary" onclick="openView('daily')">오늘 작업일지</button></div></div><div class="kpis">${kpi('입고대기',pos.filter(x=>!x.receivedAt).length+'건',fmt(pos.filter(x=>!x.receivedAt).reduce((s,x)=>s+x.planWeight,0))+' kg')}${kpi('생산대기',fmt(prod.reduce((s,x)=>s+x.remain,0))+' kg','검수·작업 미완료')}${kpi('완료재고',fmt(inv.reduce((s,x)=>s+x.nw,0))+' kg',inv.length+'개 포장')}${kpi('출하대기',sales.filter(x=>!['FINAL','SHIPPED','DONE'].includes(x.status)).length+'건',fmt(sales.reduce((s,x)=>s+x.weight,0))+' kg 계획')}${kpi('오늘 작업',todayAudits().length+'건',currentUserName())}</div><div class="panel"><div style="padding:18px"><h2 style="margin:0 0 15px">공정별 중량</h2><div class="kpis">${kpi('입고대기',fmt(prod.reduce((s,x)=>s+x.remain,0))+' kg','원재고')}${kpi('작업대기',fmt(prod.reduce((s,x)=>s+x.wait,0))+' kg','쇼트·산처리·절단')}${kpi('완료포장',fmt(inv.reduce((s,x)=>s+x.nw,0))+' kg','출하 가능')}${kpi('출하완료',fmt(shipmentRows().reduce((s,x)=>s+x.shippedWeight,0))+' kg','누적')}${kpi('로스',fmt(prod.reduce((s,x)=>s+x.loss,0))+' kg','누적 처리')}</div></div></div>`}
-function kpi(label,value,note){return`<div class="kpi"><small>${esc(label)}</small><strong>${esc(value)}</strong><span>${esc(note)}</span></div>`}
-const schemas={
-purchase:{title:'구매계획',rows:poRows,cols:[['구분',r=>r.currency==='KRW'?'국내':'국외'],['구매번호',r=>r.poNo,'link'],['입항예정일',r=>date(r.expected)],['공급사',r=>r.company,'left'],['대표강종',r=>r.grade,'left'],['패키지',r=>r.packages],['GW(kg)',r=>fmt(r.gw)],['NW(kg)',r=>fmt(r.nw)],['통화',r=>r.currency],['환율',r=>fmt(r.rate)],['구매상태',r=>status(r.status)]],edit:'purchase'},
- sales:{title:'판매계획',rows:salesRows,cols:[['판매구분',r=>r.type],['판매번호',r=>r.soNo,'link'],['출하예정일',r=>date(r.shipDate)],['고객사',r=>r.customer,'left'],['대표강종',r=>r.grade,'left'],['NW(kg)',r=>fmt(r.weight)],['통화',r=>r.currency],['판매금액',r=>fmt(r.amount)],['상태',r=>status(r.status)]],edit:'sales'},
- inbound:{title:'입고현황',rows:inboundRows,cols:[['구매번호',r=>r.poNo],['사내입고번호',r=>r.packageNo,'link'],['공급사',r=>r.company,'left'],['강종',r=>r.grade,'left'],['계획NW(kg)',r=>fmt(r.planWeight)],['입고NW(kg)',r=>fmt(r.receivedWeight)],['입고일',r=>date(r.receivedAt)],['입고상태',r=>status(r.status)],['검수상태',r=>status(r.inspection)]],edit:'inbound'},
- production:{title:'생산현황',rows:productionRows,cols:[['구매번호',r=>r.poNo],['사내입고번호',r=>r.packageNo,'link'],['공급사',r=>r.company,'left'],['거래처강종',r=>r.grade,'left'],['최종강종',r=>r.finalGrade||'-','left'],['입고NW',r=>fmt(r.planWeight)],['검수확정',r=>fmt(r.confirmed)],['작업대기',r=>fmt(r.wait)],['로스',r=>fmt(r.loss)],['미처리',r=>fmt(r.remain)],['진행',r=>status(r.remain<=.001?'완료':'진행중')]],edit:null},
- settlement:{title:'세틀현황',rows:settlementRows,cols:[['구매번호',r=>r.poNo,'link'],['공급사',r=>r.company,'left'],['대표강종',r=>r.grade,'left'],['입고NW',r=>fmt(r.nw)],['검수확정',r=>fmt(r.inspected)],['로스',r=>fmt(r.loss)],['완료/전체',r=>`${r.done}/${r.total}`],['진행률',r=>r.progress+'%'],['세틀상태',r=>status(r.status)]],edit:'settlement'},
- inventory:{title:'재고현황',rows:()=>{const map=groupBy(inventoryRows(),r=>[r.productType,r.mainGrade,r.subGrade].join('|'));return[...map].map(([key,rows])=>({id:key,productType:rows[0].productType,mainGrade:rows[0].mainGrade,subGrade:rows[0].subGrade,shipping:0,stock:rows.reduce((s,x)=>s+x.nw,0),packing:rows.length,locations:[...new Set(rows.map(x=>x.location))].join(' / ')}))},cols:[['품종',r=>r.productType||'-'],['강종',r=>r.mainGrade,'left'],['소강종',r=>r.subGrade||'-'],['완료재고(kg)',r=>fmt(r.stock)],['완료포장',r=>r.packing+'개'],['보관위치',r=>r.locations,'left']],edit:null},
- stockDetail:{title:'재고상세',rows:inventoryRows,cols:[['품번',r=>r.code,'link'],['품종',r=>r.productType||'-'],['강종',r=>r.mainGrade,'left'],['소강종',r=>r.subGrade||'-'],['상세강종',r=>r.detailGrade||'-','left'],['N/W(kg)',r=>fmt(r.nw)],['포장재중량',r=>fmt(r.packing)],['G/W(kg)',r=>fmt(r.gw)],['보관위치',r=>r.location],['상태',r=>status(r.status)]],edit:'inventory'},
- shippingPlan:{title:'출하계획',rows:salesRows,cols:[['판매구분',r=>r.type],['판매번호',r=>r.soNo,'link'],['출하예정일',r=>date(r.shipDate)],['고객사',r=>r.customer,'left'],['대표강종',r=>r.grade,'left'],['NW(kg)',r=>fmt(r.weight)],['통화',r=>r.currency],['판매금액',r=>fmt(r.amount)],['출하상태',r=>status(r.status)]],edit:'sales'},
- shipping:{title:'출고현황',rows:shipmentRows,cols:[['판매구분',r=>r.type],['판매번호',r=>r.soNo,'link'],['대표강종',r=>r.grade,'left'],['출하예정일',r=>date(r.shipDate)],['고객사',r=>r.customer,'left'],['계획NW(kg)',r=>fmt(r.weight)],['출하NW(kg)',r=>fmt(r.shippedWeight)],['출하상태',r=>status(r.status)],['출하일자',r=>date(r.shippedAt)],['PACKING LIST',r=>r.packingList||'-']],edit:'shipping'}
-};
-function status(value){const s=String(value||'-'),good=/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE|ACTIVE/.test(s),bad=/취소|CANCEL/.test(s);return`<span class="status ${bad?'bad':good?'good':'wait'}">${esc(s)}</span>`}
-function todayAudits(){return safe(state.auditLogs).filter(x=>date(x.createdAt)===nowDate())}
-function render(){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.id===currentView));if(currentView==='dashboard'){$('pageTitle').textContent='통합 현황판';$('content').innerHTML=dashboard();return}if(currentView==='daily'){renderDaily();return}const schema=schemas[currentView]||schemas.purchase;$('pageTitle').textContent=schema.title;let rows=filtered(schema.rows()),html=`<div class="dashboard-head"><div><h1>${schema.title}</h1><p>현장관리 공용자료 · ${rows.length.toLocaleString()}건</p></div><div class="actions"><button class="btn" onclick="loadState()">↻ 조회</button><button class="btn primary" onclick="exportView()">엑셀</button></div></div><div class="panel"><div class="toolbar">${filterControls()}<button class="btn primary" onclick="render()">조회</button><button class="btn" onclick="filters={};render()">초기화</button></div>${tableHtml(schema,rows)}${cardsHtml(schema,rows)}</div>`;$('content').innerHTML=html}
-function filterControls(){return`<div class="control"><label>통합 검색</label><input value="${esc(filters.q||'')}" placeholder="번호·회사·강종·장소" oninput="filters.q=this.value;renderRowsOnly()"></div><div class="control"><label>시작일</label><input type="date" value="${esc(filters.from||'')}" onchange="filters.from=this.value;renderRowsOnly()"></div><div class="control"><label>종료일</label><input type="date" value="${esc(filters.to||'')}" onchange="filters.to=this.value;renderRowsOnly()"></div><div class="control"><label>상태</label><select onchange="filters.status=this.value;renderRowsOnly()"><option value="">전체</option><option ${filters.status==='대기'?'selected':''}>대기</option><option ${filters.status==='완료'?'selected':''}>완료</option></select></div><div class="control"><label>표시건수</label><select onchange="filters.limit=this.value;renderRowsOnly()"><option>50</option><option ${filters.limit==='100'?'selected':''}>100</option><option ${filters.limit==='500'?'selected':''}>500</option></select></div>`}
-function rowText(r){return Object.values(r).filter(v=>['string','number'].includes(typeof v)).join(' ').toLowerCase()}function rowDate(r){return date(r.shipDate||r.expected||r.receivedAt||r.shippedAt||r.createdAt)}
-function filtered(rows){let out=rows,q=String(filters.q||'').trim().toLowerCase();if(q)out=out.filter(r=>rowText(r).includes(q));if(filters.from)out=out.filter(r=>rowDate(r)==='-'||rowDate(r)>=filters.from);if(filters.to)out=out.filter(r=>rowDate(r)==='-'||rowDate(r)<=filters.to);if(filters.status==='대기')out=out.filter(r=>!/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/.test(String(r.status||r.inspection)));if(filters.status==='완료')out=out.filter(r=>/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/.test(String(r.status||r.inspection)));return out.slice(0,num(filters.limit)||50)}
-function renderRowsOnly(){clearTimeout(renderRowsOnly.t);renderRowsOnly.t=setTimeout(render,100)}
-function tableHtml(schema,rows){if(!rows.length)return'<div class="empty">조건에 맞는 자료가 없습니다.</div>';const totalWeight=rows.reduce((s,r)=>s+num(r.nw||r.weight||r.stock||r.planWeight),0);return`<div class="table-wrap"><table><thead><tr><th>No.</th>${schema.cols.map(c=>`<th>${c[0]}</th>`).join('')}<th>작업</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${schema.cols.map(c=>`<td class="${c[2]==='left'?'left':''} ${c[2]==='link'?'link':''}" ${c[2]==='link'?`onclick="editRow('${esc(r.id)}')"`:''}>${c[1](r)}</td>`).join('')}<td>${schema.edit?`<button class="btn" onclick="editRow('${esc(r.id)}')">수정</button>`:'-'}</td></tr>`).join('')}<tr class="total-row"><td colspan="${schema.cols.length}">합계</td><td>${fmt(totalWeight)} kg</td><td></td></tr></tbody></table></div>`}
-function cardsHtml(schema,rows){return`<div class="cards">${rows.map(r=>`<article class="mobile-card"><h3>${esc(r.poNo||r.soNo||r.packageNo||r.code||r.mainGrade||'자료')}</h3><dl>${schema.cols.slice(0,7).map(c=>`<dt>${c[0]}</dt><dd>${c[1](r)}</dd>`).join('')}</dl>${schema.edit?`<button class="btn primary" onclick="editRow('${esc(r.id)}')">상세·수정</button>`:''}</article>`).join('')||'<div class="empty">자료가 없습니다.</div>'}</div>`}
-function editRow(id){const schema=schemas[currentView],row=schema?.rows().find(x=>String(x.id)===String(id));if(!row||!schema.edit)return;const forms={purchase:purchaseForm,sales:salesForm,inbound:inboundForm,settlement:settlementForm,inventory:inventoryForm,shipping:shippingForm};$('modalTitle').textContent=schema.title+' 수정';$('modalBody').innerHTML=forms[schema.edit](row);$('modal').classList.add('on')}
-function input(name,label,value,type='text',wide=false){return`<label class="${wide?'wide':''}">${label}<input name="${name}" type="${type}" value="${esc(value||'')}"></label>`}function select(name,label,value,options){return`<label>${label}<select name="${name}">${options.map(x=>`<option ${String(x)===String(value)?'selected':''}>${esc(x)}</option>`).join('')}</select></label>`}
-function formWrap(id,type,fields){return`<form class="form-grid" onsubmit="event.preventDefault();saveEdit('${esc(id)}','${type}',this)">${fields}<div class="wide actions"><button class="btn primary" type="submit">저장·양쪽 프로그램 반영</button><button class="btn" type="button" onclick="closeModal()">취소</button></div></form>`}
-function purchaseForm(r){return formWrap(r.id,'purchase',input('company','공급사',r.company)+input('expected','입항예정일',date(r.expected)==='-'?'':date(r.expected),'date')+select('status','구매상태',r.status,['입고대기','구매확정','부분입고','입고완료'])+select('currency','통화',r.currency,['KRW','USD','JPY','EURO'])+input('rate','환율',r.rate,'number')+input('memo','구매 메모',r.rows[0]?.purchaseMemo||'','text',true))}
-function salesForm(r){return formWrap(r.id,'sales',input('customer','고객사',r.customer)+input('shipDate','출하예정일',date(r.shipDate)==='-'?'':date(r.shipDate),'date')+input('grade','대표강종',r.grade)+input('weight','계획 NW(kg)',r.weight,'number')+select('currency','통화',r.currency||'KRW',['KRW','USD','JPY','EURO'])+input('rate','환율',r.exchangeRate||r.rate||1,'number')+select('status','판매·출하상태',r.status,['WAITING','READY','INSTANT_READY','FINAL','SHIPPED','CANCELLED'])+input('memo','S.O 메모',r.memo||'','text',true))}
-function inboundForm(r){return formWrap(r.id,'inbound',input('receivedAt','입고일',date(r.receivedAt)==='-'?'':date(r.receivedAt),'date')+select('status','입고상태',r.status,['WAITING','RECEIVED'])+select('inspection','검수상태',r.inspection,['WAITING','IN_PROGRESS','COMPLETE'])+input('memo','입고 특이사항',r.memo||'','text',true))}
-function settlementForm(r){return formWrap(r.id,'settlement',select('status','세틀상태',r.rows[0]?.settlementStatus||r.status,['미완료','검토중','완료'])+input('memo','세틀 메모',r.rows[0]?.settlementMemo||'','text',true))}
-function inventoryForm(r){return formWrap(r.id,'inventory',input('mainGrade','강종',r.mainGrade)+input('subGrade','소강종',r.subGrade)+input('detailGrade','상세강종',r.detailGrade)+input('nw','N/W(kg)',r.nw,'number')+input('location','보관위치',r.location)+select('status','재고상태',r.status,['ACTIVE','WAITING','DEPLETED','SHIPPED']))}
-function shippingForm(r){return formWrap(r.shipmentId||r.id,'shipping',input('shippedAt','출하일자',date(r.shippedAt)==='-'?'':date(r.shippedAt),'date')+input('weight','출하 N/W(kg)',r.shippedWeight||r.weight,'number')+select('status','출하상태',r.status,['WAITING','READY','FINAL','SHIPPED','DONE'])+input('memo','출하 메모',r.shippingMemo||'','text',true))}
-function formData(form){return Object.fromEntries(new FormData(form).entries())}
-async function saveEdit(id,type,form){const v=formData(form);if(type==='purchase')await commit('구매계획 수정',['pos'],s=>safe(s.pos).filter(x=>(x.poNo||'미지정')===id).forEach(x=>Object.assign(x,{company:v.company,expectedArrivalDate:v.expected,purchaseStatus:v.status,currency:v.currency,exchangeRate:num(v.rate),purchaseMemo:v.memo,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})));if(type==='sales')await commit('판매계획 수정',['salesOrders'],s=>{const x=s.salesOrders.find(x=>x.id===id);if(x)Object.assign(x,{customer:v.customer,shipDate:v.shipDate,grade:v.grade,weight:num(v.weight),status:v.status,memo:v.memo,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})});if(type==='inbound')await commit('입고현황 수정',['pos'],s=>{const x=s.pos.find(x=>x.id===id);if(x)Object.assign(x,{receivedAt:v.receivedAt?v.receivedAt+'T00:00:00.000Z':'',receiptStatus:v.status,inspectionStatus:v.inspection,receiptMemo:v.memo,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})});if(type==='settlement')await commit('세틀현황 수정',['pos'],s=>safe(s.pos).filter(x=>(x.poNo||'미지정')===id).forEach(x=>Object.assign(x,{settlementStatus:v.status,settlementMemo:v.memo,settlementUpdatedAt:new Date().toISOString(),settlementUpdatedBy:currentUserName()})));if(type==='inventory')await commit('재고상세 수정',['bags'],s=>{const x=s.bags.find(x=>x.id===id);if(x)Object.assign(x,{mainGrade:v.mainGrade,grade:v.mainGrade,subGrade:v.subGrade,detailGrade:v.detailGrade,weight:num(v.nw),netWeight:num(v.nw),location:v.location,status:v.status,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})});if(type==='shipping')await commit('출고현황 수정',['shipments','salesOrders'],s=>{let x=s.shipments.find(x=>x.id===id);if(!x){const order=s.salesOrders.find(x=>x.id===id);x={id:crypto.randomUUID(),salesOrderId:order?.id||id,soNo:order?.soNo||'',createdAt:new Date().toISOString()};s.shipments.push(x)}Object.assign(x,{shippedAt:v.shippedAt?v.shippedAt+'T00:00:00.000Z':'',weight:num(v.weight),shippedWeight:num(v.weight),status:v.status,shippingMemo:v.memo,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})});closeModal()}
-function closeModal(){$('modal').classList.remove('on');document.querySelector('#modal .modal-card')?.classList.remove('wide-modal')}
-function renderDaily(){const rows=todayAudits().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));$('pageTitle').textContent='일일 작업일지';$('content').innerHTML=`<div class="dashboard-head"><div><h1>일일 작업일지</h1><p>${nowDate()} · 현장관리와 MES의 작업기록 통합</p></div><button class="btn primary" onclick="openDailyForm()">+ 작업일지 추가</button></div><div class="kpis">${kpi('총 작업',rows.length+'건','오늘')}${kpi('입고',rows.filter(x=>/RECEIPT|입고/.test(x.action+' '+x.label)).length+'건','완료')}${kpi('검수·생산',rows.filter(x=>/INSPECTION|WORK|검수|생산/.test(x.action+' '+x.label)).length+'건','작업')}${kpi('출하',rows.filter(x=>/SHIP|출하/.test(x.action+' '+x.label)).length+'건','완료')}${kpi('작업자',new Set(rows.map(x=>x.operatorName||x.actorName).filter(Boolean)).size+'명','참여')}</div><div class="panel">${rows.length?`<div class="table-wrap" style="max-height:none"><table><thead><tr><th>시간</th><th>작업자</th><th>구분</th><th>번호</th><th>내용</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${dt(x.createdAt).slice(11)}</td><td>${esc(x.operatorName||x.actorName||'-')}</td><td>${esc(x.action||'-')}</td><td>${esc(x.packageNo||x.poNo||x.soNo||x.completionNo||'-')}</td><td class="left">${esc(x.label||x.note||x.reason||x.instruction||'-')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">오늘 기록이 없습니다.</div>'}</div>`}
-function openDailyForm(){$('modalTitle').textContent='작업일지 추가';$('modalBody').innerHTML=formWrap('new','daily',input('category','작업구분','일반업무')+input('reference','관련번호','')+`<label class="wide">작업내용<textarea name="note" required></textarea></label>`);$('modal').classList.add('on')}
-const saveEditBase=saveEdit;saveEdit=async function(id,type,form){if(type!=='daily')return saveEditBase(id,type,form);const v=formData(form);await commit('작업일지 등록',['auditLogs'],s=>s.auditLogs.push({id:crypto.randomUUID(),action:'MES_DAILY_NOTE',category:v.category,reference:v.reference,label:v.note,note:v.note,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()}));closeModal();renderDaily()}
-function exportView(){const schema=schemas[currentView];if(!schema)return;const rows=filtered(schema.rows()),headers=schema.cols.map(x=>x[0]),plain=html=>{const d=document.createElement('div');d.innerHTML=html;return d.textContent};const body=[headers,...rows.map(r=>schema.cols.map(c=>plain(String(c[1](r)))))];const html=`<html><head><meta charset="utf-8"></head><body><table border="1"><tr>${headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>${body.slice(1).map(row=>`<tr>${row.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>
-
-
-</body></html>`,blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`신성금속_MES_${schema.title}_${nowDate()}.xls`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-buildNav();currentView=location.hash.slice(1)||'dashboard';openView(currentView);setTimeout(initAuth,0);setInterval(realtimePoll,2500);addEventListener('focus',realtimePoll);addEventListener('online',realtimePoll);
-</script>
-<style id="mesSharedDetailV2Style">
-.click-row{cursor:pointer}.click-row:hover td{background:#f2fbfa}.detail-banner{background:linear-gradient(135deg,#102542,#087a78);color:#fff;border-radius:15px;padding:18px;margin-top:16px}.detail-banner h2{margin:0 0 7px}.detail-banner p{margin:0;color:#d7f6f2}.detail-section{margin-top:16px;border:1px solid var(--line);border-radius:14px;overflow:hidden}.detail-section>h3{margin:0;padding:13px 15px;background:#eef4f8}.detail-scroll{overflow:auto}.detail-table{min-width:720px}.detail-table th{position:static}.detail-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px}.line-editor{border:1px solid var(--line);border-radius:13px;padding:13px;margin-top:12px;background:#f9fbfd}.line-editor-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.registration-lines{grid-column:1/-1}.photo-strip{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;padding:13px}.photo-strip img{width:100%;height:130px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}.mini-note{font-size:12px;color:var(--muted);margin-top:5px}.cache-note{font-size:11px;color:#47617e}.row-action{white-space:nowrap}
-@media(max-width:760px){.photo-strip{grid-template-columns:1fr 1fr}.detail-banner{padding:15px}.detail-actions .btn{flex:1 1 130px}.line-editor .form-grid{margin-top:9px}.detail-table{min-width:760px}}
-</style>
-<script id="mesSharedDetailV2">
-/* MES와 현장관리의 동일 공용자료를 재로그인 뒤에도 보존하고, 목록→상세→수정 흐름을 제공한다. */
-const MES_CACHE_KEY_V2='shinsung-mes-shared-state-cache-v2';
-let mesCurrentDetail={view:'',id:''};
-function mesBusinessCount(payload){return['pos','splits','inputs','bags','salesOrders','shipments','workWaits','domesticReceipts'].reduce((n,key)=>n+safe(payload?.[key]).length,0)}
-function mesReadCache(){try{const value=JSON.parse(localStorage.getItem(MES_CACHE_KEY_V2)||'null');return value?.payload?value:null}catch(_){return null}}
-function mesWriteCache(payload,rev){try{localStorage.setItem(MES_CACHE_KEY_V2,JSON.stringify({payload,revision:rev,savedAt:new Date().toISOString()}))}catch(_){}}
-async function mesFetchState(){let last;for(let i=0;i<3;i++){try{return await readState()}catch(error){last=error;if(i<2)await new Promise(resolve=>setTimeout(resolve,300*(i+1)))}}throw last}
-let mesLoadPromise=null;
-loadState=async function loadMesDurableState(shouldRender=true){if(mesLoadPromise)return mesLoadPromise;mesLoadPromise=(async()=>{const cached=mesReadCache();if(cached?.payload){const cachedRevision=num(cached.revision),needsCachePaint=!mesBusinessCount(state)||cachedRevision>revision;if(needsCachePaint){state=defaults(cached.payload);revision=cachedRevision;if(shouldRender)render()}setSync('저장된 자료 표시 · 최신 변경 확인 중');try{const remoteRevision=await readRevision();if(remoteRevision===revision){lastLoad=Date.now();setSync('빠른 동기화 완료 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));return true}}catch(_){/* 전체자료 요청으로 한 번 더 확인 */}}try{setSync('변경자료 동기화 중');const out=await mesFetchState();if(!out?.payload)throw Error('공용 서버 응답에 업무자료가 없습니다.');state=defaults(out.payload);revision=num(out.revision);lastLoad=Date.now();mesWriteCache(state,revision);setSync('실시간 연결 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));if(shouldRender)render();return true}catch(error){if(cached?.payload){state=defaults(cached.payload);revision=Math.max(revision,num(cached.revision));setSync('저장자료 표시 · 서버 재연결 대기',true);if(shouldRender)render();toast('서버 재연결 중입니다. 마지막 동기화 자료는 유지됩니다.',true);return false}setSync('서버 연결 실패',true);toast(error.message,true);return false}})();try{return await mesLoadPromise}finally{mesLoadPromise=null}}
-commit=async function commitMesDurable(label,collections,mutate){$('progress').classList.add('on');try{for(let attempt=0;attempt<4;attempt++){const latest=await mesFetchState(),draft=defaults(structuredClone(latest.payload));mutate(draft);const changes={};collections.forEach(key=>changes[key]=draft[key]);const audit={id:crypto.randomUUID(),action:'MES_UPDATE',label,operatorName:currentUserName(),operatorEmail:authUser?.email||'',createdAt:new Date().toISOString()};changes.auditLogs=[...safe(draft.auditLogs),audit];const response=await fetch('/api/scrap-state',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,baseRevision:num(latest.revision)})});let out={};try{out=await response.json()}catch(_){out={}}if(response.status===409)continue;if(!response.ok)throw Error(out.error||`저장 HTTP ${response.status}`);state=draft;revision=num(out.revision)||num(latest.revision)+1;mesWriteCache(state,revision);setSync('저장 완료 · 현장관리 동시 반영');render();toast(label+' 저장 완료 · 재로그인 후에도 유지됩니다.');return true}throw Error('다른 작업자의 저장과 반복 충돌했습니다. 다시 눌러 주세요.')}catch(error){toast(label+' 실패: '+error.message,true);return false}finally{$('progress').classList.remove('on')}}
-function mesInputWeight(bagId){return safe(state.inputs).filter(x=>x.bagId===bagId&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
-function mesMovedWeight(bagId){return safe(state.inputs).filter(x=>x.sourceBagId===bagId&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
-function mesShippedWeight(bagId){return safe(state.shipmentAllocations).filter(x=>x.bagId===bagId&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
-function mesReturnedWeight(bagId){return safe(state.returnReceipts).filter(x=>x.bagId===bagId&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
-function mesBagStock(bag){const hasLedger=safe(state.inputs).some(x=>(x.bagId===bag.id||x.sourceBagId===bag.id)&&x.status!=='CANCELLED')||safe(state.shipmentAllocations).some(x=>x.bagId===bag.id&&x.status!=='CANCELLED')||safe(state.returnReceipts).some(x=>x.bagId===bag.id&&x.status!=='CANCELLED');const ledger=Math.max(0,mesInputWeight(bag.id)-mesMovedWeight(bag.id)-mesShippedWeight(bag.id)+mesReturnedWeight(bag.id));return hasLedger?ledger:num(bag.netWeight||bag.nw||bag.weight||bag.target)}
-activeBags=function activeMesBags(){return safe(state.bags).filter(b=>!['DEPLETED','SHIPPED','CANCELLED'].includes(String(b.status||'').toUpperCase())&&mesBagStock(b)>.0001)};
-inventoryRows=function mesInventoryRows(){return activeBags().map(b=>({id:b.id,code:bagCode(b),productType:b.productType||'',mainGrade:b.mainGrade||b.grade||'',subGrade:b.subGrade||'',detailGrade:b.detailGrade||'',nw:mesBagStock(b),packing:num(b.packagingWeight||b.tareWeight),gw:mesBagStock(b)+num(b.packagingWeight||b.tareWeight),location:b.location||'미지정',status:b.status||'ACTIVE',packageNo:b.packageNo||b.sourcePackageNo||'',bag:b}))};
-function mesSalesRows(){const groups=groupBy(safe(state.salesOrders).filter(x=>x.status!=='CANCELLED'),x=>x.soNo||x.id);return[...groups].map(([soNo,items])=>({id:soNo,soNo,items,customer:items[0]?.customer||'',grade:[...new Set(items.map(x=>x.grade||[x.productType,x.mainGrade,x.subGrade,x.detailGrade].filter(Boolean).join(' · ')).filter(Boolean))].join(' / '),weight:items.reduce((s,x)=>s+num(x.weight),0),shipDate:items[0]?.shipDate,status:items.every(x=>['FINAL','SHIPPED','DONE'].includes(x.status))?items[0]?.status||'FINAL':items[0]?.status||'WAITING',type:items[0]?.packingListType==='OVERSEAS'?'수출':'국내',currency:items[0]?.currency||(items[0]?.packingListType==='OVERSEAS'?'USD':'KRW'),amount:items.reduce((s,x)=>s+num(x.amount||x.salesAmount||num(x.weight)*num(x.unitPrice)),0)}))}
-salesRows=mesSalesRows;
-shipmentRows=function mesShipmentRows(){return salesRows().map(order=>{const related=safe(state.shipments).filter(x=>x.soNo===order.soNo||order.items.some(item=>x.salesOrderId===item.id)),alloc=safe(state.shipmentAllocations).filter(a=>related.some(x=>x.id===a.shipmentId)),lists=safe(state.packingLists).filter(p=>p.soNo===order.soNo||order.items.some(item=>p.salesOrderId===item.id)),last=related.slice().sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)))[0]||{};return{...order,shipmentId:last.id||'',shipments:related,allocations:alloc,packingLists:lists,shippedWeight:alloc.length?alloc.reduce((s,x)=>s+num(x.weight),0):related.reduce((s,x)=>s+num(x.weight||x.shippedWeight),0),shippedAt:last.shippedAt||last.shippingCompletedAt,status:last.status||order.status,packingList:lists.map(x=>x.packingListNo).filter(Boolean).join(' / ')}})};
-schemas.sales.rows=salesRows;schemas.shippingPlan.rows=salesRows;schemas.shipping.rows=shipmentRows;
-schemas.inventory.rows=()=>{const map=groupBy(inventoryRows(),r=>[r.productType,r.mainGrade,r.subGrade].join('|'));return[...map].map(([key,rows])=>({id:key,productType:rows[0].productType,mainGrade:rows[0].mainGrade,subGrade:rows[0].subGrade,stock:rows.reduce((s,x)=>s+x.nw,0),packing:rows.length,locations:[...new Set(rows.map(x=>x.location))].join(' / '),rows}))};
-schemas.stockDetail.rows=inventoryRows;schemas.production.edit='production';schemas.inventory.edit='inventoryGroup';
-function mesHtmlText(value){const box=document.createElement('div');box.innerHTML=String(value??'');return box.textContent||''}
-function mesLineData(container){return Object.fromEntries([...container.querySelectorAll('input[name],select[name],textarea[name]')].map(input=>[input.name,input.value]))}
-tableHtml=function mesDetailTable(schema,rows){if(!rows.length)return'<div class="empty">조건에 맞는 자료가 없습니다.</div>';const total=rows.reduce((s,r)=>s+num(r.nw||r.weight||r.stock||r.planWeight),0);return`<div class="table-wrap"><table><thead><tr><th>No.</th>${schema.cols.map(c=>`<th>${c[0]}</th>`).join('')}<th>상세</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="click-row" onclick="openMesDetail('${currentView}','${esc(r.id)}')"><td>${i+1}</td>${schema.cols.map(c=>`<td class="${c[2]==='left'?'left':''}">${c[1](r)}</td>`).join('')}<td class="row-action"><button class="btn primary" onclick="event.stopPropagation();openMesDetail('${currentView}','${esc(r.id)}')">상세보기</button></td></tr>`).join('')}<tr class="total-row"><td colspan="${schema.cols.length}">합계</td><td>${fmt(total)} kg</td><td></td></tr></tbody></table></div>`}
-cardsHtml=function mesDetailCards(schema,rows){return`<div class="cards">${rows.map(r=>`<article class="mobile-card" onclick="openMesDetail('${currentView}','${esc(r.id)}')"><h3>${esc(r.poNo||r.soNo||r.packageNo||r.code||r.mainGrade||'자료')}</h3><dl>${schema.cols.slice(0,7).map(c=>`<dt>${c[0]}</dt><dd>${c[1](r)}</dd>`).join('')}</dl><button class="btn primary" onclick="event.stopPropagation();openMesDetail('${currentView}','${esc(r.id)}')">현장 상세내역 보기</button></article>`).join('')||'<div class="empty">자료가 없습니다.</div>'}</div>`}
-const mesBaseRenderV2=render;
-render=function renderMesWithRegistration(){mesBaseRenderV2();if(['purchase','sales'].includes(currentView)){const actions=document.querySelector('#content .dashboard-head .actions');if(actions&&!actions.querySelector('.mes-register'))actions.insertAdjacentHTML('afterbegin',`<button class="btn primary mes-register" onclick="openMesRegistration('${currentView==='purchase'?'PO':'SO'}')">+ ${currentView==='purchase'?'P.O':'S.O'} 등록</button>`)}if(currentView==='dashboard'){const actions=document.querySelector('#content .dashboard-head .actions');if(actions)actions.insertAdjacentHTML('afterbegin','<button class="btn primary" onclick="openMesRegistration(\'PO\')">+ P.O 등록</button><button class="btn primary" onclick="openMesRegistration(\'SO\')">+ S.O 등록</button>')}};
-function mesRow(view,id){if(view==='daily')return todayAudits().find(x=>String(x.id)===String(id));return schemas[view]?.rows().find(x=>String(x.id)===String(id))}
-function mesSection(title,headers,rows){return`<section class="detail-section"><h3>${esc(title)} · ${rows.length}건</h3>${rows.length?`<div class="detail-scroll"><table class="detail-table"><thead><tr>${headers.map(x=>`<th>${esc(x[0])}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${headers.map(x=>`<td>${esc(x[1](row)??'-')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:24px">자료 없음</div>'}</section>`}
-function mesPackageSections(posRows){const nos=new Set(posRows.map(x=>x.packageNo)),splits=safe(state.splits).filter(x=>nos.has(x.packageNo)&&x.status!=='CANCELLED'),losses=safe(state.losses).filter(x=>nos.has(x.packageNo)&&x.status!=='CANCELLED'),waits=safe(state.workWaits).filter(x=>nos.has(x.packageNo)&&x.status!=='CANCELLED'),inputs=safe(state.inputs).filter(x=>nos.has(x.packageNo)&&x.status!=='CANCELLED');return mesSection('사내입고·검수 원본',[['사내입고번호',x=>x.packageNo],['거래처',x=>x.company],['거래처 강종',x=>x.grade],['중량(kg)',x=>fmt(x.weight)],['입고',x=>x.receiptStatus||'-'],['검수',x=>x.inspectionStatus||'-'],['작업자',x=>x.inspectorName||x.receiptWorkerName||x.operatorName||'-']],posRows)+mesSection('최종강종 분류',[['사내입고번호',x=>x.packageNo],['품종',x=>x.productType],['강종',x=>x.mainGrade||x.grade],['소강종',x=>x.subGrade],['상세강종',x=>x.detailGrade],['확정중량',x=>fmt(x.weight)],['검수자',x=>x.inspectorName||x.operatorName||'-']],splits)+mesSection('로스·작업대기',[['구분',x=>x.type||x.workType||'로스'],['번호',x=>x.packageNo],['중량',x=>fmt(x.weight)],['상태',x=>x.status],['작업자',x=>x.operatorName||x.completedByName||'-'],['메모',x=>x.memo||x.reason||x.instruction||'-']],[...losses,...waits])+mesSection('포장 이동',[['사내입고번호',x=>x.packageNo],['완료번호',x=>x.completionNo||bagCode(state.bags.find(b=>b.id===x.bagId))],['강종',x=>x.grade],['이동중량',x=>fmt(x.weight)],['상태',x=>x.status]],inputs)}
-function mesSalesSections(row){const items=row.items||safe(state.salesOrders).filter(x=>x.soNo===row.soNo),ids=new Set(items.map(x=>x.id)),shipments=safe(state.shipments).filter(x=>x.soNo===row.soNo||ids.has(x.salesOrderId)),shipmentIds=new Set(shipments.map(x=>x.id)),alloc=safe(state.shipmentAllocations).filter(x=>shipmentIds.has(x.shipmentId)),lists=safe(state.packingLists).filter(x=>x.soNo===row.soNo||ids.has(x.salesOrderId));return mesSection('S.O 품목',[['S.O',x=>x.soNo],['판매처',x=>x.customer],['강종',x=>x.grade||[x.productType,x.mainGrade,x.subGrade,x.detailGrade].filter(Boolean).join(' · ')],['중량',x=>fmt(x.weight)],['단가',x=>fmt(x.unitPrice)],['상태',x=>x.status]],items)+mesSection('출하·PACKING LIST',[['출하일',x=>date(x.shippedAt||x.shippingCompletedAt)],['상태',x=>x.status],['중량',x=>fmt(x.weight||x.shippedWeight)],['작업자',x=>x.shippingWorkerName||x.operatorName||'-'],['메모',x=>x.shippingMemo||'-']],shipments)+mesSection('완료재고 배정',[['완료번호',x=>x.completionNo||bagCode(state.bags.find(b=>b.id===x.bagId))],['중량',x=>fmt(x.weight)],['상태',x=>x.status]],alloc)+mesSection('PACKING LIST',[['번호',x=>x.packingListNo],['구분',x=>x.type||x.templateType],['상태',x=>x.status],['생성일',x=>dt(x.createdAt)]],lists)}
-function mesDetailMarkup(view,row){if(['purchase','settlement'].includes(view))return mesPackageSections(row.rows||safe(state.pos).filter(x=>x.poNo===row.poNo));if(['sales','shippingPlan','shipping'].includes(view))return mesSalesSections(row);if(['inbound','production'].includes(view)){const pos=safe(state.pos).find(x=>x.id===row.id);return mesPackageSections(pos?[pos]:[])}if(view==='inventory'){return mesSection('강종별 완료재고',[['완료번호',x=>x.code],['품종',x=>x.productType],['강종',x=>x.mainGrade],['소강종',x=>x.subGrade],['N/W',x=>fmt(x.nw)],['G/W',x=>fmt(x.gw)],['위치',x=>x.location]],row.rows||[])}if(view==='stockDetail'){const bag=safe(state.bags).find(x=>x.id===row.id),inputs=safe(state.inputs).filter(x=>x.bagId===row.id||x.sourceBagId===row.id),alloc=safe(state.shipmentAllocations).filter(x=>x.bagId===row.id);return mesSection('완료재고 상세',[['완료번호',x=>bagCode(x)],['품종',x=>x.productType],['강종',x=>x.mainGrade||x.grade],['소강종',x=>x.subGrade],['상세강종',x=>x.detailGrade],['현재 N/W',x=>fmt(mesBagStock(x))],['장소',x=>x.location||'미지정']],bag?[bag]:[])+mesSection('입고·이동 이력',[['원번호',x=>x.packageNo||x.sourceCompletionNo],['강종',x=>x.grade],['중량',x=>fmt(x.weight)],['상태',x=>x.status]],inputs)+mesSection('출하 배정',[['완료번호',x=>x.completionNo],['중량',x=>fmt(x.weight)],['상태',x=>x.status]],alloc)}if(view==='daily')return mesSection('작업일지 상세',[['시간',x=>dt(x.createdAt)],['작업자',x=>x.operatorName||x.actorName],['구분',x=>x.action||x.category],['관련번호',x=>x.packageNo||x.poNo||x.soNo||x.reference],['내용',x=>x.label||x.note||x.reason]],row?[row]:[]);return''}
-const MES_PHOTO_BUCKET='scrap-photos',mesSettlementTemplates={};
-function mesPhotoUrl(path){const value=String(path||'').trim();if(!value)return'';if(/^(?:https?:\/\/|data:image\/|blob:)/i.test(value))return value;const clean=value.replace(/^\/+|^scrap-photos\//g,'');return`${API}/storage/v1/object/public/${MES_PHOTO_BUCKET}/${clean.split('/').map(encodeURIComponent).join('/')}`}
-function mesPhotoLabel(key){return({shape:'형상 사진',analyzer:'분석기 사진',anomaly:'이상 사진',receiptPhoto:'입고 사진',arrivalPhoto:'입고 사진',photo:'작업 사진',shippingPhoto:'출하 사진',afterPhoto:'작업후 사진',analyzerPhoto:'분석치 사진',packagePhoto:'패키지 사진',weightSlipPhoto:'계근표 사진'})[key]||String(key||'저장 사진').replace(/([a-z])([A-Z])/g,'$1 $2')}
-function mesPhotoEntries(sources){const found=[],seen=new Set(),visit=(value,key='',memo='',photoContext=false,depth=0)=>{if(value==null||depth>5)return;if(typeof value==='string'){const text=value.trim(),looksPhoto=/^(?:https?:\/\/|data:image\/|blob:)/i.test(text)||/\.(?:jpe?g|png|webp|heic)(?:\?|$)/i.test(text);if(photoContext&&looksPhoto&&!seen.has(text)){seen.add(text);found.push({path:text,label:mesPhotoLabel(key),memo})}return}if(Array.isArray(value)){value.forEach((item,index)=>visit(item,key+(value.length>1?` ${index+1}`:''),memo,photoContext,depth+1));return}if(typeof value==='object'){const objectMemo=String(value.memo||value.note||value.photoMemo||memo||'');for(const [childKey,child] of Object.entries(value)){const nextContext=photoContext||/(?:photo|photos|image|images)$/i.test(childKey)||childKey==='photos';if(nextContext&&!/(?:memo|note)$/i.test(childKey))visit(child,childKey,objectMemo,nextContext,depth+1)}}};safe(sources).forEach(source=>visit(source,'','',false,0));return found}
-function mesTogglePhotos(id){const target=$(id);if(!target)return;target.hidden=!target.hidden;const button=document.querySelector(`[data-photo-target="${id}"]`);if(button)button.textContent=target.hidden?`사진보기 (${target.children.length}장)`:'사진 닫기'}
-function mesPhotoGallery(sources,title='저장된 사진'){const photos=mesPhotoEntries(sources),id='mesPhotoGrid'+Math.random().toString(36).slice(2);return`<section class="detail-section"><div class="mes-photo-toolbar"><h3 style="margin:0">${esc(title)}</h3><button class="btn primary" data-photo-target="${id}" onclick="mesTogglePhotos('${id}')">사진보기 (${photos.length}장)</button></div>${photos.length?`<div id="${id}" class="mes-photo-grid" hidden>${photos.map(photo=>{const url=mesPhotoUrl(photo.path);return`<figure class="mes-photo-card"><button onclick="window.open(${JSON.stringify(url).replace(/"/g,'&quot;')},'_blank')"><img src="${esc(url)}" loading="lazy" alt="${esc(photo.label)}"></button><figcaption><b>${esc(photo.label)}</b><span>${esc(photo.memo||'메모 없음')}</span></figcaption></figure>`}).join('')}</div>`:'<div class="empty" style="padding:22px">저장된 사진이 없습니다.</div>'}</section>`}
-function mesPurchaseDetail(row){const rows=row.rows||safe(state.pos).filter(x=>x.poNo===row.poNo&&x.status!=='CANCELLED');return mesSection('구매 계약 세부내역',[['P.O',x=>x.poNo],['거래처',x=>x.company],['거래처 강종',x=>x.grade],['패키지',x=>x.packageNo],['계약중량',x=>fmt(x.weight)],['통화',x=>x.currency||row.currency],['환율',x=>fmt(x.exchangeRate||row.rate)],['입항예정일',x=>date(x.expectedArrivalDate||x.arrivalDate)],['구매상태',x=>x.purchaseStatus||x.status]],rows)}
-function mesSalesDetail(row){const items=row.items||safe(state.salesOrders).filter(x=>x.soNo===row.soNo&&x.status!=='CANCELLED');return mesSection('판매 계약 세부내역',[['S.O',x=>x.soNo],['판매처',x=>x.customer],['품종',x=>x.productType],['강종',x=>x.mainGrade||x.grade],['소강종',x=>x.subGrade],['상세강종',x=>x.detailGrade],['판매중량',x=>fmt(x.weight)],['단가',x=>fmt(x.unitPrice)],['통화',x=>x.currency],['판매금액',x=>fmt(x.amount||num(x.weight)*num(x.unitPrice))],['판매상태',x=>x.status]],items)}
-function mesInboundDetail(row){const pos=safe(state.pos).find(x=>x.id===row.id),works=safe(state.receiptWorks).filter(x=>x.id===pos?.receiptWorkId||safe(x.packageNos).includes(pos?.packageNo)||x.poNo===pos?.poNo),sources=[pos,...works].filter(Boolean);return mesSection('입고수행 내역',[['P.O',x=>x.poNo||pos?.poNo],['사내입고번호',x=>x.packageNo||safe(x.packageNos).join(' / ')],['거래처',x=>x.company||pos?.company],['강종',x=>x.grade||pos?.grade],['입고중량',x=>fmt(x.netWeight||x.weight||pos?.weight)],['입고방법',x=>x.receiptMethod||x.method||'-'],['입고작업자',x=>x.receiptWorkerName||x.completedByName||x.operatorName||'-'],['시작시간',x=>dt(x.receiptStartedAt||x.startedAt)],['완료시간',x=>dt(x.receiptCompletedAt||x.completedAt||x.receivedAt)],['소요시간(분)',x=>fmt(x.receiptDurationMinutes)],['특이사항',x=>x.receiptMemo||x.memo||'-']],sources)+mesPhotoGallery(sources,'입고수행 사진')}
-function mesProductionDetail(row){const pos=safe(state.pos).find(x=>x.id===row.id),packageNo=pos?.packageNo||row.packageNo,splits=safe(state.splits).filter(x=>x.packageNo===packageNo&&x.status!=='CANCELLED'),losses=safe(state.losses).filter(x=>x.packageNo===packageNo&&x.status!=='CANCELLED'),waits=safe(state.workWaits).filter(x=>x.packageNo===packageNo&&x.status!=='CANCELLED'),drafts=safe(state.inspectionDrafts).filter(x=>x.packageNo===packageNo&&x.status!=='CANCELLED');return mesSection('검수확정 현황',[['사내입고번호',x=>x.packageNo],['거래처 강종',x=>pos?.grade],['품종',x=>x.productType],['최종강종',x=>x.mainGrade||x.grade],['소강종',x=>x.subGrade],['상세강종',x=>x.detailGrade],['확정중량',x=>fmt(x.weight)],['검수자',x=>x.inspector||x.operatorName||'-'],['검수일시',x=>dt(x.createdAt)],['검수메모',x=>x.memo||'-']],splits)+mesSection('검수 로스·작업대기',[['구분',x=>x.type||x.workType||x.lossType||'로스'],['중량',x=>fmt(x.weight)],['상태',x=>x.status],['작업자',x=>x.operatorName||x.completedByName||'-'],['메모',x=>x.memo||x.reason||x.instruction||'-']],[...losses,...waits])+mesPhotoGallery([...splits,...drafts,...waits],'검수·생산 사진')}
-function mesSettlementData(poNo){const pos=safe(state.pos).filter(x=>x.poNo===poNo&&x.status!=='CANCELLED'),packageMap=new Map(pos.map(x=>[x.packageNo,x])),splits=safe(state.splits).filter(x=>packageMap.has(x.packageNo)&&x.status!=='CANCELLED'),losses=safe(state.losses).filter(x=>packageMap.has(x.packageNo)&&x.status!=='CANCELLED'),rows=[];for(const split of splits){const source=packageMap.get(split.packageNo),packageLoss=losses.filter(x=>x.packageNo===split.packageNo).reduce((sum,x)=>sum+num(x.weight),0),remark=split.photoMemos?.anomaly||split.photoMemos?.shape||split.memo||'';rows.push({packageNo:split.packageNo,company:source?.company||'',sourceGrade:source?.grade||'',finalGrade:[split.productType,split.mainGrade||split.grade,split.subGrade,split.detailGrade].filter(Boolean).join(' · '),contractWeight:num(source?.weight),confirmedWeight:num(split.weight),lossWeight:packageLoss,remark,photo:split.photos?.anomaly?'PHOTO':''})}if(!rows.length)pos.forEach(source=>rows.push({packageNo:source.packageNo,company:source.company,sourceGrade:source.grade,finalGrade:'검수 미완료',contractWeight:num(source.weight),confirmedWeight:0,lossWeight:losses.filter(x=>x.packageNo===source.packageNo).reduce((sum,x)=>sum+num(x.weight),0),remark:'',photo:''}));return{poNo,pos,rows,company:pos[0]?.company||'',date:date(pos[0]?.receivedAt||pos[0]?.createdAt),photos:[...splits,...losses,...safe(state.orderPhotos).filter(x=>x.orderType==='PO'&&x.orderNo===poNo)]}}
-function mesSettlementPreview(detail,type){const confirmed=detail.rows.reduce((sum,x)=>sum+x.confirmedWeight,0),loss=detail.rows.reduce((sum,x)=>sum+x.lossWeight,0);return`<div class="settlement-sheet"><h2>${type==='OVERSEAS'?'SETTLEMENT REPORT':'신성금속 세틀먼트'}</h2><div class="settle-meta"><div><b>P.O</b><br>${esc(detail.poNo)}</div><div><b>거래처</b><br>${esc(detail.company)}</div><div><b>양식</b><br>${type==='OVERSEAS'?'해외':'국내'}</div><div><b>작성일</b><br>${esc(nowDate())}</div></div><div class="detail-scroll"><table class="detail-table"><thead><tr><th>사내입고번호</th><th>거래처 강종</th><th>최종강종·소강종</th><th>계약중량</th><th>검수확정</th><th>로스</th><th>REMARK</th><th>PHOTO</th></tr></thead><tbody>${detail.rows.map(x=>`<tr><td>${esc(x.packageNo)}</td><td>${esc(x.sourceGrade)}</td><td>${esc(x.finalGrade)}</td><td>${fmt(x.contractWeight)}</td><td>${fmt(x.confirmedWeight)}</td><td>${fmt(x.lossWeight)}</td><td>${esc(x.remark)}</td><td>${esc(x.photo)}</td></tr>`).join('')}</tbody><tfoot><tr><th colspan="4">TOTAL</th><th>${fmt(confirmed)}</th><th>${fmt(loss)}</th><th colspan="2"></th></tr></tfoot></table></div></div>`}
-function setMesSettlementTemplate(poNo,type){mesSettlementTemplates[poNo]=type;openMesDetail('settlement',poNo)}
-async function mesEnsureXlsx(){if(globalThis.XLSX)return;await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';script.onload=resolve;script.onerror=()=>reject(Error('Excel 모듈을 불러오지 못했습니다.'));document.head.appendChild(script)})}
-async function downloadMesSettlement(poNo,type){$('progress').classList.add('on');try{await mesEnsureXlsx();const detail=mesSettlementData(poNo),rows=[[type==='OVERSEAS'?'SETTLEMENT REPORT':'신성금속 세틀먼트'],['P.O',detail.poNo,'거래처',detail.company,'양식',type==='OVERSEAS'?'해외':'국내'],[],['사내입고번호','거래처 강종','최종강종·소강종','계약중량','검수확정','로스','REMARK','PHOTO'],...detail.rows.map(x=>[x.packageNo,x.sourceGrade,x.finalGrade,x.contractWeight,x.confirmedWeight,x.lossWeight,x.remark,x.photo])],sheet=XLSX.utils.aoa_to_sheet(rows);sheet['!merges']=[XLSX.utils.decode_range('A1:H1')];sheet['!cols']=[{wch:18},{wch:25},{wch:34},{wch:14},{wch:14},{wch:12},{wch:34},{wch:10}];const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,type==='OVERSEAS'?'OVERSEAS SETTLEMENT':'국내 세틀먼트');XLSX.writeFile(book,`${String(poNo).replace(/[\\/:*?"<>|]/g,'_')}_${type==='OVERSEAS'?'OVERSEAS':'DOMESTIC'}_SETTLEMENT.xlsx`,{compression:true});toast(`${poNo} 세틀먼트 엑셀 다운로드 시작`)}catch(error){toast('세틀 다운로드 실패: '+error.message,true)}finally{$('progress').classList.remove('on')}}
-function mesSettlementDetail(row){const detail=mesSettlementData(row.poNo),type=mesSettlementTemplates[row.poNo]||((row.currency||detail.pos[0]?.currency)==='KRW'?'DOMESTIC':'OVERSEAS');return`<div class="settlement-actions"><button class="btn ${type==='DOMESTIC'?'primary':''}" onclick="setMesSettlementTemplate('${esc(row.poNo)}','DOMESTIC')">국내양식 미리보기</button><button class="btn ${type==='OVERSEAS'?'primary':''}" onclick="setMesSettlementTemplate('${esc(row.poNo)}','OVERSEAS')">해외양식 미리보기</button><button class="btn primary" onclick="downloadMesSettlement('${esc(row.poNo)}','${type}')">세틀 엑셀 다운로드</button></div>${mesSettlementPreview(detail,type)}${mesPhotoGallery(detail.photos,'세틀 관련 사진')}`}
-function mesStockDetail(row){const bag=safe(state.bags).find(x=>x.id===row.id),inputs=safe(state.inputs).filter(x=>x.bagId===row.id||x.sourceBagId===row.id),alloc=safe(state.shipmentAllocations).filter(x=>x.bagId===row.id),packageNos=new Set(inputs.map(x=>x.packageNo).filter(Boolean)),sourcePhotos=[bag,...inputs,...safe(state.splits).filter(x=>packageNos.has(x.packageNo)),...safe(state.pos).filter(x=>packageNos.has(x.packageNo))].filter(Boolean);return mesSection('완료재고 상세',[['완료번호',x=>bagCode(x)],['품종',x=>x.productType],['강종',x=>x.mainGrade||x.grade],['소강종',x=>x.subGrade],['상세강종',x=>x.detailGrade],['현재 N/W',x=>fmt(mesBagStock(x))],['G/W',x=>fmt(mesBagStock(x)+num(x.packagingWeight||x.tareWeight))],['장소',x=>x.location||'미지정']],bag?[bag]:[])+mesSection('재고 구성·이동 이력',[['원번호',x=>x.packageNo||x.sourceCompletionNo],['강종',x=>x.grade],['중량',x=>fmt(x.weight)],['상태',x=>x.status]],inputs)+mesSection('출하 배정',[['완료번호',x=>x.completionNo||bagCode(bag||{})],['중량',x=>fmt(x.weight)],['상태',x=>x.status]],alloc)+mesPhotoGallery(sourcePhotos,'재고 관련 사진')}
-function mesShippingDetail(row){const items=row.items||safe(state.salesOrders).filter(x=>x.soNo===row.soNo),ids=new Set(items.map(x=>x.id)),shipments=safe(state.shipments).filter(x=>x.soNo===row.soNo||ids.has(x.salesOrderId)),works=safe(state.shippingWorks).filter(x=>x.soNo===row.soNo||shipments.some(s=>s.shippingWorkId===x.id)),moveRows=safe(state.shippingAreaMoves).filter(x=>x.soNo===row.soNo||ids.has(x.salesOrderId)),shipmentIds=new Set(shipments.map(x=>x.id)),alloc=safe(state.shipmentAllocations).filter(x=>shipmentIds.has(x.shipmentId)||x.soNo===row.soNo),lists=safe(state.packingLists).filter(x=>x.soNo===row.soNo||ids.has(x.salesOrderId));return mesSection('출하요청·수행 현황',[['S.O',x=>x.soNo||row.soNo],['판매처',x=>x.customer||row.customer],['강종',x=>x.grade||[x.productType,x.mainGrade,x.subGrade].filter(Boolean).join(' · ')],['요청중량',x=>fmt(x.weight)],['출하예정일',x=>date(x.shipDate)],['출하상태',x=>x.status]],items)+mesSection('출하장 이동·출하확정',[['구분',x=>x.method||x.shippingMethod||'출하'],['상태',x=>x.status],['작업자',x=>x.shippingWorkerName||x.completedByName||x.operatorName||'-'],['시작시간',x=>dt(x.shippingStartedAt||x.startedAt||x.createdAt)],['완료시간',x=>dt(x.shippingCompletedAt||x.completedAt||x.shippedAt)],['출하중량',x=>fmt(x.weight||x.shippedWeight)],['메모',x=>x.shippingMemo||x.memo||'-']],[...moveRows,...works,...shipments])+mesSection('완료재고 출하배정',[['완료번호',x=>x.completionNo||bagCode(state.bags.find(b=>b.id===x.bagId)||{})],['중량',x=>fmt(x.weight)],['상태',x=>x.status]],alloc)+mesSection('PACKING LIST',[['번호',x=>x.packingListNo],['양식',x=>x.type||x.templateType],['상태',x=>x.status],['생성일',x=>dt(x.createdAt)]],lists)+mesPhotoGallery([...works,...shipments,...lists],'출하수행 사진')}
-mesDetailMarkup=function mesTaskSpecificDetail(view,row){if(view==='purchase')return mesPurchaseDetail(row);if(view==='sales')return mesSalesDetail(row);if(view==='inbound')return mesInboundDetail(row);if(view==='production')return mesProductionDetail(row);if(view==='settlement')return mesSettlementDetail(row);if(view==='inventory')return mesSection('강종별 완료재고',[['완료번호',x=>x.code],['품종',x=>x.productType],['강종',x=>x.mainGrade],['소강종',x=>x.subGrade],['N/W',x=>fmt(x.nw)],['G/W',x=>fmt(x.gw)],['위치',x=>x.location]],row.rows||[]);if(view==='stockDetail')return mesStockDetail(row);if(['shippingPlan','shipping'].includes(view))return mesShippingDetail(row);if(view==='daily')return mesSection('작업일지 상세',[['시간',x=>dt(x.createdAt)],['작업자',x=>x.operatorName||x.actorName],['구분',x=>x.action||x.category],['관련번호',x=>x.packageNo||x.poNo||x.soNo||x.reference],['내용',x=>x.label||x.note||x.reason]],row?[row]:[]);return''}
-function mesCanEdit(view){return !['inventory'].includes(view)}
-function openMesDetail(view,id){const row=mesRow(view,id);if(!row)return toast('상세자료를 찾을 수 없습니다.',true);mesCurrentDetail={view,id};$('modalTitle').textContent=(schemas[view]?.title||'작업일지')+' · 현장 상세내역';$('modalBody').innerHTML=`<div class="detail-banner"><h2>${esc(row.poNo||row.soNo||row.packageNo||row.code||row.mainGrade||row.label||'상세자료')}</h2><p>신성 현장관리 공용자료의 원본 이력입니다. 수정 전 검수·이동·출하 내역을 확인하세요.</p></div>${mesDetailMarkup(view,row)}<div class="detail-actions">${mesCanEdit(view)?'<button class="btn primary" onclick="showMesDetailEditor()">상세 수정</button>':''}<button class="btn" onclick="closeModal()">목록으로 돌아가기</button></div>`;document.querySelector('#modal .modal-card')?.classList.toggle('wide-modal',['production','settlement','stockDetail','shippingPlan','shipping'].includes(view));$('modal').classList.add('on')}
-editRow=function(id){openMesDetail(currentView,id)};
-function mesEditLine(record,type){if(type==='PO')return`<div class="line-editor edit-line" data-id="${esc(record.id)}"><div class="form-grid"><label>거래처 강종<input name="grade" value="${esc(record.grade||'')}"></label><label>중량(kg)<input name="weight" type="number" step="0.01" value="${num(record.weight)}"></label><label>입고상태<select name="receiptStatus"><option ${record.receiptStatus==='WAITING'?'selected':''}>WAITING</option><option ${record.receiptStatus==='RECEIVED'?'selected':''}>RECEIVED</option></select></label><label>검수상태<select name="inspectionStatus"><option ${record.inspectionStatus==='WAITING'?'selected':''}>WAITING</option><option ${record.inspectionStatus==='IN_PROGRESS'?'selected':''}>IN_PROGRESS</option><option ${record.inspectionStatus==='COMPLETE'?'selected':''}>COMPLETE</option></select></label></div></div>`;return`<div class="line-editor edit-line" data-id="${esc(record.id)}"><div class="form-grid"><label>품종<input name="productType" value="${esc(record.productType||'')}"></label><label>강종<input name="mainGrade" value="${esc(record.mainGrade||record.grade||'')}"></label><label>소강종<input name="subGrade" value="${esc(record.subGrade||'')}"></label><label>상세강종<input name="detailGrade" value="${esc(record.detailGrade||'')}"></label><label>중량(kg)<input name="weight" type="number" step="0.01" value="${num(record.weight)}"></label><label>상태<select name="status"><option ${record.status==='WAITING'?'selected':''}>WAITING</option><option ${record.status==='READY'?'selected':''}>READY</option><option ${record.status==='FINAL'?'selected':''}>FINAL</option><option ${record.status==='SHIPPED'?'selected':''}>SHIPPED</option></select></label></div></div>`}
-function showMesDetailEditor(){const {view,id}=mesCurrentDetail,row=mesRow(view,id);if(!row)return;if(['purchase','settlement'].includes(view)){const rows=row.rows||safe(state.pos).filter(x=>x.poNo===row.poNo);$('modalBody').innerHTML=`<form class="form-grid" onsubmit="saveMesDetail(event,this)"><label>P.O 번호<input name="poNo" value="${esc(row.poNo)}"></label><label>거래처<input name="company" value="${esc(row.company)}"></label><label>입항예정일<input name="expected" type="date" value="${date(row.expected)==='-'?'':date(row.expected)}"></label><label>세틀상태<select name="settlementStatus"><option>미완료</option><option>검토중</option><option>완료</option></select></label><div class="registration-lines"><h3>사내입고 품목</h3>${rows.map(x=>mesEditLine(x,'PO')).join('')}</div><div class="wide actions"><button class="btn primary">공용서버에 수정 저장</button><button type="button" class="btn" onclick="openMesDetail('${view}','${esc(id)}')">취소</button></div></form>`;return}if(['sales','shippingPlan','shipping'].includes(view)){const items=row.items||safe(state.salesOrders).filter(x=>x.soNo===row.soNo);$('modalBody').innerHTML=`<form class="form-grid" onsubmit="saveMesDetail(event,this)"><label>S.O 번호<input name="soNo" value="${esc(row.soNo)}"></label><label>판매처<input name="customer" value="${esc(row.customer)}"></label><label>출하예정일<input name="shipDate" type="date" value="${date(row.shipDate)==='-'?'':date(row.shipDate)}"></label><div class="registration-lines"><h3>S.O 품목</h3>${items.map(x=>mesEditLine(x,'SO')).join('')}</div><div class="wide actions"><button class="btn primary">공용서버에 수정 저장</button><button type="button" class="btn" onclick="openMesDetail('${view}','${esc(id)}')">취소</button></div></form>`;return}if(['inbound','production'].includes(view)){const pos=safe(state.pos).find(x=>x.id===id);$('modalBody').innerHTML=`<form class="form-grid" onsubmit="saveMesDetail(event,this)"><label>거래처<input name="company" value="${esc(pos?.company||'')}"></label><label>거래처 강종<input name="grade" value="${esc(pos?.grade||'')}"></label><label>중량(kg)<input name="weight" type="number" step="0.01" value="${num(pos?.weight)}"></label><label>입고상태<select name="receiptStatus"><option>WAITING</option><option ${pos?.receiptStatus==='RECEIVED'?'selected':''}>RECEIVED</option></select></label><label>검수상태<select name="inspectionStatus"><option>WAITING</option><option ${pos?.inspectionStatus==='IN_PROGRESS'?'selected':''}>IN_PROGRESS</option><option ${pos?.inspectionStatus==='COMPLETE'?'selected':''}>COMPLETE</option></select></label><label class="wide">메모<textarea name="memo">${esc(pos?.receiptMemo||'')}</textarea></label><div class="wide actions"><button class="btn primary">공용서버에 수정 저장</button><button type="button" class="btn" onclick="openMesDetail('${view}','${esc(id)}')">취소</button></div></form>`;return}if(view==='stockDetail'){const bag=safe(state.bags).find(x=>x.id===id);$('modalBody').innerHTML=`<form class="form-grid" onsubmit="saveMesDetail(event,this)"><label>품종<input name="productType" value="${esc(bag?.productType||'')}"></label><label>강종<input name="mainGrade" value="${esc(bag?.mainGrade||bag?.grade||'')}"></label><label>소강종<input name="subGrade" value="${esc(bag?.subGrade||'')}"></label><label>상세강종<input name="detailGrade" value="${esc(bag?.detailGrade||'')}"></label><label>이동장소<input name="location" value="${esc(bag?.location||'')}"></label><label>상태<select name="status"><option>OPEN</option><option>ACTIVE</option><option>WAITING</option><option>DEPLETED</option></select></label><div class="wide actions"><button class="btn primary">공용서버에 수정 저장</button><button type="button" class="btn" onclick="openMesDetail('${view}','${esc(id)}')">취소</button></div></form>`;return}if(view==='daily'){$('modalBody').innerHTML=`<form class="form-grid" onsubmit="saveMesDetail(event,this)"><label>구분<input name="category" value="${esc(row.category||row.action||'')}"></label><label>관련번호<input name="reference" value="${esc(row.reference||row.packageNo||row.poNo||row.soNo||'')}"></label><label class="wide">내용<textarea name="note">${esc(row.note||row.label||'')}</textarea></label><div class="wide actions"><button class="btn primary">공용서버에 수정 저장</button><button type="button" class="btn" onclick="openMesDetail('daily','${esc(id)}')">취소</button></div></form>`}}
-async function saveMesDetail(event,form){event.preventDefault();const {view,id}=mesCurrentDetail,v=formData(form);let ok=false;if(['purchase','settlement'].includes(view)){ok=await commit('P.O 상세 수정',['pos'],s=>{form.querySelectorAll('.edit-line').forEach(line=>{const x=s.pos.find(p=>p.id===line.dataset.id);if(!x)return;const d=mesLineData(line);Object.assign(x,{poNo:v.poNo,company:v.company,expectedArrivalDate:v.expected,grade:d.grade,weight:num(d.weight),receiptStatus:d.receiptStatus,inspectionStatus:d.inspectionStatus,settlementStatus:v.settlementStatus,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})})})}else if(['sales','shippingPlan','shipping'].includes(view)){ok=await commit('S.O 상세 수정',['salesOrders'],s=>{form.querySelectorAll('.edit-line').forEach(line=>{const x=s.salesOrders.find(p=>p.id===line.dataset.id);if(!x)return;const d=mesLineData(line),grade=[d.productType,d.mainGrade,d.subGrade,d.detailGrade].filter(Boolean).join(' · ');Object.assign(x,{soNo:v.soNo,customer:v.customer,shipDate:v.shipDate,productType:d.productType,mainGrade:d.mainGrade,subGrade:d.subGrade,detailGrade:d.detailGrade,grade,weight:num(d.weight),status:d.status,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})})})}else if(['inbound','production'].includes(view)){ok=await commit('입고·생산 상세 수정',['pos'],s=>{const x=s.pos.find(p=>p.id===id);if(x)Object.assign(x,{company:v.company,grade:v.grade,weight:num(v.weight),receiptStatus:v.receiptStatus,inspectionStatus:v.inspectionStatus,receiptMemo:v.memo,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})})}else if(view==='stockDetail'){ok=await commit('완료재고 상세 수정',['bags'],s=>{const x=s.bags.find(p=>p.id===id);if(x)Object.assign(x,{productType:v.productType,mainGrade:v.mainGrade,grade:[v.productType,v.mainGrade,v.subGrade,v.detailGrade].filter(Boolean).join(' · '),subGrade:v.subGrade,detailGrade:v.detailGrade,location:v.location,status:v.status,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})})}else if(view==='daily'){ok=await commit('작업일지 상세 수정',['auditLogs'],s=>{const x=s.auditLogs.find(p=>p.id===id);if(x)Object.assign(x,{category:v.category,reference:v.reference,note:v.note,label:v.note,updatedAt:new Date().toISOString(),updatedByName:currentUserName()})})}if(ok){const nextId=['purchase','settlement'].includes(view)?v.poNo:['sales','shippingPlan','shipping'].includes(view)?v.soNo:id;openMesDetail(view,nextId)}}
-function mesRegistrationLine(type){const isPo=type==='PO';return`<div class="line-editor registration-line"><div class="line-editor-head"><b>${isPo?'P.O 품목':'S.O 품목'}</b><button type="button" class="btn danger" onclick="this.closest('.registration-line').remove()">행 삭제</button></div><div class="form-grid"><label>품종<input name="productType" placeholder="NI / TI / STS"></label><label>강종<input name="mainGrade" required></label><label>소강종<input name="subGrade"></label><label>상세강종<input name="detailGrade"></label>${isPo?'<label>거래처 강종<input name="sourceGrade" required></label><label>패키지 수<input name="packageCount" type="number" min="1" value="1"></label>':''}<label>${isPo?'총 중량':'요청 중량'}(kg)<input name="weight" type="number" min="0.01" step="0.01" required></label>${!isPo?'<label>단가<input name="unitPrice" type="number" step="0.01"></label>':''}</div></div>`}
-function addMesRegistrationLine(type){document.querySelector('.registration-lines')?.insertAdjacentHTML('beforeend',mesRegistrationLine(type))}
-function openMesRegistration(type){const isPo=type==='PO',label=isPo?'P.O':'S.O';$('modalTitle').textContent=`MES ${label} 등록 · 현장관리 동시 반영`;$('modalBody').innerHTML=`<form class="form-grid" onsubmit="saveMesRegistration(event,this,'${type}')"><label>${label} 번호<input name="orderNo" required></label><label>${isPo?'거래처':'판매처'}<input name="partner" required></label><label>${isPo?'입항예정일':'출하예정일'}<input name="planDate" type="date"></label><label>구분<select name="kind"><option value="DOMESTIC">국내</option><option value="OVERSEAS">해외</option></select></label><label>통화<select name="currency"><option>KRW</option><option>USD</option><option>JPY</option><option>EURO</option></select></label><label>환율<input name="rate" type="number" step="0.01" value="1"></label><div class="registration-lines">${mesRegistrationLine(type)}</div><div class="wide actions"><button type="button" class="btn" onclick="addMesRegistrationLine('${type}')">+ 품목 행 추가</button><button class="btn primary">${label} 등록·공용서버 저장</button><button type="button" class="btn" onclick="closeModal()">취소</button></div></form>`;$('modal').classList.add('on')}
-function mesNextPackage(){let max=0;safe(state.pos).forEach(x=>{const m=String(x.packageNo||'').match(/^P(\d+)$/i);if(m)max=Math.max(max,num(m[1]))});return()=>`P${String(++max).padStart(6,'0')}`}
-async function saveMesRegistration(event,form,type){event.preventDefault();const v=formData(form),lines=[...form.querySelectorAll('.registration-line')].map(mesLineData);if(!v.orderNo||!v.partner||!lines.length)return toast('번호·거래처와 한 개 이상의 품목을 입력하세요.',true);const createdAt=new Date().toISOString();let ok=false;if(type==='PO'){const next=mesNextPackage();ok=await commit('MES P.O 등록',['pos'],s=>{lines.forEach(line=>{const count=Math.max(1,Math.floor(num(line.packageCount))),contractWeight=num(line.weight),contractGrade=line.sourceGrade;s.pos.push({id:crypto.randomUUID(),poNo:v.orderNo,company:v.partner,packageNo:next(),grade:contractGrade,purchaseContractGrade:contractGrade,contractGrade:contractGrade,productType:line.productType,mainGrade:line.mainGrade,subGrade:line.subGrade,detailGrade:line.detailGrade,packageCount:count,plannedPackageCount:count,weight:contractWeight,grossWeight:contractWeight,netWeight:contractWeight,purchaseContractWeight:contractWeight,contractWeight:contractWeight,expectedArrivalDate:v.planDate,type:v.kind,currency:v.currency,exchangeRate:num(v.rate)||1,purchaseStatus:'구매확정',status:'CONFIRMED',receiptStatus:'WAITING',inspectionStatus:'NOT_RECEIVED',createdAt,createdByName:currentUserName()})})})}else{ok=await commit('MES S.O 등록',['salesOrders'],s=>{lines.forEach(line=>s.salesOrders.push({id:crypto.randomUUID(),soNo:v.orderNo,customer:v.partner,shipDate:v.planDate,packingListType:v.kind==='OVERSEAS'?'OVERSEAS':'DOMESTIC',currency:v.currency,exchangeRate:num(v.rate)||1,productType:line.productType,mainGrade:line.mainGrade,subGrade:line.subGrade,detailGrade:line.detailGrade,grade:[line.productType,line.mainGrade,line.subGrade,line.detailGrade].filter(Boolean).join(' · '),weight:num(line.weight),unitPrice:num(line.unitPrice),amount:num(line.weight)*num(line.unitPrice),status:'WAITING',createdAt,createdByName:currentUserName()}))})}if(ok){closeModal();openView(type==='PO'?'purchase':'sales')}}
-renderDaily=function renderMesDailyDetail(){const rows=todayAudits().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));$('pageTitle').textContent='일일 작업일지';const schema={cols:[['시간',x=>dt(x.createdAt).slice(11)],['작업자',x=>x.operatorName||x.actorName||'-'],['구분',x=>x.action||'-'],['번호',x=>x.packageNo||x.poNo||x.soNo||x.completionNo||'-'],['내용',x=>x.label||x.note||x.reason||'-']]};$('content').innerHTML=`<div class="dashboard-head"><div><h1>일일 작업일지</h1><p>${nowDate()} · 현장관리와 MES 작업기록 통합</p></div><button class="btn primary" onclick="openDailyForm()">+ 작업일지 추가</button></div><div class="panel">${tableHtml(schema,rows)}${cardsHtml(schema,rows)}</div>`}
-const mesCachedOnBoot=mesReadCache();if(mesCachedOnBoot?.payload){state=defaults(mesCachedOnBoot.payload);revision=num(mesCachedOnBoot.revision);render()}
-</script>
-
-<style id="mesSearchShippingFixV3Style">
-.mes-search-note{grid-column:1/-1;padding:9px 12px;border-radius:9px;background:#eef8f6;color:#176b60;font-size:12px;font-weight:800}
-.shipping-workflow-banner{margin:14px 0;padding:17px;border-radius:14px;background:linear-gradient(135deg,#0d604f,#128b78);color:#fff}
-.shipping-workflow-banner h3{margin:0 0 6px}.shipping-workflow-banner p{margin:0;color:#d8fff7}
-.shipping-stage-cards{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr));gap:10px;margin-top:13px}
-.shipping-stage-card{border:1px solid var(--line);border-radius:12px;padding:13px;background:#f8fbfc}
-.shipping-stage-card small{display:block;color:var(--muted);font-weight:800}.shipping-stage-card b{display:block;margin-top:5px;font-size:20px;color:#123d37}
-@media(max-width:760px){.toolbar .control{min-width:100%;width:100%}.shipping-stage-cards{grid-template-columns:1fr 1fr}.shipping-stage-card b{font-size:17px}}
-</style>
-<script id="mesSearchShippingFixV3">
-(function(){
-"use strict";
-var mesDraftByView={};
-var mesTypingUntil=0;
-var mesDateIndexRevision=-1;
-var mesDateIndex=null;
-function mesDraft(){
-  if(!mesDraftByView[currentView]) mesDraftByView[currentView]=Object.assign({},filters||{});
-  return mesDraftByView[currentView];
-}
-window.mesDraftSet=function(key,value){
-  mesDraft()[key]=value;
-  mesTypingUntil=Date.now()+1800;
-};
-window.mesDraftKey=function(event){
-  if(event.key==="Enter"){event.preventDefault();window.mesApplySearch();}
-};
-window.mesApplySearch=function(){
-  filters=Object.assign({},mesDraft());
-  mesTypingUntil=0;
-  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
-  render();
-};
-window.mesResetSearch=function(){
-  filters={};
-  mesDraftByView[currentView]={};
-  mesTypingUntil=0;
-  render();
-};
-function mesMaxDate(values){
-  var best="";
-  var bestTime=0;
-  (values||[]).forEach(function(value){
-    if(!value) return;
-    var time=Date.parse(value);
-    if(Number.isFinite(time)&&time>bestTime){bestTime=time;best=String(value);}
-  });
-  return best;
-}
-function mesRecordDate(record){
-  if(!record||typeof record!=="object") return "";
-  var values=[
-    record.updatedAt,record.createdAt,record.savedAt,record.receivedAt,
-    record.completedAt,record.confirmedAt,record.shippedAt,record.shippingCompletedAt,
-    record.receiptCompletedAt,record.settlementUpdatedAt,record.cancelledAt
-  ];
-  ["rows","items","shipments","packingLists","allocations"].forEach(function(key){
-    if(Array.isArray(record[key])) record[key].forEach(function(item){values.push(mesRecordDate(item));});
-  });
-  if(record.bag) values.push(mesRecordDate(record.bag));
-  return mesMaxDate(values);
-}
-function mesBuildDateIndex(){
-  if(mesDateIndex&&mesDateIndexRevision===revision) return mesDateIndex;
-  var index={id:new Map(),po:new Map(),so:new Map(),pkg:new Map(),code:new Map()};
-  function touch(map,key,value){
-    if(key==null||key==="") return;
-    var next=mesMaxDate([value,map.get(String(key))]);
-    if(next) map.set(String(key),next);
-  }
-  [
-    "pos","salesOrders","bags","shipments","shipmentAllocations","packingLists",
-    "splits","inputs","losses","workWaits","waitingMoves","receiptWorks",
-    "shippingWorks","shippingAreaMoves","returnReceipts","domesticReceipts","auditLogs"
-  ].forEach(function(collection){
-    safe(state[collection]).forEach(function(record){
-      var saved=mesRecordDate(record);
-      touch(index.id,record.id,saved);
-      touch(index.po,record.poNo,saved);
-      touch(index.so,record.soNo,saved);
-      touch(index.pkg,record.packageNo||record.sourcePackageNo,saved);
-      touch(index.code,record.completionNo||record.bagNo||record.code,saved);
-    });
-  });
-  mesDateIndex=index;
-  mesDateIndexRevision=revision;
-  return index;
-}
-window.mesSavedAt=function(row){
-  var index=mesBuildDateIndex();
-  return mesMaxDate([
-    row&&row._savedAt,mesRecordDate(row),
-    row&&index.id.get(String(row.id||"")),
-    row&&index.po.get(String(row.poNo||"")),
-    row&&index.so.get(String(row.soNo||"")),
-    row&&index.pkg.get(String(row.packageNo||"")),
-    row&&index.code.get(String(row.code||row.completionNo||""))
-  ]);
-};
-window.mesSavedAtText=function(row){
-  var value=window.mesSavedAt(row);
-  return value?dt(value):"-";
-};
-var baseOpenView=window.openView;
-window.openView=function(id){
-  mesDraftByView[id]={};
-  return baseOpenView(id);
-};
-var baseLoadState=window.loadState;
-window.loadState=async function(shouldRender){
-  var wantsRender=shouldRender!==false;
-  var active=document.activeElement;
-  var typing=Date.now()<mesTypingUntil||(active&&active.closest&&active.closest(".toolbar"));
-  return baseLoadState(wantsRender&&!typing);
-};
-window.filterControls=function(){
-  var draft=mesDraft();
-  var inventoryView=currentView==="inventory"||currentView==="stockDetail";
-  var inventorySummary=currentView==="inventory";
-  return "<div class='mes-search-note'>검색어 입력 중에는 화면이 바뀌지 않습니다. 조건 입력 후 반드시 <b>조회</b>를 눌러 주세요. 기본 목록은 최근 저장 순입니다.</div>"
-    +"<div class='control'><label>통합 검색</label><input value='"+esc(draft.q||"")+"' placeholder='번호·회사·강종' oninput=\"mesDraftSet('q',this.value)\" onkeydown='mesDraftKey(event)'></div>"
-    +(inventoryView?"<div class='control'><label>장소 검색</label><input value='"+esc(draft.location||"")+"' placeholder='창고·구역·미지정' oninput=\"mesDraftSet('location',this.value)\" onkeydown='mesDraftKey(event)'></div>":"")
-    +(inventorySummary?"<div class='control'><label>상태별 선택</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="입항예정"?"selected":"")+">입항예정</option><option "+(draft.status==="미검수"?"selected":"")+">미검수</option><option "+(draft.status==="작업대기"?"selected":"")+">작업대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option><option "+(draft.status==="유사강종"?"selected":"")+">유사강종</option></select></div>":(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":""))
-    +(inventorySummary?"<div class='control'><label>재고 표기방식</label><select onchange=\"mesDraftSet('inventoryMode',this.value)\"><option value='original' "+(!draft.inventoryMode||draft.inventoryMode==="original"?"selected":"")+">원문유지</option><option value='grouped' "+(draft.inventoryMode==="grouped"?"selected":"")+">묶음표기</option></select></div>":"")
-    +"<div class='control'><label>표시건수</label><select onchange=\"mesDraftSet('limit',this.value)\"><option "+(!draft.limit||draft.limit==="50"?"selected":"")+">50</option><option "+(draft.limit==="100"?"selected":"")+">100</option><option "+(draft.limit==="500"?"selected":"")+">500</option></select></div>";
-};
-window.rowDate=function(row){
-  var saved=window.mesSavedAt(row);
-  return saved?date(saved):"-";
-};
-function mesSearchText(row){
-  var allowed={
-    poNo:1,soNo:1,packageNo:1,sourcePackageNo:1,internalPackageNo:1,
-    completionNo:1,bagNo:1,code:1,requestNo:1,receiptRequestNo:1,shippingRequestNo:1,
-    company:1,supplier:1,customer:1,partner:1,vendor:1,
-    grade:1,originalGrade:1,sourceGrade:1,finalGrade:1,gradeLabel:1,
-    productType:1,mainGrade:1,subGrade:1,detailGrade:1,itemName:1,description:1,
-    location:1,locations:1,from:1,to:1,containerNo:1,sealNo:1,
-    status:1,receiptStatus:1,inspectionStatus:1,workStatus:1,workType:1,type:1,
-    memo:1,note:1,label:1,sourceLabel:1,rawSourceLabel:1,mapping:1
-  };
-  var nested={rows:1,items:1,bag:1,record:1,sources:1,members:1,shipments:1,packingLists:1,allocations:1};
-  var values=[],seen=new Set();
-  function walk(value,key,depth){
-    if(value==null||depth>4)return;
-    if(typeof value==='string'){if(allowed[key])values.push(value);return;}
-    if(typeof value==='number'||typeof value==='boolean')return;
-    if(typeof value!=='object'||seen.has(value))return;
-    seen.add(value);
-    if(Array.isArray(value)){value.forEach(function(item){walk(item,key,depth+1);});return;}
-    Object.keys(value).forEach(function(childKey){
-      if(allowed[childKey])walk(value[childKey],childKey,depth+1);
-      else if(nested[childKey])walk(value[childKey],childKey,depth+1);
-    });
-  }
-  walk(row,'row',0);
-  return values.join(' ').toLowerCase();
-}
-window.mesSearchText=mesSearchText;
-window.filtered=function(rows){
-  var out=(rows||[]).slice().sort(function(a,b){
-    return String(window.mesSavedAt(b)||"").localeCompare(String(window.mesSavedAt(a)||""));
-  });
-  var q=String(filters.q||"").trim().toLowerCase();
-  if(q) out=out.filter(function(row){return mesSearchText(row).includes(q);});
-  var location=String(filters.location||"").trim().toLowerCase();
-  if(location) out=out.filter(function(row){return String(row.location||row.locations||"").toLowerCase().includes(location);});
-  if(currentView==="inventory"){
-    var inventoryMode=filters.status==="유사강종"?"grouped":String(filters.inventoryMode||"original");
-    var familyInventoryRows=out.filter(function(row){return !!row.isFamilySummary;});
-    var originalInventoryRows=out.filter(function(row){return !row.isFamilySummary;});
-    var preferredInventoryRows=inventoryMode==="grouped"?familyInventoryRows:originalInventoryRows;
-    var fallbackInventoryRows=inventoryMode==="grouped"?originalInventoryRows:familyInventoryRows;
-    // A stale view preference must never hide the shared inventory.  When the
-    // selected representation has no rows, show the available representation.
-    out=preferredInventoryRows.length?preferredInventoryRows:fallbackInventoryRows;
-    if(filters.status==="입항예정")out=out.filter(function(row){return num(row.arrival)>0;});
-    if(filters.status==="미검수")out=out.filter(function(row){return num(row.uninspected)>0;});
-    if(filters.status==="작업대기")out=out.filter(function(row){return num(row.workWaiting)>0;});
-    if(filters.status==="완료")out=out.filter(function(row){return num(row.completed)>0;});
-    if(filters.status==="유사강종"&&out.some(function(row){return !!row.isFamilySummary;}))out=out.filter(function(row){return !!row.isFamilySummary;});
-  }else{
-    if(filters.status==="대기") out=out.filter(function(row){return !/완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
-    if(filters.status==="완료") out=out.filter(function(row){return /완료|RECEIVED|COMPLETE|FINAL|SHIPPED|DONE/i.test(String(row.status||row.inspection));});
-  }
-  return out.slice(0,num(filters.limit)||50);
-};
-function mesWireSearchButtons(){
-  var toolbar=document.querySelector("#content .toolbar");
-  if(!toolbar) return;
-  var buttons=toolbar.querySelectorAll("button");
-  buttons.forEach(function(button){
-    var label=String(button.textContent||"").trim();
-    if(label==="조회"){button.onclick=window.mesApplySearch;button.setAttribute("onclick","mesApplySearch()");}
-    if(label==="초기화"){button.onclick=window.mesResetSearch;button.setAttribute("onclick","mesResetSearch()");}
-  });
-}
-function mesAddSavedColumn(schema){
-  if(!schema||!Array.isArray(schema.cols)||schema.cols.some(function(col){return col[0]==="저장일시";})) return;
-  schema.cols.push(["저장일시",function(row){return window.mesSavedAtText(row);}]);
-}
-Object.keys(schemas).forEach(function(key){mesAddSavedColumn(schemas[key]);});
-function mesCompletedStatus(value){
-  return /^(?:FINAL|SHIPPED|DONE|COMPLETE|COMPLETED|DELIVERED)$/i.test(String(value||""));
-}
-function mesShipmentIsComplete(shipment){
-  return !!shipment&&(mesCompletedStatus(shipment.status)||!!(shipment.shippedAt||shipment.shippingCompletedAt||shipment.completedAt));
-}
-function mesItemIsComplete(item){
-  if(mesCompletedStatus(item&&item.status)) return true;
-  return safe(state.shipments).some(function(shipment){
-    if(!mesShipmentIsComplete(shipment)) return false;
-    if(shipment.salesOrderId) return String(shipment.salesOrderId)===String(item.id);
-    return shipment.soNo&&String(shipment.soNo)===String(item.soNo);
-  });
-}
-function mesPendingShippingRows(){
-  return salesRows().map(function(group){
-    var pending=safe(group.items).filter(function(item){return !mesItemIsComplete(item);});
-    if(!pending.length) return null;
-    var next=Object.assign({},group,{
-      items:pending,
-      grade:Array.from(new Set(pending.map(function(item){return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · ");}).filter(Boolean))).join(" / "),
-      weight:pending.reduce(function(sum,item){return sum+num(item.weight);},0),
-      amount:pending.reduce(function(sum,item){return sum+num(item.amount||item.salesAmount||num(item.weight)*num(item.unitPrice));},0),
-      status:pending[0].status||"WAITING",
-      _savedAt:mesMaxDate(pending.map(mesRecordDate))
-    });
-    return next;
-  }).filter(Boolean);
-}
-function mesPackingListFor(item,shipment){
-  return safe(state.packingLists).filter(function(list){
-    return list.status!=="CANCELLED"&&(list.salesOrderId===item.id||list.soNo===item.soNo||list.shipmentId===shipment.id);
-  }).map(function(list){return list.packingListNo;}).filter(Boolean).join(" / ");
-}
-function mesCompletedShipmentRows(){
-  var orders=safe(state.salesOrders).filter(function(item){return item.status!=="CANCELLED";});
-  var rows=[];
-  var seen=new Set();
-  safe(state.shipments).filter(mesShipmentIsComplete).forEach(function(shipment){
-    var items=orders.filter(function(item){
-      return shipment.salesOrderId?String(item.id)===String(shipment.salesOrderId):shipment.soNo&&String(item.soNo)===String(shipment.soNo);
-    });
-    if(!items.length) items=[{id:"shipment",soNo:shipment.soNo||"",customer:shipment.customer||"",grade:shipment.grade||"",weight:shipment.weight||shipment.shippedWeight||0}];
-    items.forEach(function(item,index){
-      var key=String(shipment.id||shipment.soNo||"shipment")+"::"+String(item.id||index);
-      if(seen.has(key)) return;
-      seen.add(key);
-      var allocations=safe(state.shipmentAllocations).filter(function(allocation){
-        return allocation.status!=="CANCELLED"&&allocation.shipmentId===shipment.id&&(!allocation.salesOrderId||allocation.salesOrderId===item.id);
-      });
-      var shipped=allocations.length?allocations.reduce(function(sum,x){return sum+num(x.weight);},0):num(item.shippedWeight||shipment.itemWeights&&shipment.itemWeights[item.id]||item.weight||shipment.shippedWeight||shipment.weight);
-      rows.push({
-        id:key,shipmentId:shipment.id||"",soNo:item.soNo||shipment.soNo||"",customer:item.customer||shipment.customer||"",
-        productType:item.productType||"",mainGrade:item.mainGrade||item.grade||shipment.mainGrade||shipment.grade||"",
-        subGrade:item.subGrade||"",detailGrade:item.detailGrade||"",grade:item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · "),
-        weight:num(item.weight),shippedWeight:shipped,shipDate:item.shipDate||shipment.shipDate,
-        shippedAt:shipment.shippedAt||shipment.shippingCompletedAt||shipment.completedAt||shipment.updatedAt,
-        status:shipment.status||item.status||"SHIPPED",type:item.packingListType==="OVERSEAS"?"수출":"국내",
-        packingList:mesPackingListFor(item,shipment),items:[item],shipments:[shipment],_savedAt:mesRecordDate(shipment)
-      });
-    });
-  });
-  orders.filter(function(item){return mesCompletedStatus(item.status);}).forEach(function(item){
-    var has=rows.some(function(row){return safe(row.items).some(function(x){return x.id===item.id;});});
-    if(has) return;
-    rows.push({
-      id:"order::"+item.id,shipmentId:"",soNo:item.soNo||"",customer:item.customer||"",
-      productType:item.productType||"",mainGrade:item.mainGrade||item.grade||"",subGrade:item.subGrade||"",detailGrade:item.detailGrade||"",grade:item.grade||"",
-      weight:num(item.weight),shippedWeight:num(item.shippedWeight||item.weight),shipDate:item.shipDate,
-      shippedAt:item.shippedAt||item.shippingCompletedAt||item.updatedAt||item.createdAt,status:item.status,type:item.packingListType==="OVERSEAS"?"수출":"국내",
-      packingList:mesPackingListFor(item,{}),items:[item],shipments:[],_savedAt:mesRecordDate(item)
-    });
-  });
-  return rows.sort(function(a,b){return String(b.shippedAt||b._savedAt||"").localeCompare(String(a.shippedAt||a._savedAt||""));});
-}
-schemas.shippingPlan.rows=mesPendingShippingRows;
-schemas.shippingPlan.cols=[
-  ["판매구분",function(r){return r.type;}],["S.O",function(r){return r.soNo;}],["출하예정일",function(r){return date(r.shipDate);}],
-  ["판매처",function(r){return r.customer;},"left"],["미출하 강종",function(r){return r.grade;},"left"],["미출하 NW(kg)",function(r){return fmt(r.weight);}],
-  ["출하요청 상태",function(r){return status(r.status);}],["저장일시",function(r){return window.mesSavedAtText(r);}]
-];
-schemas.shippingPlan.edit="sales";
-schemas.shipping.rows=mesCompletedShipmentRows;
-schemas.shipping.cols=[
-  ["판매구분",function(r){return r.type;}],["S.O",function(r){return r.soNo;}],["품종",function(r){return r.productType||"-";}],
-  ["강종",function(r){return r.mainGrade||"-";},"left"],["소강종",function(r){return r.subGrade||"-";}],["상세강종",function(r){return r.detailGrade||"-";},"left"],
-  ["판매처",function(r){return r.customer;},"left"],["출하 NW(kg)",function(r){return fmt(r.shippedWeight);}],["출하일시",function(r){return dt(r.shippedAt);}],
-  ["PACKING LIST",function(r){return r.packingList||"-";}],["저장일시",function(r){return window.mesSavedAtText(r);}]
-];
-schemas.shipping.edit="shipping";
-schemas.inventory.rows=function(){
-  var map=groupBy(inventoryRows(),function(row){return [row.productType,row.mainGrade,row.subGrade].join("|");});
-  return Array.from(map).map(function(entry){
-    var key=entry[0],rows=entry[1];
-    return {id:key,productType:rows[0].productType,mainGrade:rows[0].mainGrade,subGrade:rows[0].subGrade,
-      stock:rows.reduce(function(sum,x){return sum+x.nw;},0),packing:rows.length,
-      locations:Array.from(new Set(rows.map(function(x){return x.location;}))).join(" / "),rows:rows,_savedAt:mesMaxDate(rows.map(mesRecordDate))};
-  });
-};
-schemas.stockDetail.rows=inventoryRows;
-function mesNormalizeGrade(value){return String(value||"").toUpperCase().replace(/[^A-Z0-9가-힣]/g,"");}
-function mesGradeMatches(source,target){
-  var a=mesNormalizeGrade(source),b=mesNormalizeGrade(target);
-  if(!a||!b) return false;
-  return a===b||a.includes(b)||b.includes(a);
-}
-function mesRequestItemGrade(item){return item.mainGrade||item.grade||[item.productType,item.mainGrade,item.subGrade].filter(Boolean).join(" ");}
-function mesShippingRequestDetail(row){
-  var items=safe(row.items).filter(function(item){return !mesItemIsComplete(item);});
-  var stock=inventoryRows();
-  var waits=safe(state.workWaits).filter(function(x){return x.status!=="CANCELLED"&&x.status!=="COMPLETE"&&x.status!=="DONE";});
-  var pendingPos=safe(state.pos).filter(function(x){return x.status!=="CANCELLED"&&!/COMPLETE/i.test(String(x.inspectionStatus||""));});
-  var metrics=items.map(function(item){
-    var grade=mesRequestItemGrade(item);
-    var completed=stock.filter(function(x){return mesGradeMatches(x.mainGrade,grade);}).reduce(function(sum,x){return sum+num(x.nw);},0);
-    var work=waits.filter(function(x){return mesGradeMatches(x.mainGrade||x.grade,grade);}).reduce(function(sum,x){return sum+num(x.weight);},0);
-    var inspect=pendingPos.filter(function(x){return mesGradeMatches(x.mainGrade||x.grade,grade);}).reduce(function(sum,x){return sum+Math.max(0,num(x.weight)-packageUsed(x.packageNo));},0);
-    var request=num(item.weight),available=Math.min(request,completed),progress=request?Math.min(100,Math.round(available/request*100)):0;
-    return {soNo:item.soNo||row.soNo,customer:item.customer||row.customer,grade:grade,subGrade:item.subGrade||"",request:request,completed:completed,work:work,inspection:inspect,progress:progress,status:item.status||"WAITING",shipDate:item.shipDate||row.shipDate};
-  });
-  var totalRequest=metrics.reduce(function(s,x){return s+x.request;},0);
-  var totalStock=metrics.reduce(function(s,x){return s+x.completed;},0);
-  var totalWork=metrics.reduce(function(s,x){return s+x.work;},0);
-  var totalInspect=metrics.reduce(function(s,x){return s+x.inspection;},0);
-  return "<div class='shipping-workflow-banner'><h3>업무수행 · 출하요청 진행화면</h3><p>출하완료 전 S.O 품목만 표시하며, 현장 공정 중량을 함께 확인합니다.</p></div>"
-    +"<div class='shipping-stage-cards'><div class='shipping-stage-card'><small>출하 요청</small><b>"+fmt(totalRequest)+" kg</b></div><div class='shipping-stage-card'><small>완료재고</small><b>"+fmt(totalStock)+" kg</b></div><div class='shipping-stage-card'><small>작업대기</small><b>"+fmt(totalWork)+" kg</b></div><div class='shipping-stage-card'><small>검수대기</small><b>"+fmt(totalInspect)+" kg</b></div></div>"
-    +mesSection("출하요청 품목",[
-      ["S.O",function(x){return x.soNo;}],["판매처",function(x){return x.customer;}],["강종",function(x){return x.grade;}],["소강종",function(x){return x.subGrade||"-";}],
-      ["요청중량",function(x){return fmt(x.request);}],["완료재고",function(x){return fmt(x.completed);}],["작업대기",function(x){return fmt(x.work);}],
-      ["검수대기",function(x){return fmt(x.inspection);}],["출하가능 진행률",function(x){return x.progress+"%";}],["출하예정일",function(x){return date(x.shipDate);}]
-    ],metrics)
-    +mesSection("출하요청 원본",[
-      ["S.O",function(x){return x.soNo;}],["판매처",function(x){return x.customer;}],["품종",function(x){return x.productType||"-";}],
-      ["강종",function(x){return x.mainGrade||x.grade;}],["소강종",function(x){return x.subGrade||"-";}],["상세강종",function(x){return x.detailGrade||"-";}],
-      ["요청중량",function(x){return fmt(x.weight);}],["상태",function(x){return x.status||"WAITING";}],["저장일시",function(x){return window.mesSavedAtText(x);}]
-    ],items);
-}
-var baseDetailMarkup=window.mesDetailMarkup;
-window.mesDetailMarkup=function(view,row){
-  if(view==="shippingPlan") return mesShippingRequestDetail(row);
-  if(view==="shipping") return mesShippingDetail(row);
-  return baseDetailMarkup(view,row);
-};
-var baseRenderSearch=window.render;
-window.render=function(){
-  baseRenderSearch();
-  mesWireSearchButtons();
-};
-if(currentView) render();
-})();
-</script>
-<style id="mesInboundRequestV1Style">
-.po-mode-grid,.request-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
-.po-mode-card,.request-mode-card{border:2px solid #d7e1ea;border-radius:18px;background:#fff;padding:20px;text-align:left;cursor:pointer;min-height:150px}
-.po-mode-card:hover,.request-mode-card:hover{border-color:#008ea1;box-shadow:0 12px 30px #008ea120}
-.po-mode-card b,.request-mode-card b{display:block;font-size:21px;margin-bottom:8px;color:#12324f}
-.po-mode-card span,.request-mode-card span{color:#64748b;line-height:1.55}
-.document-upload{border:3px dashed #7db7c2;background:#f0fbfc;border-radius:18px;padding:24px;text-align:center;margin:16px 0}
-.document-upload input{display:block;width:100%;margin-top:14px}
-.po-system-frame{width:100%;height:520px;border:1px solid #cbd5e1;border-radius:14px;background:#fff}
-.registration-lines,.packing-request-lines{grid-column:1/-1;display:grid;gap:12px}
-.line-editor{border:1px solid #d8e1eb;border-radius:14px;padding:14px;background:#f9fbfd}
-.line-editor-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
-.inbound-request-action{margin-left:6px;background:#e9f8f6!important;border-color:#9ad8d0!important;color:#087566!important}
-.request-summary{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:14px 0}
-.request-summary>div{background:#eef7f6;border-radius:12px;padding:13px}
-.request-summary small{display:block;color:#65768a;font-weight:800}.request-summary b{display:block;margin-top:6px;font-size:19px}
-.choice-segment{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.choice-segment label{position:relative}
-.choice-segment input{position:absolute;opacity:0}
-.choice-segment span{display:block;border:2px solid #cbd5e1;border-radius:12px;padding:14px;text-align:center;background:#fff;font-weight:900}
-.choice-segment input:checked+span{background:#087f72;color:#fff;border-color:#087f72}
-.request-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
-.request-detail-grid div{border:1px solid #e0e7ef;border-radius:11px;padding:12px}.request-detail-grid small{display:block;color:#718096}.request-detail-grid b{display:block;margin-top:5px}
-@media(max-width:760px){.po-mode-grid,.request-mode-grid{grid-template-columns:1fr}.po-mode-card,.request-mode-card{min-height:120px}.po-system-frame{height:62vh}.request-summary,.request-detail-grid{grid-template-columns:1fr 1fr}.inbound-request-action{margin:7px 0 0!important;width:100%}}
-</style>
-<script id="mesInboundRequestV1">
-(function(){
-"use strict";
-if(window.__mesInboundRequestV1)return;
-window.__mesInboundRequestV1=true;
-
-var navInsert=VIEWS.findIndex(function(v){return v.id==="inbound";});
-if(!VIEWS.some(function(v){return v.id==="inboundRequest";})){
-  VIEWS.splice(navInsert<0?2:navInsert,0,{group:"입고·생산",id:"inboundRequest",icon:"03",label:"입고요청현황"});
-}
-var mesOrder=["purchase","sales","inboundRequest","inbound","production","settlement","inventory","stockDetail","shippingPlan","shipping","daily"];
-mesOrder.forEach(function(id,index){var view=VIEWS.find(function(v){return v.id===id;});if(view)view.icon=String(index+1).padStart(2,"0");});
-buildNav();
-
-function requestRows(){
-  return safe(state.purchaseRequests).filter(function(x){return x.status!=="CANCELLED";}).slice().sort(function(a,b){
-    return String(b.requestDate||b.createdAt||"").localeCompare(String(a.requestDate||a.createdAt||""));
-  }).map(function(x){
-    var items=safe(x.items),po=poRows().find(function(p){return p.poNo===x.poNo;})||{};
-    return Object.assign({},x,{
-      company:x.company||po.company||"",
-      gradeSummary:x.gradeSummary||Array.from(new Set(items.map(function(i){return i.grade;}))).filter(Boolean).join(" / "),
-      packageCount:items.length,
-      totalGw:items.reduce(function(s,i){return s+num(i.gw);},0),
-      totalNw:items.reduce(function(s,i){return s+num(i.nw||i.weight);},0),
-      savedAt:x.updatedAt||x.createdAt
-    });
-  });
-}
-schemas.inboundRequest={
-  title:"입고요청현황",
-  rows:requestRows,
-  cols:[
-    ["요청번호",function(r){return r.requestNo||"-";},"link"],
-    ["P.O",function(r){return r.poNo||"-";}],
-    ["구분",function(r){return r.importType==="OVERSEAS"?"해외입고":"국내입고";}],
-    ["거래처",function(r){return r.company||"-";},"left"],
-    ["강종",function(r){return r.gradeSummary||"-";},"left"],
-    ["입고요청일",function(r){return date(r.requestDate)+" "+(r.requestTime||"");}],
-    ["컨테이너",function(r){return r.containerSize||"-";}],
-    ["차량번호",function(r){return r.vehicleNo||"-";}],
-    ["연락처",function(r){return r.contact||"-";}],
-    ["패키지",function(r){return r.packageCount+"개";}],
-    ["G/W",function(r){return fmt(r.totalGw)+" kg";}],
-    ["N/W",function(r){return fmt(r.totalNw)+" kg";}],
-    ["상태",function(r){return status(r.status==="REQUESTED"?"입고요청완료":r.status);}],
-    ["작업자",function(r){return r.operatorName||"-";}],
-    ["저장일시",function(r){return dt(r.savedAt);}]
-  ],
-  edit:"inboundRequest"
-};
-
-var baseOpenRegistration=window.openMesRegistration;
-window.openMesRegistration=function(type){
-  if(type==="PO")return openMesPoModeChooser();
-  return baseOpenRegistration.apply(this,arguments);
-};
-function openMesPoModeChooser(){
-  $("modalTitle").textContent="구매계획 · P.O 등록";
-  $("modalBody").innerHTML="<p>등록 방법을 선택하세요. 두 방법 모두 국내·해외입고를 선택하고 공용 서버에 저장합니다.</p>"
-    +"<div class='po-mode-grid'>"
-    +"<button class='po-mode-card' onclick='openMesDirectPoRegistration()'><b>직접입력</b><span>P.O 번호·거래처·강종·중량을 직접 입력합니다. 품목행을 여러 개 추가할 수 있습니다.</span></button>"
-    +"<button class='po-mode-card' onclick='openMesDocumentPoRegistration()'><b>거래처 서류로 등록</b><span>PDF·Excel·사진을 분석하고 캐시카우 P.O 변환 시스템을 함께 활용합니다.</span></button>"
-    +"</div>";
-  $("modal").classList.add("on");
-}
-window.openMesPoModeChooser=openMesPoModeChooser;
-window.openMesDirectPoRegistration=function(){
-  baseOpenRegistration("PO");
-  $("modalTitle").textContent="P.O 등록 · 직접입력";
-  var form=$("modalBody").querySelector("form");
-  if(form){
-    var kind=form.querySelector("[name=kind]");
-    if(kind)kind.closest("label").childNodes[0].textContent="입고 구분";
-    var actions=form.querySelector(".actions");
-    if(actions)actions.insertAdjacentHTML("afterbegin","<button type='button' class='btn' onclick='openMesPoModeChooser()'>← 등록방법 선택</button>");
-  }
-};
-window.openMesDocumentPoRegistration=function(){
-  $("modalTitle").textContent="P.O 등록 · 거래처 서류";
-  $("modalBody").innerHTML="<div class='document-upload'><b>PDF · Excel · 사진 자동완성</b><p>거래처 P.O/INVOICE/PACKING LIST를 선택하면 번호·거래처·강종·중량을 읽어 수정 가능한 P.O 입력창으로 전환합니다.</p><input id='mesPoDocumentFile' type='file' accept='.pdf,.xlsx,.xls,image/*' onchange='mesAnalyzePoDocument(this.files[0])'></div>"
-    +"<div class='actions'><button class='btn' onclick='window.open(\"/cashcow-po-system.html?v=20260804-1\",\"_blank\")'>캐시카우 P.O 전문 변환 화면 크게 열기</button><button class='btn' onclick='openMesPoModeChooser()'>← 등록방법 선택</button></div>"
-    +"<h3>캐시카우 P.O 변환·검증 시스템</h3><iframe class='po-system-frame' src='/cashcow-po-system.html?v=20260804-1' title='캐시카우 P.O 변환 시스템'></iframe>";
-  $("modal").classList.add("on");
-};
-function loadExternalScript(src,test){
-  if(test())return Promise.resolve();
-  return new Promise(function(resolve,reject){var s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=function(){reject(Error("문서 분석 모듈을 불러오지 못했습니다."));};document.head.appendChild(s);});
-}
-async function mesPdfLines(file){
-  await loadExternalScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",function(){return !!window.pdfjsLib;});
-  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-  var pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];
-  for(var p=1;p<=pdf.numPages;p++){
-    var page=await pdf.getPage(p),content=await page.getTextContent(),items=content.items.map(function(x){return{text:String(x.str||"").trim(),x:num(x.transform&&x.transform[4]),y:num(x.transform&&x.transform[5])};}).filter(function(x){return x.text;}),groups=[];
-    items.sort(function(a,b){return b.y-a.y||a.x-b.x;}).forEach(function(item){var g=groups.find(function(row){return Math.abs(row.y-item.y)<=3;});if(!g){g={y:item.y,items:[]};groups.push(g);}g.items.push(item);});
-    groups.sort(function(a,b){return b.y-a.y;}).forEach(function(g){var line=g.items.sort(function(a,b){return a.x-b.x;}).map(function(x){return x.text;}).join(" ").replace(/\s+/g," ").trim();if(line)lines.push(line);});
-  }
-  return lines;
-}
-async function mesImageLines(file){
-  await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",function(){return !!window.Tesseract;});
-  var result=await Tesseract.recognize(file,"eng+kor",{logger:function(m){if(m.status==="recognizing text")setSync("사진 문자 인식 "+Math.round((m.progress||0)*100)+"%");}});
-  return String(result.data&&result.data.text||"").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
-}
-function mesDocNo(lines,fileName){
-  var text=lines.join("\n"),m=text.match(/(?:P\s*\.?\s*O\s*\.?|PURCHASE\s+ORDER)\s*(?:NO\.?|NUMBER|#|:)??\s*[:#-]?\s*([A-Z0-9][A-Z0-9_./#-]{2,})/i);
-  if(m)return m[1].replace(/[.,;:]$/,"");
-  var base=String(fileName||"").replace(/\.[^.]+$/,"").toUpperCase(),codes=base.match(/[A-Z]{1,12}[-_#]?\d{3,}/g)||[];
-  return codes[codes.length-1]&&codes[codes.length-1].replace(/_/g,"-")||"";
-}
-function mesDocCompany(lines){
-  var labels=["SUPPLIER","VENDOR","SELLER","SHIP FROM","공급사","거래처"];
-  for(var i=0;i<lines.length;i++)for(var j=0;j<labels.length;j++){var m=lines[i].match(new RegExp("(?:^|\\b)"+labels[j]+"\\s*(?:NAME)?\\s*[:#-]?\\s*(.+)$","i"));if(m&&m[1].trim().length>1)return m[1].trim().replace(/\s{2,}.*/,"");}
-  return "";
-}
-function mesWeightKg(value,unit){var n=num(String(value||"").replace(/,/g,"")),u=String(unit||"KG").toUpperCase();return Math.round((/^LB/.test(u)?n*.45359237:/^(MT|M\/T|TON|TONS|TONNE|TONNES|T)$/.test(u)?n*1000:n)*100)/100;}
-function mesDocItems(lines){
-  var weightRe=/(-?\d[\d,]*(?:\.\d+)?)\s*(KGS?|KILOGRAMS?|LBS?|POUNDS?|MT|M\/T|TONS?|TONNES?|TON)\b/ig,rows=[];
-  lines.forEach(function(line,index){if(/\b(TOTAL|SUBTOTAL|GRAND TOTAL|합계)\b/i.test(line))return;var match;while((match=weightRe.exec(line))){var weight=mesWeightKg(match[1],match[2]);if(weight<=0)continue;var grade=line.slice(0,match.index).replace(/\b(ITEM|NO\.?|DESCRIPTION|COMMODITY|GRADE|MARKING|QUANTITY|QTY|WEIGHT)\b\s*[:#-]?/ig," ").replace(/^\s*\d+[.)-]?\s+/," ").replace(/\s+/g," ").trim();if(!/[A-Z가-힣]/i.test(grade))grade=String(lines[index-1]||"").trim();grade=grade.replace(/[|:;,-]+$/,"").trim();if(grade.length>1)rows.push({grade:grade,weight:weight,packageCount:1});}});
-  return rows;
-}
-function mesPackingDocItems(lines){
-  var rows=[],pendingGrade="",pendingPackage="",pendingCount=1;
-  function cleanGrade(value){return String(value||"").replace(/^(?:DESCRIPTION(?: OF GOODS)?|COMMODITY|GRADE|MARKING)\s*[:#-]?\s*/i,"").replace(/\b(?:CONTAINER|PACKAGE)\s*(?:NO\.?|NUMBER|#)?\s*[:#-]?.*$/i,"").replace(/\s+/g," ").trim();}
-  function pushRow(packageNo,grade,gw,nw,count){
-    gw=Math.round(num(gw)*100)/100;nw=Math.round(num(nw)*100)/100;
-    if(!(gw>0||nw>0))return;
-    rows.push({packageNo:String(packageNo||"").trim(),grade:cleanGrade(grade)||"강종 미지정",gw:gw||nw,nw:nw||gw,packageCount:Math.max(1,num(count)||1)});
-  }
-  lines.forEach(function(raw,index){
-    var line=String(raw||"").replace(/\s+/g," ").trim();if(!line)return;
-    var explicitPackage=line.match(/(?:PACKAGE|PACKING|PKG)\s*(?:NO\.?|NUMBER|#)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9_./-]{1,})/i);
-    var container=line.match(/CONTAINER\s*(?:NO\.?|NUMBER|#)?\s*[:#-]?\s*([A-Z]{3,5}\d{5,})/i);
-    if(explicitPackage)pendingPackage=explicitPackage[1];else if(container)pendingPackage=container[1];
-    var marked=line.match(/(?:MARKING|DESCRIPTION(?: OF GOODS)?|COMMODITY|GRADE)\s*[:#-]?\s*(.+)$/i);
-    if(marked&&cleanGrade(marked[1]))pendingGrade=cleanGrade(marked[1]);
-    else if(/[A-Z가-힣]/i.test(line)&&!/\b(PACKING LIST|INVOICE|TOTAL|BANK|ADDRESS|TEL|FAX|DATE|COUNTRY|TERMS|VESSEL|AIRCRAFT|QTY|QUANTITY|N\.?W|G\.?W|CBM)\b/i.test(line)&&!/^\s*\d/.test(line))pendingGrade=cleanGrade(line)||pendingGrade;
-    var labeledGw=line.match(/(?:G\.?\s*W\.?|GROSS\s*WEIGHT)\s*[:#-]?\s*([\d,.]+)/i),labeledNw=line.match(/(?:N\.?\s*W\.?|NET\s*WEIGHT)\s*[:#-]?\s*([\d,.]+)/i);
-    if(labeledGw||labeledNw){pushRow(pendingPackage,pendingGrade,labeledGw&&labeledGw[1],labeledNw&&labeledNw[1],pendingCount);pendingPackage="";pendingCount=1;return;}
-    var nums=(line.match(/-?\d[\d,]*(?:\.\d+)?/g)||[]).map(function(value){return num(value.replace(/,/g,""));});
-    if(nums.length>=3&&!/\b(TOTAL|SUBTOTAL|GRAND TOTAL)\b/i.test(line)){
-      var useful=nums.filter(function(value){return value>=0;}),count=useful[0],nw=useful[useful.length>=4?useful.length-3:1],gw=useful[useful.length>=4?useful.length-2:2];
-      if(gw>0&&nw>0&&gw>=nw&&gw<100000000){pendingCount=count>0&&count<10000?count:1;pushRow(pendingPackage,pendingGrade,gw,nw,pendingCount);pendingPackage="";pendingCount=1;}
-    }
-  });
-  if(rows.length)return rows;
-  return mesDocItems(lines).map(function(row){return{packageNo:"",grade:row.grade,gw:row.weight,nw:row.weight,packageCount:row.packageCount||1};});
-}
-async function mesExcelPo(file){
-  await mesEnsureXlsx();
-  var wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),sheet=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}),rows=[];
-  sheet.forEach(function(r){var grade=r["강종명"]||r["강종"]||r["상세강종"]||r["GRADE"]||r["DESCRIPTION"]||r["COMMODITY"]||r["MARKING"],weight=r["중량(kg)"]||r["중량"]||r["N/W"]||r["NW"]||r["QUANTITY"]||r["WEIGHT"];if(grade&&num(weight)>0)rows.push({grade:String(grade),weight:num(weight),packageCount:num(r["패키지 수"]||r["PACKAGE COUNT"])||1});});
-  var first=sheet[0]||{};
-  return{poNo:String(first["P.O 넘버"]||first["PO 넘버"]||first["P.O"]||first["PO NO"]||"").trim(),company:String(first["거래처명"]||first["공급사"]||first["SUPPLIER"]||first["VENDOR"]||"").trim(),rows:rows};
-}
-async function mesExcelPacking(file){
-  await mesEnsureXlsx();
-  var wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),rows=[];
-  wb.SheetNames.forEach(function(name){
-    XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:""}).forEach(function(r){
-      function pick(keys){for(var i=0;i<keys.length;i++){var key=Object.keys(r).find(function(k){return String(k).replace(/\s+/g,"").toUpperCase()===keys[i];});if(key!=null&&String(r[key]).trim()!=="")return r[key];}return"";}
-      var packageNo=pick(["PACKAGENO.","PACKAGENO","PACKINGNO.","PACKINGNO","PKGNO.","PKGNO","패키지번호","팩킹번호","포장번호"]),grade=pick(["강종명","강종","상세강종","GRADE","DESCRIPTION","DESCRIPTIONOFGOODS","COMMODITY","MARKING"]),gw=pick(["G/W","GW","GROSSWEIGHT","총중량","총중량(KG)"]),nw=pick(["N/W","NW","NETWEIGHT","순중량","순중량(KG)"]),count=pick(["QTY","QUANTITY","PACKAGES","PACKAGECOUNT","패키지수"]);
-      if(grade&&(num(gw)>0||num(nw)>0))rows.push({packageNo:String(packageNo||""),grade:String(grade),gw:num(gw)||num(nw),nw:num(nw)||num(gw),packageCount:num(count)||1});
-    });
-  });
-  return{rows:rows};
-}
-function mesFillPoForm(parsed){
-  window.openMesDirectPoRegistration();
-  var form=$("modalBody").querySelector("form");if(!form)return;
-  form.querySelector("[name=orderNo]").value=parsed.poNo||"";
-  form.querySelector("[name=partner]").value=parsed.company||"";
-  var holder=form.querySelector(".registration-lines");holder.innerHTML="";
-  (parsed.rows.length?parsed.rows:[{grade:"",weight:"",packageCount:1}]).forEach(function(row){
-    holder.insertAdjacentHTML("beforeend",mesRegistrationLine("PO"));
-    var line=holder.lastElementChild;
-    line.querySelector("[name=sourceGrade]").value=row.grade||"";
-    line.querySelector("[name=mainGrade]").value=row.grade||"";
-    line.querySelector("[name=weight]").value=row.weight||"";
-    line.querySelector("[name=packageCount]").value=row.packageCount||1;
-  });
-  $("modalTitle").textContent="P.O 자동완성 결과 · 확인 후 저장";
-  holder.scrollIntoView({behavior:"smooth",block:"start"});
-  toast("거래처 서류 분석 완료 · 내용을 확인한 뒤 P.O 저장하기를 누르세요.");
-}
-window.mesAnalyzePoDocument=async function(file){
-  if(!file)return;
-  $("progress").classList.add("on");
-  try{
-    var parsed;
-    if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPo(file);
-    else{
-      var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);
-      parsed={poNo:mesDocNo(lines,file.name),company:mesDocCompany(lines),rows:mesDocItems(lines)};
-    }
-    if(!parsed.rows.length)throw Error("강종과 중량을 찾지 못했습니다. 캐시카우 전문 변환 화면에서 확인하거나 직접입력을 이용하세요.");
-    mesFillPoForm(parsed);
-  }catch(error){toast("서류 자동완성 실패: "+error.message,true);}
-  finally{$("progress").classList.remove("on");setSync("공용 서버 연결됨");}
-};
-
-var baseSaveRegistration=window.saveMesRegistration;
-window.saveMesRegistration=async function(event,form,type){
-  await baseSaveRegistration.apply(this,arguments);
-  if(type==="PO"&&!$("modal").classList.contains("on")&&currentView==="purchase")toast("P.O 저장완료 · 구매계획에 등록했습니다.");
-};
-
-function poRequest(poNo){return requestRows().find(function(x){return x.poNo===poNo;});}
-function decoratePurchaseRequestButtons(){
-  var rows=filtered(schemas.purchase.rows());
-  document.querySelectorAll("#content .table-wrap tbody tr:not(.total-row)").forEach(function(tr,index){
-    var row=rows[index];if(!row||tr.querySelector(".inbound-request-action"))return;
-    var cell=tr.lastElementChild,request=poRequest(row.poNo);
-    cell.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
-  });
-  document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
-    var row=rows[index];if(!row||card.querySelector(".inbound-request-action"))return;
-    var request=poRequest(row.poNo);
-    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(request?"입고요청 수정":"입고요청")+"</button>");
-  });
-}
-window.openInboundRequestBuilder=function(poNo){
-  var po=poRows().find(function(x){return x.poNo===poNo;});if(!po)return toast("P.O 자료를 찾지 못했습니다.",true);
-  $("modalTitle").textContent=poNo+" · 입고요청";
-  $("modalBody").innerHTML="<div class='request-summary'><div><small>P.O</small><b>"+esc(po.poNo)+"</b></div><div><small>거래처</small><b>"+esc(po.company)+"</b></div><div><small>품목</small><b>"+po.rows.length+"개</b></div><div><small>계획 N/W</small><b>"+fmt(po.nw)+" kg</b></div></div>"
-    +"<p>PACKING LIST 입력 방법을 선택하세요.</p><div class='request-mode-grid'>"
-    +"<button class='request-mode-card' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'><b>PACKING LIST 직접입력</b><span>P.O 품목을 불러온 뒤 패키지번호·G/W·N/W·포장종류를 직접 수정합니다.</span></button>"
-    +"<button class='request-mode-card' onclick='openPackingRequestUpload(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'><b>업로드로 자동완성</b><span>PDF·Excel·사진파일에서 강종과 중량을 읽어 자동으로 입력합니다.</span></button></div>";
-  $("modal").classList.add("on");
-};
-function packingLineHtml(row,index){
-  return "<div class='line-editor packing-request-line'><div class='line-editor-head'><b>패키지 "+(index+1)+"</b><button type='button' class='btn danger' onclick='this.closest(\".packing-request-line\").remove();updatePackingRequestTotals()'>삭제</button></div><div class='form-grid'>"
-    +"<label>Package No.<input name='packageNo' value='"+esc(row.packageNo||"")+"'></label><label>강종<input name='grade' value='"+esc(row.grade||"")+"' required></label>"
-    +"<label>G/W(kg)<input name='gw' type='number' step='0.01' value='"+esc(row.gw||row.weight||"")+"' oninput='updatePackingRequestTotals()'></label>"
-    +"<label>N/W(kg)<input name='nw' type='number' step='0.01' value='"+esc(row.nw||row.weight||"")+"' oninput='updatePackingRequestTotals()'></label>"
-    +"<label>포장 종류<input name='packingType' value='"+esc(row.packingType||"")+"'></label><label>비고<input name='memo' value='"+esc(row.memo||"")+"'></label></div></div>";
-}
-function requestDefaultItems(po){
-  return po.rows.map(function(row){return{packageNo:row.packingPackageNo||"",grade:row.grade||"",gw:num(row.grossWeight||row.weight),nw:num(row.netWeight||row.weight),packingType:row.packingType||"",memo:row.packingMemo||""};});
-}
-window.openPackingRequestDirect=function(poNo){var po=poRows().find(function(x){return x.poNo===poNo;}),saved=poRequest(poNo);renderPackingRequestForm(po,saved&&safe(saved.items).length?saved.items:requestDefaultItems(po));};
-window.openPackingRequestUpload=function(poNo){
-  $("modalTitle").textContent=poNo+" · PACKING LIST 업로드 자동완성";
-  $("modalBody").innerHTML="<div class='document-upload'><b>PDF · Excel · 사진파일 업로드</b><p>현장관리 P.O PDF·Excel 업로드 방식과 같은 중량 환산·강종 추출 방식을 사용합니다.</p><input type='file' accept='.pdf,.xlsx,.xls,image/*' onchange='analyzePackingRequestFile(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"),this.files[0])'></div><div class='actions'><button class='btn' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(poNo)+"\"))'>← 입력방법 선택</button></div>";
-};
-window.analyzePackingRequestFile=async function(poNo,file){
-  if(!file)return;$("progress").classList.add("on");
-  try{
-    var parsed;if(/\.xlsx?$/i.test(file.name))parsed=await mesExcelPacking(file);else{var lines=/\.pdf$/i.test(file.name)?await mesPdfLines(file):await mesImageLines(file);parsed={rows:mesPackingDocItems(lines)};}
-    var po=poRows().find(function(x){return x.poNo===poNo;}),defaults=requestDefaultItems(po);
-    var items=parsed.rows.map(function(row,index){var base=defaults[index]||{};return{packageNo:row.packageNo||base.packingPackageNo||"",grade:row.grade||base.grade||"",gw:num(row.gw||row.weight),nw:num(row.nw||row.weight),packingType:row.packingType||base.packingType||"",memo:row.memo||"",packageCount:num(row.packageCount)||1};});
-    if(!items.length)throw Error("강종과 중량을 찾지 못했습니다.");
-    renderPackingRequestForm(po,items);toast("PACKING LIST 자동완성 완료 · 필수 입고요청 정보를 입력하세요.");
-  }catch(error){toast("PACKING LIST 자동완성 실패: "+error.message,true);}
-  finally{$("progress").classList.remove("on");setSync("공용 서버 연결됨");}
-};
-function renderPackingRequestForm(po,items){
-  var saved=poRequest(po.poNo)||{},requestDate=saved.requestDate||nowDate(),requestTime=saved.requestTime||new Date().toTimeString().slice(0,5);
-  $("modalTitle").textContent=po.poNo+" · 입고요청 작성";
-  $("modalBody").innerHTML="<form id='inboundRequestForm' class='form-grid' onsubmit='saveInboundRequest(event,this,decodeURIComponent(\""+encodeURIComponent(po.poNo)+"\"))'>"
-    +"<label>입고 구분<select name='importType'><option value='DOMESTIC' "+((saved.importType||po.rows[0]?.type)==="DOMESTIC"?"selected":"")+">국내입고</option><option value='OVERSEAS' "+((saved.importType||po.rows[0]?.type)!=="DOMESTIC"?"selected":"")+">해외입고</option></select></label>"
-    +"<label>입고요청일 <b style='color:#d23'>필수</b><input name='requestDate' type='date' required value='"+esc(requestDate)+"'></label>"
-    +"<label>입고요청 시간 <b style='color:#d23'>필수</b><input name='requestTime' type='time' required value='"+esc(requestTime)+"'></label>"
-    +"<label class='wide'>컨테이너 규격 <b style='color:#d23'>필수</b><div class='choice-segment'><label><input type='radio' name='containerSize' value='20FT' "+(saved.containerSize==="20FT"?"checked":"")+"><span>20FT</span></label><label><input type='radio' name='containerSize' value='40FT' "+(saved.containerSize==="40FT"?"checked":"")+"><span>40FT</span></label></div></label>"
-    +"<label>차량번호 <small>선택</small><input name='vehicleNo' value='"+esc(saved.vehicleNo||"")+"'></label><label>연락처 <small>선택</small><input name='contact' type='tel' value='"+esc(saved.contact||"")+"'></label>"
-    +"<div id='packingRequestLines' class='packing-request-lines'>"+items.map(packingLineHtml).join("")+"</div>"
-    +"<div class='wide actions'><button type='button' class='btn' onclick='addPackingRequestLine()'>+ 패키지 행 추가</button><button class='btn primary'>입고요청완료</button><button type='button' class='btn' onclick='openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(po.poNo)+"\"))'>← 입력방법 선택</button></div></form>";
-  $("modal").classList.add("on");updatePackingRequestTotals();
-}
-window.addPackingRequestLine=function(){var holder=$("packingRequestLines"),index=holder.querySelectorAll(".packing-request-line").length;holder.insertAdjacentHTML("beforeend",packingLineHtml({},index));holder.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"});};
-window.updatePackingRequestTotals=function(){
-  var lines=Array.from(document.querySelectorAll(".packing-request-line")),gw=lines.reduce(function(s,l){return s+num(l.querySelector("[name=gw]")?.value);},0),nw=lines.reduce(function(s,l){return s+num(l.querySelector("[name=nw]")?.value);},0);
-  var form=$("inboundRequestForm");if(!form)return;var old=form.querySelector(".packing-live-total");if(old)old.remove();
-  form.querySelector(".packing-request-lines").insertAdjacentHTML("beforebegin","<div class='wide packing-live-total request-summary'><div><small>패키지</small><b>"+lines.length+"개</b></div><div><small>전체 G/W</small><b>"+fmt(gw)+" kg</b></div><div><small>전체 N/W</small><b>"+fmt(nw)+" kg</b></div><div><small>차이</small><b>"+fmt(gw-nw)+" kg</b></div></div>");
-};
-function nextRequestNo(){
-  var day=nowDate().replace(/-/g,""),max=0;safe(state.purchaseRequests).forEach(function(x){var m=String(x.requestNo||"").match(new RegExp("^IR-"+day+"-(\\d+)$"));if(m)max=Math.max(max,num(m[1]));});return"IR-"+day+"-"+String(max+1).padStart(3,"0");
-}
-window.saveInboundRequest=async function(event,form,poNo){
-  event.preventDefault();var v=formData(form),container=form.querySelector("[name=containerSize]:checked")?.value;
-  if(!container)return toast("컨테이너 20FT 또는 40FT를 선택하세요.",true);
-  var items=Array.from(form.querySelectorAll(".packing-request-line")).map(function(line){return{packageNo:line.querySelector("[name=packageNo]").value.trim(),grade:line.querySelector("[name=grade]").value.trim(),gw:num(line.querySelector("[name=gw]").value),nw:num(line.querySelector("[name=nw]").value),packingType:line.querySelector("[name=packingType]").value.trim(),memo:line.querySelector("[name=memo]").value.trim()};}).filter(function(x){return x.grade&&(x.gw>0||x.nw>0);});
-  if(!items.length)return toast("강종과 G/W 또는 N/W가 입력된 패키지가 필요합니다.",true);
-  var po=poRows().find(function(x){return x.poNo===poNo;}),existing=poRequest(poNo),stamp=new Date().toISOString(),requestId=existing?.id||crypto.randomUUID(),requestNo=existing?.requestNo||nextRequestNo(),gradeSummary=Array.from(new Set(items.map(function(x){return x.grade;}))).join(" / ");
-  var ok=await commit("MES 입고요청 완료",["purchaseRequests","pos"],function(s){
-    s.purchaseRequests=safe(s.purchaseRequests);var request=s.purchaseRequests.find(function(x){return x.id===requestId;});
-    var active=safe(s.pos).filter(function(x){return x.poNo===poNo&&x.status!=="CANCELLED";}),linked=active.filter(function(x){return x.inboundRequestId===requestId;}),candidates=(linked.length?linked:active).slice(),max=safe(s.pos).reduce(function(value,row){var match=String(row.packageNo||"").match(/^P(\d+)$/i);return Math.max(value,match?num(match[1]):0);},0),generated=[];
-    items.forEach(function(item,index){
-      var row=candidates[index];if(!row){max++;row={id:crypto.randomUUID(),poNo:poNo,company:po.company,packageNo:"P"+String(max).padStart(6,"0"),status:"CONFIRMED",createdAt:stamp};s.pos.push(row);}
-      var keptArrival=existing?.arrivalPlanDate||row.arrivalPlanDate||row.expectedArrivalDate||po.expected||"";
-      const originalContractWeight=num(row.purchaseContractWeight||row.contractWeight||row.weight||row.netWeight||row.grossWeight),originalContractGrade=row.purchaseContractGrade||row.contractGrade||row.grade||item.grade;
-      Object.assign(row,{poNo:poNo,company:po.company,grade:item.grade,weight:num(item.nw)||num(item.gw),grossWeight:num(item.gw)||num(item.nw),netWeight:num(item.nw)||num(item.gw),purchaseContractWeight:originalContractWeight,contractWeight:originalContractWeight,purchaseContractGrade:originalContractGrade,contractGrade:originalContractGrade,packingPackageNo:item.packageNo||"",packingType:item.packingType||"",packingMemo:item.memo||"",inboundRequestItemIndex:index+1,inboundRequestId:requestId,inboundRequestNo:requestNo,inboundRequestStatus:"REQUESTED",inboundRequestSuperseded:false,inboundRequestedAt:v.requestDate+"T"+v.requestTime+":00",arrivalPlanDate:keptArrival,expectedArrivalDate:keptArrival,importType:v.importType,purchaseStatus:"입고요청완료",receiptStatus:row.receiptStatus||"WAITING",inspectionStatus:row.inspectionStatus||"NOT_RECEIVED",status:"CONFIRMED",updatedAt:stamp,updatedByName:currentUserName()});
-      generated.push(Object.assign({},item,{internalPackageNo:row.packageNo}));
-    });
-    candidates.slice(items.length).forEach(function(row){row.inboundRequestSuperseded=true;row.inboundRequestStatus="SUPERSEDED";row.supersededInboundRequestId=requestId;row.supersededInboundRequestNo=requestNo;row.supersededAt=stamp;if(!row.receivedAt&&packageUsed(row.packageNo)<=0){row.status="CANCELLED";row.cancelledAt=stamp;row.cancelReason="입고요청 팩킹리스트 수정";}});
-    var data={id:requestId,requestNo:requestNo,poNo:poNo,company:po.company,importType:v.importType,arrivalPlanDate:existing?.arrivalPlanDate||po.expected||"",requestDate:v.requestDate,requestTime:v.requestTime,containerSize:container,vehicleNo:v.vehicleNo,contact:v.contact,items:generated,itemCount:generated.length,packageCount:generated.length,gradeSummary:gradeSummary,status:"REQUESTED",operatorName:currentUserName(),operatorEmail:authUser?.email||"",createdAt:existing?.createdAt||stamp,updatedAt:stamp};
-    if(request)Object.assign(request,data);else s.purchaseRequests.push(data);
-  });
-  if(ok){closeModal();openView("inboundRequest");toast("입고요청 저장완료 · 입고요청현황에 등록했습니다.");}
-};
-function renderInboundRequestView(){
-  var q=String(filters.q||"").trim().toLowerCase(),from=filters.from||"",to=filters.to||"",rows=requestRows().filter(function(r){var d=r.requestDate||date(r.createdAt);return(!q||rowText(r).includes(q))&&(!from||d>=from)&&(!to||d<=to);});
-  $("pageTitle").textContent="입고요청현황";
-  $("content").innerHTML="<div class='dashboard-head'><div><h1>입고요청현황</h1><p>입고요청 완료자료 · "+rows.length+"건 · 최근 요청부터 표시</p></div><div class='actions'><button class='btn' onclick='loadState()'>↻ 조회</button><button class='btn primary' onclick='exportView()'>엑셀</button></div></div>"
-    +"<div class='panel'><div class='toolbar'><div class='control'><label>통합 검색</label><input id='requestQ' value='"+esc(filters.q||"")+"' placeholder='P.O·거래처·강종·차량번호'></div><div class='control'><label>요청일 시작</label><input id='requestFrom' type='date' value='"+esc(from)+"'></div><div class='control'><label>요청일 종료</label><input id='requestTo' type='date' value='"+esc(to)+"'></div><button class='btn primary' onclick='applyInboundRequestFilters()'>조회</button><button class='btn' onclick='filters={};render()'>초기화</button></div>"
-    +tableHtml(schemas.inboundRequest,rows)+cardsHtml(schemas.inboundRequest,rows)+"</div>";
-}
-window.applyInboundRequestFilters=function(){filters.q=$("requestQ").value;filters.from=$("requestFrom").value;filters.to=$("requestTo").value;render();};
-window.openInboundRequestDetail=function(id){
-  var row=requestRows().find(function(x){return x.id===id||x.requestNo===id;});if(!row)return;
-  $("modalTitle").textContent=(row.requestNo||"입고요청")+" · 상세";
-  $("modalBody").innerHTML="<div class='request-detail-grid'>"
-    +"<div><small>P.O</small><b>"+esc(row.poNo)+"</b></div><div><small>거래처</small><b>"+esc(row.company)+"</b></div><div><small>입고구분</small><b>"+(row.importType==="OVERSEAS"?"해외입고":"국내입고")+"</b></div>"
-    +"<div><small>요청일시</small><b>"+esc(row.requestDate+" "+row.requestTime)+"</b></div><div><small>컨테이너</small><b>"+esc(row.containerSize)+"</b></div><div><small>차량번호</small><b>"+esc(row.vehicleNo||"-")+"</b></div>"
-    +"<div><small>연락처</small><b>"+esc(row.contact||"-")+"</b></div><div><small>작업자</small><b>"+esc(row.operatorName||"-")+"</b></div><div><small>저장일시</small><b>"+dt(row.savedAt)+"</b></div></div>"
-    +mesSection("PACKING LIST",[["사내입고번호",function(x){return x.internalPackageNo||"-";}],["거래처 Package No.",function(x){return x.packageNo||"-";}],["강종",function(x){return x.grade;}],["G/W",function(x){return fmt(x.gw);}],["N/W",function(x){return fmt(x.nw);}],["포장종류",function(x){return x.packingType||"-";}],["비고",function(x){return x.memo||"-";}]],row.items)
-    +"<div class='actions'><button class='btn primary' onclick='openPackingRequestDirect(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>입고요청 수정</button><button class='btn' onclick='closeModal()'>닫기</button></div>";
+async function readState(){const r=await fetch('/api/scrap-state',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`?쒕쾭 HTTP ${r.status}`);return out}
+async function readRevision(){const r=await fetch('/api/scrap-state?revision=1',{cache:'no-store'}),out=await r.json();if(!r.ok)throw Error(out.error||`?쒕쾭 HTTP ${r.status}`);return num(out.revision)}
+function setSync(text,bad=false){$('sync').classList.toggle('bad',bad);$('sync').innerHTML=`<b>??/b><span>${esc(text)}</span>`}
+async function loadState(shouldRender=true){try{setSync('怨듭슜 ?쒕쾭 ?숆린??以?);const out=await readState();state=defaults(out.payload);revision=nu…33572 tokens truncated…'closeModal()'>?リ린</button></div>";
   $("modal").classList.add("on");
 };
 var baseEditRowInbound=window.editRow;
@@ -946,7 +121,7 @@ function distinct(items,key){
   return Array.from(new Set(safe(items).map(function(item){return String(item&&item[key]||"").trim();}).filter(Boolean))).join(" / ");
 }
 function requestItemGrade(item){
-  return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" · ");
+  return item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(" 쨌 ");
 }
 function requestSource(row){
   return safe(row.items).find(function(item){return item.shippingRequestStatus==="REQUESTED"||item.shippingRequestedAt||item.shippingRequestDate;})||safe(row.items)[0]||{};
@@ -983,7 +158,7 @@ function shippingPlanRowsV2(){
       unitPrices:unitPrices,
       exchangeRates:exchangeRates,
       currency:currency,
-      requestState:(source.shippingRequestStatus==="REQUESTED"||source.shippingRequestedAt)?"요청완료":"미요청",
+      requestState:(source.shippingRequestStatus==="REQUESTED"||source.shippingRequestedAt)?"?붿껌?꾨즺":"誘몄슂泥?,
       _salesSearch:search+" "+requestDate+" "+(source.shippingRequestNo||"")+" "+(source.shippingRequirements||"")+" "+(source.vehicleNo||"")+" "+(source.driverPhone||""),
       _savedAt:requestDate?requestDate+"T12:00:00":row._savedAt
     });
@@ -992,27 +167,27 @@ function shippingPlanRowsV2(){
 window.mesShippingPlanRowsV2=shippingPlanRowsV2;
 schemas.shippingPlan.rows=shippingPlanRowsV2;
 schemas.shippingPlan.cols=[
-  ["요청날짜",function(r){return r.requestDate||"-";}],
+  ["?붿껌?좎쭨",function(r){return r.requestDate||"-";}],
   ["S.O",function(r){return r.soNo||"-";},"link"],
-  ["판매구분",function(r){return r.type||"-";}],
-  ["판매처",function(r){return r.customer||"-";},"left"],
-  ["품종",function(r){return r.productTypes||"-";}],
-  ["강종",function(r){return r.mainGrades||"-";},"left"],
-  ["소강종",function(r){return r.subGrades||"-";}],
-  ["상세강종",function(r){return r.detailGrades||"-";},"left"],
-  ["출항예정일",function(r){return date(r.shipDate);}],
-  ["판매중량",function(r){return fmt(r.weight)+" kg";}],
-  ["통화",function(r){return r.currency||"-";}],
-  ["환율",function(r){return r.exchangeRates||"-";}],
-  ["단가",function(r){return r.unitPrices||"-";}],
-  ["판매금액",function(r){return fmt(r.amount);}],
-  ["컨테이너",function(r){return r.containerSize||"-";}],
-  ["필수요청사항",function(r){return r.shippingRequirements||"-";},"left"],
-  ["차량번호",function(r){return r.vehicleNo||"-";}],
-  ["기사전번",function(r){return r.driverPhone||"-";}],
-  ["출하요청",function(r){return status(r.requestState);}],
-  ["요청작업자",function(r){return r.requestOperatorName||"-";}],
-  ["저장일시",function(r){return window.mesSavedAtText(r);}]
+  ["?먮ℓ援щ텇",function(r){return r.type||"-";}],
+  ["?먮ℓ泥?,function(r){return r.customer||"-";},"left"],
+  ["?덉쥌",function(r){return r.productTypes||"-";}],
+  ["媛뺤쥌",function(r){return r.mainGrades||"-";},"left"],
+  ["?뚭컯醫?,function(r){return r.subGrades||"-";}],
+  ["?곸꽭媛뺤쥌",function(r){return r.detailGrades||"-";},"left"],
+  ["異쒗빆?덉젙??,function(r){return date(r.shipDate);}],
+  ["?먮ℓ以묐웾",function(r){return fmt(r.weight)+" kg";}],
+  ["?듯솕",function(r){return r.currency||"-";}],
+  ["?섏쑉",function(r){return r.exchangeRates||"-";}],
+  ["?④?",function(r){return r.unitPrices||"-";}],
+  ["?먮ℓ湲덉븸",function(r){return fmt(r.amount);}],
+  ["而⑦뀒?대꼫",function(r){return r.containerSize||"-";}],
+  ["?꾩닔?붿껌?ы빆",function(r){return r.shippingRequirements||"-";},"left"],
+  ["李⑤웾踰덊샇",function(r){return r.vehicleNo||"-";}],
+  ["湲곗궗?꾨쾲",function(r){return r.driverPhone||"-";}],
+  ["異쒗븯?붿껌",function(r){return status(r.requestState);}],
+  ["?붿껌?묒뾽??,function(r){return r.requestOperatorName||"-";}],
+  ["??μ씪??,function(r){return window.mesSavedAtText(r);}]
 ];
 schemas.shippingPlan.edit="sales";
 
@@ -1021,7 +196,7 @@ function requestExists(row){
 }
 function requestButton(row){
   var done=requestExists(row),encoded=encodeURIComponent(row.soNo||row.id||"");
-  return "<button class='btn shipping-request-action "+(done?"done":"")+"' onclick='event.stopPropagation();openMesShippingRequest(decodeURIComponent(\""+encoded+"\"))'>"+(done?"출하요청완료 · 수정":"출하요청")+"</button>";
+  return "<button class='btn shipping-request-action "+(done?"done":"")+"' onclick='event.stopPropagation();openMesShippingRequest(decodeURIComponent(\""+encoded+"\"))'>"+(done?"異쒗븯?붿껌?꾨즺 쨌 ?섏젙":"異쒗븯?붿껌")+"</button>";
 }
 function decorateShippingRequestButtons(){
   if(currentView!=="sales")return;
@@ -1038,7 +213,7 @@ function decorateShippingRequestButtons(){
   });
   var actions=document.querySelector("#content .dashboard-head .actions");
   if(actions&&!actions.querySelector(".shipping-request-help")){
-    actions.insertAdjacentHTML("afterbegin","<button class='btn shipping-request-quick shipping-request-help' onclick='event.stopPropagation();toast(\"아래 판매계획의 출하요청 버튼을 누르면 요청일·컨테이너·필수요청사항을 등록할 수 있습니다.\")'>출하요청 작성 안내</button>");
+    actions.insertAdjacentHTML("afterbegin","<button class='btn shipping-request-quick shipping-request-help' onclick='event.stopPropagation();toast(\"?꾨옒 ?먮ℓ怨꾪쉷??異쒗븯?붿껌 踰꾪듉???꾨Ⅴ硫??붿껌?셋룹빻?뚯씠?댟룻븘?섏슂泥?궗??쓣 ?깅줉?????덉뒿?덈떎.\")'>異쒗븯?붿껌 ?묒꽦 ?덈궡</button>");
   }
 }
 function decoratePurchaseButtonsFixed(){
@@ -1048,40 +223,40 @@ function decoratePurchaseButtonsFixed(){
     var row=rows[index];if(!row)return;
     var old=tr.querySelector(".inbound-request-action");if(old)old.remove();
     var existing=typeof poRequest==="function"&&poRequest(row.poNo);
-    var html="<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>";
+    var html="<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"?낃퀬?붿껌 ?섏젙":"?낃퀬?붿껌")+"</button>";
     if(tr.lastElementChild)tr.lastElementChild.insertAdjacentHTML("beforeend",html);
   });
   document.querySelectorAll("#content .cards .mobile-card").forEach(function(card,index){
     var row=rows[index];if(!row)return;
     var old=card.querySelector(".inbound-request-action");if(old)old.remove();
     var existing=typeof poRequest==="function"&&poRequest(row.poNo);
-    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"입고요청 수정":"입고요청")+"</button>");
+    card.insertAdjacentHTML("beforeend","<button class='btn inbound-request-action' onclick='event.stopPropagation();openInboundRequestBuilder(decodeURIComponent(\""+encodeURIComponent(row.poNo)+"\"))'>"+(existing?"?낃퀬?붿껌 ?섏젙":"?낃퀬?붿껌")+"</button>");
   });
   var actions=document.querySelector("#content .dashboard-head .actions");
   if(actions&&!actions.querySelector(".purchase-mode-actions")){
-    actions.insertAdjacentHTML("afterbegin","<span class='purchase-mode-actions shipping-plan-quick-actions'><button class='btn primary' onclick='event.stopPropagation();openMesDirectPoRegistration()'>+ P.O 직접입력</button><button class='btn shipping-request-quick' onclick='event.stopPropagation();openMesDocumentPoRegistration()'>+ 거래처 서류로 등록</button></span>");
+    actions.insertAdjacentHTML("afterbegin","<span class='purchase-mode-actions shipping-plan-quick-actions'><button class='btn primary' onclick='event.stopPropagation();openMesDirectPoRegistration()'>+ P.O 吏곸젒?낅젰</button><button class='btn shipping-request-quick' onclick='event.stopPropagation();openMesDocumentPoRegistration()'>+ 嫄곕옒泥??쒕쪟濡??깅줉</button></span>");
   }
 }
 window.openMesShippingRequest=function(soNo){
   var row=safe(schemas.sales.rows()).find(function(item){return String(item.soNo)===String(soNo)||String(item.id)===String(soNo);});
-  if(!row)return toast("판매계획 S.O 자료를 찾지 못했습니다.",true);
+  if(!row)return toast("?먮ℓ怨꾪쉷 S.O ?먮즺瑜?李얠? 紐삵뻽?듬땲??",true);
   var source=requestSource(row),savedContainer=source.shippingContainerSize||source.containerSize||"";
-  $("modalTitle").textContent=(row.soNo||"S.O")+" · 출하요청 작성";
+  $("modalTitle").textContent=(row.soNo||"S.O")+" 쨌 異쒗븯?붿껌 ?묒꽦";
   var itemRows=safe(row.items).map(function(item,index){
     return "<tr><td>"+(index+1)+"</td><td>"+esc(item.productType||"-")+"</td><td>"+esc(item.mainGrade||item.grade||"-")+"</td><td>"+esc(item.subGrade||"-")+"</td><td>"+esc(item.detailGrade||"-")+"</td><td>"+fmt(item.weight)+" kg</td><td>"+esc(item.currency||"-")+"</td><td>"+fmt(item.exchangeRate)+"</td><td>"+fmt(item.unitPrice)+"</td><td>"+fmt(item.amount||num(item.weight)*num(item.unitPrice))+"</td></tr>";
   }).join("");
-  $("modalBody").innerHTML="<div class='shipping-request-info'><div><small>S.O</small><b>"+esc(row.soNo)+"</b></div><div><small>판매처</small><b>"+esc(row.customer)+"</b></div><div><small>출항예정일</small><b>"+esc(date(row.shipDate))+"</b></div><div><small>판매중량</small><b>"+fmt(row.weight)+" kg</b></div></div>"
+  $("modalBody").innerHTML="<div class='shipping-request-info'><div><small>S.O</small><b>"+esc(row.soNo)+"</b></div><div><small>?먮ℓ泥?/small><b>"+esc(row.customer)+"</b></div><div><small>異쒗빆?덉젙??/small><b>"+esc(date(row.shipDate))+"</b></div><div><small>?먮ℓ以묐웾</small><b>"+fmt(row.weight)+" kg</b></div></div>"
     +"<form id='mesShippingRequestForm' class='form-grid' onsubmit='saveMesShippingRequest(event,this,decodeURIComponent(\""+encodeURIComponent(row.soNo)+"\"))'>"
-    +"<label>출하요청일 <span class='shipping-request-required'>필수</span><input name='requestDate' type='date' required value='"+esc(source.shippingRequestDate||source.requestDate||nowDate())+"'></label>"
-    +"<label class='wide'>컨테이너 선택 <span class='shipping-request-required'>필수</span><div class='container-choice'>"
+    +"<label>異쒗븯?붿껌??<span class='shipping-request-required'>?꾩닔</span><input name='requestDate' type='date' required value='"+esc(source.shippingRequestDate||source.requestDate||nowDate())+"'></label>"
+    +"<label class='wide'>而⑦뀒?대꼫 ?좏깮 <span class='shipping-request-required'>?꾩닔</span><div class='container-choice'>"
     +["20FT","40FT","OPEN TOP"].map(function(value){return "<label><input type='radio' name='containerSize' value='"+value+"' "+(savedContainer===value?"checked":"")+"><span>"+value+"</span></label>";}).join("")
     +"</div></label>"
-    +"<label class='wide'>필수요청사항 <span class='shipping-request-required'>필수</span><textarea name='shippingRequirements' required placeholder='출하 작업에 반드시 필요한 요청사항을 입력하세요.'>"+esc(source.shippingRequirements||source.requestMemo||"")+"</textarea></label>"
-    +"<label>차량번호 <small>선택</small><input name='vehicleNo' value='"+esc(source.shippingVehicleNo||source.vehicleNo||"")+"'></label>"
-    +"<label>기사전번 <small>선택</small><input name='driverPhone' type='tel' value='"+esc(source.driverPhone||source.contact||"")+"'></label>"
-    +"<div class='wide shipping-request-note'>저장하면 동일 공용 서버의 신성 스크랩 현장관리 ‘출하요청 진행현황’에 즉시 반영됩니다.</div>"
-    +"<div class='wide table-wrap'><table><thead><tr><th>No.</th><th>품종</th><th>강종</th><th>소강종</th><th>상세강종</th><th>중량</th><th>통화</th><th>환율</th><th>단가</th><th>금액</th></tr></thead><tbody>"+itemRows+"</tbody></table></div>"
-    +"<div class='wide actions'><button class='btn primary'>출하요청 저장</button><button type='button' class='btn' onclick='closeModal()'>취소</button></div></form>";
+    +"<label class='wide'>?꾩닔?붿껌?ы빆 <span class='shipping-request-required'>?꾩닔</span><textarea name='shippingRequirements' required placeholder='異쒗븯 ?묒뾽??諛섎뱶???꾩슂???붿껌?ы빆???낅젰?섏꽭??'>"+esc(source.shippingRequirements||source.requestMemo||"")+"</textarea></label>"
+    +"<label>李⑤웾踰덊샇 <small>?좏깮</small><input name='vehicleNo' value='"+esc(source.shippingVehicleNo||source.vehicleNo||"")+"'></label>"
+    +"<label>湲곗궗?꾨쾲 <small>?좏깮</small><input name='driverPhone' type='tel' value='"+esc(source.driverPhone||source.contact||"")+"'></label>"
+    +"<div class='wide shipping-request-note'>??ν븯硫??숈씪 怨듭슜 ?쒕쾭???좎꽦 ?ㅽ겕???꾩옣愿由??섏텧?섏슂泥?吏꾪뻾?꾪솴?숈뿉 利됱떆 諛섏쁺?⑸땲??</div>"
+    +"<div class='wide table-wrap'><table><thead><tr><th>No.</th><th>?덉쥌</th><th>媛뺤쥌</th><th>?뚭컯醫?/th><th>?곸꽭媛뺤쥌</th><th>以묐웾</th><th>?듯솕</th><th>?섏쑉</th><th>?④?</th><th>湲덉븸</th></tr></thead><tbody>"+itemRows+"</tbody></table></div>"
+    +"<div class='wide actions'><button class='btn primary'>異쒗븯?붿껌 ???/button><button type='button' class='btn' onclick='closeModal()'>痍⑥냼</button></div></form>";
   $("modal").classList.add("on");
   setTimeout(function(){$("mesShippingRequestForm")?.querySelector("[name=requestDate]")?.focus();},80);
 };
@@ -1093,14 +268,14 @@ function nextShippingRequestNo(){
 window.saveMesShippingRequest=async function(event,form,soNo){
   event.preventDefault();
   var value=formData(form),container=form.querySelector("[name=containerSize]:checked")?.value;
-  if(!value.requestDate)return toast("출하요청일을 입력하세요.",true);
-  if(!container)return toast("컨테이너 20FT, 40FT 또는 OPEN TOP을 선택하세요.",true);
-  if(!String(value.shippingRequirements||"").trim())return toast("필수요청사항을 입력하세요.",true);
+  if(!value.requestDate)return toast("異쒗븯?붿껌?쇱쓣 ?낅젰?섏꽭??",true);
+  if(!container)return toast("而⑦뀒?대꼫 20FT, 40FT ?먮뒗 OPEN TOP???좏깮?섏꽭??",true);
+  if(!String(value.shippingRequirements||"").trim())return toast("?꾩닔?붿껌?ы빆???낅젰?섏꽭??",true);
   var row=safe(schemas.sales.rows()).find(function(item){return String(item.soNo)===String(soNo);});
-  if(!row)return toast("저장할 S.O 판매계획을 찾지 못했습니다.",true);
+  if(!row)return toast("??ν븷 S.O ?먮ℓ怨꾪쉷??李얠? 紐삵뻽?듬땲??",true);
   var ids=new Set(safe(row.items).map(function(item){return String(item.id);}));
   var source=requestSource(row),stamp=new Date().toISOString(),requestNo=source.shippingRequestNo||nextShippingRequestNo();
-  var ok=await commit("MES 출하요청 저장",["salesOrders"],function(shared){
+  var ok=await commit("MES 異쒗븯?붿껌 ???,["salesOrders"],function(shared){
     safe(shared.salesOrders).forEach(function(item){
       if(!ids.has(String(item.id)))return;
       var oldStatus=String(item.status||"");
@@ -1128,7 +303,7 @@ window.saveMesShippingRequest=async function(event,form,soNo){
   if(ok){
     closeModal();
     openView("shippingPlan");
-    toast("출하요청 저장완료 · 신성 현장관리 출하요청에 반영했습니다.");
+    toast("異쒗븯?붿껌 ??μ셿猷?쨌 ?좎꽦 ?꾩옣愿由?異쒗븯?붿껌??諛섏쁺?덉뒿?덈떎.");
   }
 };
 
@@ -1136,7 +311,7 @@ var baseFilterControlsShipping=window.filterControls;
 window.filterControls=function(){
   var html=baseFilterControlsShipping();
   if(currentView!=="shippingPlan")return html;
-  return html.replace(/저장일 시작/g,"요청일 시작").replace(/저장일 종료/g,"요청일 종료").replace(/번호·회사·강종/g,"요청일·S.O·판매처·품종·강종·차량·기사전번");
+  return html.replace(/??μ씪 ?쒖옉/g,"?붿껌???쒖옉").replace(/??μ씪 醫낅즺/g,"?붿껌??醫낅즺").replace(/踰덊샇쨌?뚯궗쨌媛뺤쥌/g,"?붿껌?셋톁.O쨌?먮ℓ泥샕룻뭹醫끒룰컯醫끒룹감?됀룰린?ъ쟾踰?);
 };
 var baseRenderShippingV2=window.render;
 window.render=function(){
@@ -1152,7 +327,7 @@ document.documentElement.dataset.mesShippingRequestV2="loaded";
 </script>
 
 <style id="mesCompactDesktopV1">
-/* PC 전용 50% 압축 보기: 모바일의 큰 글자/버튼은 그대로 유지한다. */
+/* PC ?꾩슜 50% ?뺤텞 蹂닿린: 紐⑤컮?쇱쓽 ??湲??踰꾪듉? 洹몃?濡??좎??쒕떎. */
 @media (min-width:761px){
   .shell{zoom:.5;min-height:200vh;grid-template-columns:260px minmax(0,1fr)}
   .side{height:200vh}
@@ -1192,8 +367,9 @@ window.__mesRuntime={
 };
 </script>
 <script src="mes-carr260401-source-fix-v1.js?v=20260816-silent-5"></script>
-<script src="mes-inventory-family-stock-v2.js?v=20260816-pipeline-inventory-12"></script>
+<script src="mes-inventory-family-stock-v2.js?v=20260816-pipeline-inventory-14"></script>
 <script src="mes-executive-dashboard-v1.js?v=20260816-fx-history-1"></script>
 <script src="mes-kakao-stage-alert-v1.js?v=20260816-9"></script>
 </body>
 </html>
+
