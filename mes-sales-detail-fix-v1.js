@@ -21,6 +21,8 @@
       +'<label>S.O 번호<input name="soNo" value="'+esc(row.soNo)+'"></label>'
       +'<label>판매처<input name="customer" value="'+esc(row.customer)+'"></label>'
       +'<label>출항예정일<input name="shipDate" type="date" value="'+(date(row.shipDate)==='-'?'':date(row.shipDate))+'"></label>'
+      +'<label>SHIPMENTS<input name="shipment" value="'+esc(source.shipment||source.shippingTerm||source.deliveryTerm||'')+'"></label>'
+      +'<label>PAYMENT<input name="paymentTerm" value="'+esc(source.paymentTerm||source.payment||source.paymentTerms||'')+'"></label>'
       +'<label>통화<select name="currency">'+option('KRW',currency)+option('USD',currency)+option('EUR',currency)+option('JPY',currency)+'</select></label>'
       +'<label>판매 환율<input name="exchangeRate" type="number" min="0" step="0.01" inputmode="decimal" value="'+exchangeRate+'"></label>'
       +'<div class="registration-lines"><h3>S.O 품목</h3>'+items.map(function(item){return mesEditLine(item,'SO');}).join('')+'</div>'
@@ -39,7 +41,7 @@
       form.querySelectorAll('.edit-line').forEach(function(line){
         var item=list(shared.salesOrders).find(function(entry){return text(entry.id)===text(line.dataset.id);});if(!item)return;
         var data=mesLineData(line),weight=round2(data.weight),unitPrice=round2(item.unitPrice||item.salesUnitPrice),grade=[data.productType,data.mainGrade,data.subGrade,data.detailGrade].filter(Boolean).join(' · ');
-        Object.assign(item,{soNo:values.soNo,customer:values.customer,shipDate:values.shipDate,currency:currency,exchangeRate:exchangeRate,
+        Object.assign(item,{soNo:values.soNo,customer:values.customer,shipDate:values.shipDate,shipment:values.shipment,shippingTerm:values.shipment,deliveryTerm:values.shipment,paymentTerm:values.paymentTerm,payment:values.paymentTerm,paymentTerms:values.paymentTerm,currency:currency,exchangeRate:exchangeRate,
           productType:data.productType,mainGrade:data.mainGrade,subGrade:data.subGrade,detailGrade:data.detailGrade,grade:grade,
           weight:weight,status:data.status,unitPrice:unitPrice,amount:round2(weight*unitPrice),updatedAt:new Date().toISOString(),updatedByName:currentUserName()});
       });
