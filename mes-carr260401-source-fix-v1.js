@@ -181,22 +181,6 @@
     if (!runtime || root.__mesCarr260401SourceFixInstalled) return false;
     root.__mesCarr260401SourceFixInstalled = true;
     var originalLoad = root.loadState;
-    var persisting = false;
-    var pendingPersist = false;
-
-    async function persistCorrection() {
-      if (persisting || !pendingPersist) return;
-      persisting = true;
-      pendingPersist = false;
-      try {
-        var commit = runtime.getCommit();
-        await commit("CARR260401 원본 P.O 강종·중량 정정", ["pos", "purchaseRequests"], function (draft) {
-          correctCarr260401State(draft);
-        });
-      } finally {
-        persisting = false;
-      }
-    }
 
     if (typeof originalLoad === "function") {
       root.loadState = async function (shouldRender) {
@@ -206,10 +190,6 @@
         var report = correctCarr260401State(current);
         runtime.setState(current);
         if (renderAfter) runtime.getRender()();
-        if (report.changed && !persisting) {
-          pendingPersist = true;
-          root.setTimeout(persistCorrection, 0);
-        }
         return result;
       };
     }
@@ -219,8 +199,6 @@
     runtime.setState(initial);
     if (initialReport.changed) {
       runtime.getRender()();
-      pendingPersist = true;
-      root.setTimeout(persistCorrection, 0);
     }
     return true;
   }
