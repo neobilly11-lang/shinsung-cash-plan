@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260816-copper-slash-grade-10';
+  var VERSION='20260816-pipeline-inventory-11';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
   try{sharedExpectedSoId=text(new URLSearchParams(location.search).get('expectedSo'));}catch(_){sharedExpectedSoId='';}
@@ -141,6 +141,56 @@
     return !!(row&&(row.receivedAt||row.receiptConfirmedAt||row.receiptWorkerName||/RECEIVED|CONFIRMED|COMPLETE|DONE/.test(status)));
   }
   function packageWeight(row){return number(row&&((row.netWeight!=null&&row.netWeight!=='')?row.netWeight:row.weight));}
+  function requestItemWeight(item){
+    item=item||{};
+    var candidates=[item.nw,item.netWeight,item.weight,item.gw,item.grossWeight];
+    for(var i=0;i<candidates.length;i++){var value=number(candidates[i]);if(value>0)return value;}
+    return 0;
+  }
+  function requestItemPackageNo(item){return text(item&&(item.internalPackageNo||item.packageNo||item.packNo));}
+  function latestInboundRequests(){
+    var latest=new Map();
+    currentRows(root.state&&root.state.purchaseRequests).forEach(function(request){
+      var key=text(request.poNo||request.requestNo||request.id),previous=latest.get(key);
+      if(!previous||rowStamp(request)>=rowStamp(previous))latest.set(key,request);
+    });
+    return Array.from(latest.values());
+  }
+  // Inventory summary is a pipeline view.  It must survive completion-stock
+  // deletion and package-row replacement, so requested PACKING LIST items are
+  // used as the source of truth until receipt.  Active POS rows fill in all
+  // other purchase/arrival records and provide receipt/inspection state.
+  function incomingPipelineRows(){
+    var allPos=list(root.state&&root.state.pos),activePos=currentRows(allPos).filter(function(row){return !row.inboundRequestSuperseded;});
+    var posByPackage=new Map(),usedPackages=new Set(),rows=[];
+    allPos.forEach(function(row){
+      var no=text(row&&row.packageNo),previous=posByPackage.get(no);
+      if(no&&(!previous||rowStamp(row)>=rowStamp(previous)))posByPackage.set(no,row);
+    });
+    latestInboundRequests().forEach(function(request){
+      list(request.items).forEach(function(item,index){
+        var packageNo=requestItemPackageNo(item),pos=packageNo&&posByPackage.get(packageNo),weight=requestItemWeight(item);
+        if(pos&&active(pos)&&!pos.inboundRequestSuperseded){
+          rows.push({row:pos,source:incomingGradeSource(pos),weight:packageWeight(pos)||weight,packageNo:text(pos.packageNo),received:received(pos)});
+          usedPackages.add(text(pos.packageNo));
+          return;
+        }
+        if(weight<=0)return;
+        rows.push({
+          row:Object.assign({},item,{id:text(item.id)||text(request.id)+':'+index,poNo:request.poNo,company:request.company,packageNo:packageNo,requestNo:request.requestNo,status:request.status,createdAt:request.createdAt,updatedAt:request.updatedAt}),
+          source:incomingGradeSource(item),weight:weight,packageNo:packageNo,received:false
+        });
+        if(packageNo)usedPackages.add(packageNo);
+      });
+    });
+    activePos.forEach(function(row){
+      var packageNo=text(row.packageNo);
+      if(packageNo&&usedPackages.has(packageNo))return;
+      var weight=packageWeight(row);if(weight<=0)return;
+      rows.push({row:row,source:incomingGradeSource(row),weight:weight,packageNo:packageNo,received:received(row)});
+    });
+    return rows;
+  }
   function inspectedWeight(packageNo){
     var split=currentRows(root.state&&root.state.splits).filter(function(row){return text(row.packageNo)===text(packageNo);}).reduce(function(sum,row){return sum+number(row.weight);},0);
     var loss=currentRows(root.state&&root.state.losses).filter(function(row){return text(row.packageNo)===text(packageNo);}).reduce(function(sum,row){return sum+number(row.weight);},0);
@@ -234,40 +284,7 @@
   function forecastRows(){
     ensureState();
     var groups=new Map();
-    function add(source,stage,weight,record){
-      weight=round(weight);if(!weight)return;
-      var resolved=detailGrade(source),key=groupKey(resolved)||normalize(displayGrade(resolved));
-      if(!groups.has(key))groups.set(key,{id:key,productType:resolved.productType,mainGrade:resolved.mainGrade||resolved.label||'미분류',subGrade:resolved.subGrade||'',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],mapping:resolved.mapping});
-      var row=groups.get(key),canonicalLabel=displayGrade(resolved);row[stage]=round(row[stage]+weight);row.sources.push({stage:stage,weight:weight,record:record,groupId:key,sourceLabel:canonicalLabel,rawSourceLabel:text(source&&source.grade),mapping:resolved.mapping});
-      if(resolved.mapping==='직접 지정')row.mapping='직접 지정';
-    }
-    currentRows(root.state.pos).forEach(function(row){
-      var weight=packageWeight(row);
-      var source=incomingGradeSource(row);
-      if(!received(row))add(source,'arrival',weight,row);
-      else add(source,'uninspected',Math.max(0,weight-inspectedWeight(row.packageNo)),row);
-    });
-    activeWorkWaitingRows().forEach(function(row){add({grade:row.grade},'workWaiting',row.weight,row.record);});
-    activeWaitingRows().forEach(function(row){add({grade:row.grade},'unpacked',row.weight,row.move);});
-    currentRows(typeof root.inventoryRows==='function'?root.inventoryRows():[]).forEach(function(row){add(row,'completed',number(row.nw),row);});
-    currentRows(root.state.salesOrders).filter(function(item){return !/FINAL|SHIPPED|DONE|COMPLETE|SALES_CLOSED/.test(upper(item.status));}).forEach(function(item){add(item,'shippingPlanned',Math.max(0,number(item.weight)-shippedForItem(item)),item);});
-    var details=Array.from(groups.values()).map(function(row){
-      row.expectedStock=round(row.arrival+row.uninspected+row.workWaiting+row.unpacked+row.completed);
-      row.forecastRemaining=round(row.expectedStock-row.shippingPlanned);
-      row.stock=row.forecastRemaining;
-      row.gradeLabel=displayGrade(row);
-      return row;
-    });
-    var summaries=familySummaryRows(details),summaryByKey=new Map(summaries.map(function(row){return[row.familyKey,row];})),families=new Map();
-    details.forEach(function(row){var identity=effectiveFamilyIdentity(row);if(!families.has(identity.key))families.set(identity.key,[]);families.get(identity.key).push(row);});
-    var output=[];
-    Array.from(families.keys()).sort(function(a,b){return text(a).localeCompare(text(b),'ko',{numeric:true});}).forEach(function(key){
-      families.get(key).sort(function(a,b){return a.gradeLabel.localeCompare(b.gradeLabel,'ko',{numeric:true});}).forEach(function(row){output.push(row);});
-      if(summaryByKey.has(key))output.push(summaryByKey.get(key));
-    });
-    return output;
-  }
-  fun…4925 tokens truncated…  if(ok){root.openInventoryGradeMapping();root.toast('유사강종 묶음을 복원했습니다.');}
+    f…5615 tokens truncated…  if(ok){root.openInventoryGradeMapping();root.toast('유사강종 묶음을 복원했습니다.');}
   };
   root.resetInventoryGradeMappingForm=function(){var form=root.$('inventoryGradeMappingForm');if(form)form.reset();};
   root.editInventoryGradeMapping=function(id){
@@ -377,4 +394,3 @@
   }
   install();
 })(window);
-
