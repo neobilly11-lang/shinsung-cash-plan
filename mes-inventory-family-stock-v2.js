@@ -1,7 +1,3 @@
-Exit code: 0
-Wall time: 2.9 seconds
-Total output lines: 531
-Output:
 (function(root){
   'use strict';
 
