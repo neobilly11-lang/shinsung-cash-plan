@@ -3,12 +3,21 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) {
     root.MesExecutiveDashboard = api;
-    if (root.document) api.install(root);
+    if (root.document) {
+      var startDashboard = function () { return api.install(root); };
+      if (!startDashboard()) {
+        var dashboardAttempts = 0;
+        var dashboardTimer = root.setInterval(function () {
+          dashboardAttempts += 1;
+          if (startDashboard() || dashboardAttempts >= 100) root.clearInterval(dashboardTimer);
+        }, 100);
+      }
+    }
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260817-finance-costs-kpi-1";
+  var VERSION = "20260817-finance-costs-kpi-2";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -258,6 +267,7 @@
     var runtime = root.__mesRuntime;
     if (!runtime || root.__mesExecutiveDashboardInstalled) return false;
     root.__mesExecutiveDashboardInstalled = true;
+    root.document.documentElement.dataset.mesExecutiveDashboardV1 = "loaded";
     var baseBuildNav = root.buildNav;
     var baseOpenView = root.openView;
     var baseRender = root.render;
@@ -570,9 +580,12 @@
 /* Executive Finance Dashboard V2 - monthly KPI, landed cost, realized profit */
 (function (root) {
   "use strict";
+  function installFinance() {
   var runtime = root.__mesRuntime;
-  if (!runtime || root.__mesExecutiveFinanceV2Installed) return;
+  if (!runtime) return false;
+  if (root.__mesExecutiveFinanceV2Installed) return true;
   root.__mesExecutiveFinanceV2Installed = true;
+  root.document.documentElement.dataset.mesExecutiveFinanceV2 = "loaded";
   var DAY = 86400000;
   var HOUR = 3600000;
   var financeMonth = new Date().toISOString().slice(0, 7);
@@ -794,4 +807,13 @@
   new MutationObserver(decorateFinanceForms).observe(root.document.body,{childList:true,subtree:true});
   var style=root.document.createElement("style");style.id="mesExecutiveFinanceV2Style";style.textContent='.mes-fin-month{display:flex;align-items:center;gap:8px;font-weight:800}.mes-fin-month input{padding:10px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.mes-fin-kpis button,.mes-fin-flow-main,.mes-fin-buckets button{border:1px solid #cbd8d5;border-radius:16px;background:#fff;text-align:left;padding:18px;color:#102d28}.mes-fin-kpis button.on{border-color:#0798a9;box-shadow:0 0 0 2px #0798a922}.mes-fin-kpis small,.mes-fin-flow small{display:block;color:#5f7470;font-weight:800}.mes-fin-kpis strong,.mes-fin-flow-main strong{display:block;font-size:26px;margin:8px 0}.mes-fin-kpis span,.mes-fin-flow span{display:block;color:#5f7470}.mes-fin-alert{background:#fff5dc;border:1px solid #efc34e;border-radius:16px;padding:16px;margin:16px 0}.mes-fin-alert-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mes-fin-alert button{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e7b640;border-radius:12px;background:#fff;text-align:left}.mes-fin-alert b{color:#b14920}.mes-fin-flow{display:grid;gap:10px;background:#edf7f5;border-radius:20px;padding:18px}.mes-fin-flow-main{width:100%;background:linear-gradient(135deg,#0b314b,#078b83);color:#fff}.mes-fin-flow-main small,.mes-fin-flow-main span{color:#d8f3ee}.mes-fin-arrow{text-align:center;font-size:28px;font-weight:900;color:#07887c}.mes-fin-current{display:grid;gap:10px}.mes-fin-buckets{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.mes-fin-buckets strong{display:block;margin:7px 0}.mes-fin-drill{background:#fff;border-radius:18px;padding:18px;margin-top:16px}.mes-fin-drill-head{display:flex;justify-content:space-between;gap:16px}.mes-fin-drill-head form{display:flex;gap:8px}.mes-fin-drill-head input{min-width:300px;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-table{overflow:auto;max-height:55vh}.mes-fin-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-fin-table th,.mes-fin-table td{padding:11px;border-bottom:1px solid #e1e9e7;text-align:left}.mes-fin-cost-info{display:grid;gap:5px;padding:14px;border-radius:12px;background:#edf7f5}.mes-fin-perkg{padding:14px;border:1px solid #cbd8d5;border-radius:12px}.mes-fin-perkg strong{display:block;font-size:22px}.mes-fin-detail{display:grid;gap:10px}.mes-fin-detail p{margin:0;padding:10px;background:#f4f8f7;border-radius:10px}.mes-fin-embedded{border:2px solid #0798a9;border-radius:12px;padding:12px;background:#effafa}.mes-fin-embedded small{display:block;margin-top:5px;color:#607672}.mes-fin-list-cost{display:inline-flex;align-items:center;justify-content:center;min-width:124px;padding:8px 10px;border-radius:9px;border:1px solid #8bcfc7;background:#eaf8f5;color:#087467;font-weight:900;cursor:pointer}.mes-fin-list-cost.missing{border-color:#efb33d;background:#fff3cf;color:#a34c16}.mes-fin-list-cost.saved{border-color:#70c2b8;background:#e7f7f3;color:#096e63}@media(max-width:900px){.mes-fin-kpis{grid-template-columns:repeat(2,1fr)}.mes-fin-buckets{grid-template-columns:repeat(2,1fr)}.mes-fin-alert-grid{grid-template-columns:1fr}.mes-fin-drill-head{display:block}.mes-fin-drill-head form{margin-top:10px}.mes-fin-drill-head input{min-width:0;flex:1}}@media(max-width:560px){.mes-fin-kpis{grid-template-columns:1fr}.mes-fin-kpis strong,.mes-fin-flow-main strong{font-size:22px}.dashboard-head .actions{display:grid;grid-template-columns:1fr 1fr}.mes-fin-month{grid-column:1/-1}.mes-fin-buckets{grid-template-columns:1fr}.mes-fin-flow{padding:12px}}';root.document.head.appendChild(style);
   if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);
+  return true;
+  }
+  if (!installFinance()) {
+    var financeAttempts = 0;
+    var financeTimer = root.setInterval(function () {
+      financeAttempts += 1;
+      if (installFinance() || financeAttempts >= 100) root.clearInterval(financeTimer);
+    }, 100);
+  }
 })(window);
