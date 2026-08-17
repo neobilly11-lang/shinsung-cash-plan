@@ -1,54 +1,104 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["icn1"],
+  "regions": [
+    "icn1"
+  ],
   "cleanUrls": false,
   "trailingSlash": false,
   "redirects": [
     {
       "source": "/",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     },
     {
       "source": "/app.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     },
     {
       "source": "/scan.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html#scan",
       "permanent": false
     },
     {
       "source": "/inspection.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html#inspection",
       "permanent": false
     },
     {
       "source": "/completed.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html#completed",
       "permanent": false
     },
     {
       "source": "/po.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html#po",
       "permanent": false
     },
     {
       "source": "/shared.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html",
       "permanent": false
     },
     {
       "source": "/scan-inspect.html",
-      "has": [{ "type": "header", "key": "host", "value": "shinsung-cash-plan-nk66.vercel.app" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "host",
+          "value": "shinsung-cash-plan-nk66.vercel.app"
+        }
+      ],
       "destination": "/stable-inspection-mobile-v4.html#scan",
       "permanent": false
     },
@@ -69,48 +119,112 @@
     }
   ],
   "rewrites": [
-    { "source": "/scrap", "destination": "/scrap/index.html" },
-    { "source": "/scrap/", "destination": "/scrap/index.html" },
-    { "source": "/scrap-v2", "destination": "/scrap-v2/index.html" },
-    { "source": "/scrap-v2/", "destination": "/scrap-v2/index.html" },
-    { "source": "/mes", "destination": "/mes.html" },
-    { "source": "/mes/", "destination": "/mes.html" },
-    { "source": "/sales", "destination": "/sales.html" }
+    {
+      "source": "/scrap",
+      "destination": "/scrap/index.html"
+    },
+    {
+      "source": "/scrap/",
+      "destination": "/scrap/index.html"
+    },
+    {
+      "source": "/scrap-v2",
+      "destination": "/scrap-v2/index.html"
+    },
+    {
+      "source": "/scrap-v2/",
+      "destination": "/scrap-v2/index.html"
+    },
+    {
+      "source": "/mes",
+      "destination": "/mes.html"
+    },
+    {
+      "source": "/mes/",
+      "destination": "/mes.html"
+    },
+    {
+      "source": "/sales",
+      "destination": "/sales.html"
+    }
   ],
   "headers": [
     {
+      "source": "/field-waiting-location-picker-v1.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
       "source": "/inspection-app.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
     },
     {
       "source": "/stable-inspection-mobile-v4.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
     },
     {
       "source": "/scrap-v2/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
     },
     {
       "source": "/mes.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
     },
     {
       "source": "/sales.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
     }
   ]
