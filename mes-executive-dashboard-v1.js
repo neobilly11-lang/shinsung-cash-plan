@@ -17,7 +17,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260817-cost-editor-click-1";
+  var VERSION = "20260817-cost-editor-click-2";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -787,8 +787,28 @@
   root.setExecutiveFinanceMonth=function(v){if(/^\d{4}-\d{2}$/.test(v))financeMonth=v;renderDashboard();};
   root.setExecutiveFinanceDrill=function(v){drillKind=v;drillQuery="";renderDashboard();root.setTimeout(function(){var x=root.document.querySelector(".mes-fin-drill");if(x)x.scrollIntoView({behavior:"smooth",block:"start"});},30);};
   root.setExecutiveFinanceQuery=function(v){drillQuery=txt(v);renderDashboard();};
-  root.openExecutiveFinanceDetail=function(kind,index){var report=build(financeMonth),rows=drillRows(report,kind),r=rows[index];if(!r)return;var detail=r.kind==="purchase"?'<p><b>매입금액</b> '+fmt(r.purchaseAmount)+'원</p><p><b>수입통관비</b> '+fmt(r.customs)+'원 ('+fmt(r.weight?r.customs/r.weight:0)+'원/kg)</p><p><b>매입총액</b> '+fmt(r.totalCost)+'원</p><button class="btn primary" onclick="openExecutiveCostEditor(\'import\',\''+esc(r.poNo)+'\')">통관비 입력·수정</button>':r.kind==="outbound"?'<p><b>매출액</b> '+fmt(r.salesAmount)+'원</p><p><b>수입원가</b> '+fmt(r.purchaseCost)+'원</p><p><b>작업비</b> '+fmt(r.workCost)+'원</p><p><b>재고이자부담비</b> '+fmt(r.interestCost)+'원 ('+fmt(r.inventoryDays)+'일)</p><p><b>수출비용</b> '+fmt(r.exportCost)+'원</p><p><b>실현이익</b> '+fmt(r.profit)+'원 · '+pct(r.margin)+'</p><button class="btn primary" onclick="openExecutiveCostEditor(\'export\',\''+esc(r.key)+'\')">수출비용 입력·수정</button>':'<p><b>재고단계</b> '+esc(r.stage)+'</p><p><b>보유일</b> '+fmt(r.days)+'일</p><p><b>원가</b> '+fmt(r.costPerKg)+'원/kg</p><p><b>재고금액</b> '+fmt(r.value)+'원</p>';
-    root.document.getElementById("modal").innerHTML='<div class="modal-backdrop" onclick="if(event.target===this)this.innerHTML=\'\'"><div class="modal-card"><div class="modal-head"><h2>'+esc(r.poNo||r.soNo||r.key)+' · 상세</h2><button onclick="this.closest(\'.modal-backdrop\').remove()">×</button></div><div class="mes-fin-detail"><p><b>거래처</b> '+esc(r.partner||"-")+'</p><p><b>강종</b> '+esc(r.grade||"-")+'</p><p><b>중량</b> '+kg(r.weight)+'</p>'+detail+'</div></div></div>';
+  root.openExecutiveFinanceDetail=function(kind,index){
+    var report=build(financeMonth),rows=drillRows(report,kind),r=rows[index];
+    if(!r)return false;
+    var detail="", costToken=0;
+    if(r.kind==="purchase"){
+      costToken=registerCostTarget("import",r.poNo);
+      detail='<p><b>매입금액</b> '+fmt(r.purchaseAmount)+'원</p><p><b>수입통관비</b> '+fmt(r.customs)+'원 ('+fmt(r.weight?r.customs/r.weight:0)+'원/kg)</p><p><b>매입총액</b> '+fmt(r.totalCost)+'원</p><button type="button" class="btn primary" onclick="openExecutiveCostTarget('+costToken+')">통관비 입력·수정</button>';
+    }else if(r.kind==="outbound"){
+      costToken=registerCostTarget("export",r.key||r.soNo);
+      detail='<p><b>매출액</b> '+fmt(r.salesAmount)+'원</p><p><b>수입원가</b> '+fmt(r.purchaseCost)+'원</p><p><b>작업비</b> '+fmt(r.workCost)+'원</p><p><b>재고이자부담비</b> '+fmt(r.interestCost)+'원 ('+fmt(r.inventoryDays)+'일)</p><p><b>수출비용</b> '+fmt(r.exportCost)+'원</p><p><b>실현이익</b> '+fmt(r.profit)+'원 · '+pct(r.margin)+'</p><button type="button" class="btn primary" onclick="openExecutiveCostTarget('+costToken+')">수출비용 입력·수정</button>';
+    }else{
+      detail='<p><b>재고단계</b> '+esc(r.stage)+'</p><p><b>보유일</b> '+fmt(r.days)+'일</p><p><b>원가</b> '+fmt(r.costPerKg)+'원/kg</p><p><b>재고금액</b> '+fmt(r.value)+'원</p>';
+    }
+    var modal=root.document.getElementById("modal"), modalTitle=root.document.getElementById("modalTitle"), modalBody=root.document.getElementById("modalBody");
+    if(!modal||!modalBody){
+      if(runtime.getToast())runtime.getToast()("상세 입력창을 열 수 없습니다. 새로고침 후 다시 시도해 주세요.","error");
+      return false;
+    }
+    if(modalTitle)modalTitle.textContent=txt(r.poNo||r.soNo||r.key)+" · 상세";
+    modalBody.innerHTML='<div class="mes-fin-detail"><p><b>거래처</b> '+esc(r.partner||"-")+'</p><p><b>강종</b> '+esc(r.grade||"-")+'</p><p><b>중량</b> '+kg(r.weight)+'</p>'+detail+'</div>';
+    modal.classList.add("on");
+    return true;
   };
   root.openExecutiveCostEditor=function(type,key){
     var report=build(financeMonth), isImport=type==="import", normalizedKey=txt(key);
