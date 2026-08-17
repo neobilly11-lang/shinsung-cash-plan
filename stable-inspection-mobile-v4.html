@@ -2518,9 +2518,10 @@ document.documentElement.dataset.subgradeSelectionCompatV1='ready';
 /* field-required-flow-v1 bundled */
 (function fieldRequiredFlowV1(){
   'use strict';
-  if(window.__fieldRequiredFlowV1)return;
-
   const doc=document;
+  const guardRoot=doc.documentElement;
+  if(guardRoot.dataset.fieldRequiredFlowV1==='loaded'||guardRoot.dataset.fieldRequiredFlowV1==='loading')return;
+  guardRoot.dataset.fieldRequiredFlowV1='loading';
   const state={lastAction:null,queue:[],currentKey:'',timer:0,notice:null};
   const SAVE_WORDS=/(저장|확정|등록|완료|이동|요청|처리|생성)/;
   const IGNORE_ACTION=/(삭제|취소|닫기|조회|검색|선택|보기|미리보기|다운로드|인쇄|출력|촬영|사진|QR|카톡|공유|임시보관|임시저장)/i;
@@ -2829,8 +2830,9 @@ document.documentElement.dataset.subgradeSelectionCompatV1='ready';
   function isSaveAction(button){
     if(!button)return false;
     const text=norm(button.textContent||button.value),handler=actionHandler(button);
-    if(IGNORE_ACTION.test(text))return false;
-    return SAVE_WORDS.test(text)||/^save|^confirm|^create|^addPackage$/i.test(handler);
+    const saveHandler=/^(save|confirm|create|addPackage|addDomesticPackage)/i.test(handler);
+    if(IGNORE_ACTION.test(text)&&!saveHandler)return false;
+    return SAVE_WORDS.test(text)||saveHandler;
   }
 
   doc.addEventListener('click',event=>{
@@ -2884,7 +2886,8 @@ document.documentElement.dataset.subgradeSelectionCompatV1='ready';
   observer.observe(doc.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   wrapMsg();wrapAlert();ensureNotice();
   setInterval(()=>{wrapMsg();wrapAlert()},500);
-  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-3'};
+  guardRoot.dataset.fieldRequiredFlowV1='loaded';
+  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-4'}}catch(_){ }
 })();
 
 
