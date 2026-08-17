@@ -1,3 +1,5 @@
+/* load persistent tutorial stars */
+(function(){try{if(!document.querySelector('script[data-tutorial-progress-v1]')){var s=document.createElement('script');s.src='field-tutorial-progress-v1.js?v=20260818-1';s.async=false;s.setAttribute('data-tutorial-progress-v1','1');(document.head||document.documentElement).appendChild(s);}}catch(_){}})();
 /* load standalone domestic required alert before legacy setup */
 (function(){try{if(!document.querySelector('script[data-domestic-alert-v11]')){var s=document.createElement('script');s.src='field-required-domestic-alert-fix-v11.js?v=20260818-15';s.async=false;s.dataset.domesticAlertV11='1';(document.head||document.documentElement).appendChild(s);}}catch(_){}})();
 (function(root){
