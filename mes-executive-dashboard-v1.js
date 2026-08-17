@@ -565,3 +565,194 @@
     install: install
   };
 });
+
+/* Executive Finance Dashboard V2 - monthly KPI, landed cost, realized profit */
+(function (root) {
+  "use strict";
+  var runtime = root.__mesRuntime;
+  if (!runtime || root.__mesExecutiveFinanceV2Installed) return;
+  root.__mesExecutiveFinanceV2Installed = true;
+  var DAY = 86400000;
+  var HOUR = 3600000;
+  var financeMonth = new Date().toISOString().slice(0, 7);
+  var drillKind = "purchase";
+  var drillQuery = "";
+  function list(v) { return Array.isArray(v) ? v : []; }
+  function num(v) { var n = Number(String(v == null ? "" : v).replace(/,/g, "")); return Number.isFinite(n) ? n : 0; }
+  function txt(v) { return String(v == null ? "" : v).trim(); }
+  function upper(v) { return txt(v).toUpperCase(); }
+  function esc(v) { return txt(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function active(v) { return v && v.active !== false && v.deleted !== true && v.isDeleted !== true && !v.deletedAt && upper(v.status) !== "CANCELLED"; }
+  function pick(row, keys) { for (var i=0;i<keys.length;i+=1) { var value=row && row[keys[i]]; if (value !== undefined && value !== null && txt(value) !== "") return value; } return ""; }
+  function dateValue(row, keys) { var raw=pick(row,keys); if (!raw) return ""; var d=new Date(raw); return isNaN(d.getTime()) ? "" : d.toISOString(); }
+  function monthOf(value) { var d=new Date(value); return isNaN(d.getTime()) ? "" : d.toISOString().slice(0,7); }
+  function endOfMonth(month) { var p=month.split("-").map(Number); return new Date(p[0],p[1],0,23,59,59,999); }
+  function prevMonth(month) { var p=month.split("-").map(Number), d=new Date(p[0],p[1]-2,1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+  function daysBetween(a,b) { var x=new Date(a), y=new Date(b); if (isNaN(x)||isNaN(y)) return 0; return Math.max(0,Math.ceil((y-x)/DAY)); }
+  function hoursBetween(a,b) { var x=new Date(a), y=new Date(b); if (isNaN(x)||isNaN(y)) return 0; return Math.max(0,(y-x)/HOUR); }
+  function fmt(v) { return Math.round(num(v)).toLocaleString("ko-KR"); }
+  function money(v) { var n=num(v), a=Math.abs(n); if (a>=100000000) return (n/100000000).toFixed(2)+"억"; if (a>=10000) return (n/10000).toFixed(0)+"만"; return fmt(n)+"원"; }
+  function pct(v) { return (num(v)||0).toFixed(1)+"%"; }
+  function kg(v) { return fmt(v)+" kg"; }
+  function settings(state) { state.systemSettings=state.systemSettings||{}; state.systemSettings.executiveFinanceV2=state.systemSettings.executiveFinanceV2||{}; var s=state.systemSettings.executiveFinanceV2; s.importCustomsByPo=s.importCustomsByPo||{}; s.exportCostByOutbound=s.exportCostByOutbound||{}; return s; }
+  function rateMap(state) {
+    var base={KRW:1,USD:1,JPY:1,EURO:1};
+    try { var api=root.MesExecutiveDashboard; if (api&&api.deriveRates) return api.deriveRates(state,(state.systemSettings||{}).executiveExchangeRates||{}); } catch(e) {}
+    return base;
+  }
+  function currency(v) { var c=upper(v||"KRW"); return c==="EUR"?"EURO":(c||"KRW"); }
+  function toKrw(amount,curr,rate,rates) { var c=currency(curr); if (c==="KRW") return num(amount); return num(amount)*(num(rate)||num(rates[c])||1); }
+  function weightOf(row) { return num(pick(row,["purchaseContractWeight","contractWeight","purchaseQuantity","contractQuantity","plannedPurchaseWeight","netWeight","nw","weight","grossWeight","gw"])); }
+  function priceOf(row) { return num(pick(row,["unitPrice","purchaseUnitPrice","purchasePrice","price","usdPrice","pricePerKg"])); }
+  function gradeOf(row) { return [pick(row,["productType","category"]),pick(row,["mainGrade","finalGrade","grade","gradeName","contractGrade"]),pick(row,["subGrade","shape"]),pick(row,["detailGrade","description"])].filter(Boolean).join(" · "); }
+  function normGrade(v) { return upper(v).replace(/[^A-Z0-9가-힣]/g,""); }
+  function similar(a,b) {
+    a=normGrade(a); b=normGrade(b); if(!a||!b)return 0; if(a===b)return 1; if(a.indexOf(b)>=0||b.indexOf(a)>=0)return Math.min(a.length,b.length)/Math.max(a.length,b.length)+0.2;
+    var aset={}; for(var i=0;i<a.length;i++)aset[a[i]]=1; var hit=0; for(var j=0;j<b.length;j++)if(aset[b[j]])hit++; return hit/Math.max(a.length,b.length);
+  }
+  function rowAmountKrw(row,weight,rates) {
+    var curr=currency(pick(row,["currency","purchaseCurrency","moneyUnit"]));
+    var rate=num(pick(row,["rate","exchangeRate","purchaseRate"]));
+    var explicit=num(pick(row,["purchaseAmount","totalPurchaseAmount","lineAmount","totalAmount"]));
+    var amount=explicit||weight*priceOf(row);
+    return toKrw(amount,curr,rate,rates);
+  }
+  function groupBy(rows,keyFn) { var m={}; rows.forEach(function(r){var k=txt(keyFn(r))||"-";(m[k]=m[k]||[]).push(r);}); return m; }
+  function poSummaries(state) {
+    var rates=rateMap(state), costs=settings(state).importCustomsByPo;
+    var groups=groupBy(list(state.pos).filter(active),function(r){return pick(r,["poNo","purchaseNo","contractNo"]);});
+    return Object.keys(groups).map(function(poNo){
+      var rows=groups[poNo], first=rows[0]||{}, weight=0, purchase=0, receivedDates=[], expectedDates=[];
+      rows.forEach(function(r){var w=weightOf(r);weight+=w;purchase+=rowAmountKrw(r,w,rates);var rd=dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"]);if(rd)receivedDates.push(rd);var ed=dateValue(r,["arrivalExpectedAt","expectedAt","expectedDate","eta","createdAt"]);if(ed)expectedDates.push(ed);});
+      var custom=costs[poNo]||{}, customs=num(custom.total), total=purchase+customs;
+      var origin=upper(pick(first,["purchaseOrigin","origin","type"]));
+      return {kind:"purchase",key:poNo,poNo:poNo,partner:pick(first,["company","supplier","vendor","partner"]),grade:rows.map(gradeOf).filter(Boolean).join(" / "),weight:weight,purchaseAmount:purchase,customs:customs,totalCost:total,costPerKg:weight?total/weight:0,receivedAt:receivedDates.sort()[0]||"",expectedAt:expectedDates.sort()[0]||"",isImport:!(origin.indexOf("국내")>=0||origin==="DOMESTIC"),currency:currency(pick(first,["currency","purchaseCurrency"])),rows:rows,customEntry:custom};
+    });
+  }
+  function finalShipment(s) { var st=upper(pick(s,["status","shippingStatus","shipmentStatus"])); return !!dateValue(s,["shippedAt","completedAt","confirmedAt","shippingCompletedAt"]) || /SHIPPED|DONE|COMPLETE|FINAL|확정|완료/.test(st); }
+  function saleRowAmount(row,weight,rates) {
+    var curr=currency(pick(row,["currency","salesCurrency","moneyUnit"])), rate=num(pick(row,["rate","exchangeRate","salesRate"]));
+    var explicit=num(pick(row,["salesAmount","totalSalesAmount","lineAmount","totalAmount","amount"]));
+    var baseWeight=weightOf(row)||num(pick(row,["salesWeight","quantity"]));
+    var unit=num(pick(row,["unitPrice","salesUnitPrice","price","usdPrice"]));
+    var amount=explicit||baseWeight*unit;
+    if(weight>0&&baseWeight>0&&explicit)amount=explicit*(weight/baseWeight);
+    else if(weight>0&&unit)amount=weight*unit;
+    return toKrw(amount,curr,rate,rates);
+  }
+  function gradeCostIndex(pos) {
+    var idx={};
+    pos.forEach(function(p){p.rows.forEach(function(r){var g=normGrade(gradeOf(r)||p.grade),w=weightOf(r),cost=w*p.costPerKg;if(!g||!w)return;var x=idx[g]||(idx[g]={weight:0,cost:0,dateWeights:[],source:p});x.weight+=w;x.cost+=cost;x.dateWeights.push({date:p.receivedAt||p.expectedAt,weight:w});});});
+    return idx;
+  }
+  function closestGrade(index,grade) { var key=normGrade(grade); if(index[key])return index[key]; var best=null,score=0;Object.keys(index).forEach(function(k){var s=similar(k,key);if(s>score){score=s;best=index[k];}});return score>=0.7?best:null; }
+  function sourcePackageId(row) { return txt(pick(row,["packageNo","internalInboundNo","sourcePackageNo","sourceNo","inboundNo","code","bagNo"])); }
+  function workCostIndex(state,pos) {
+    var byPackage={}, out={};
+    list(state.inputs).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var d=dateValue(r,["inspectionStartedAt","inspectionStartAt","startedAt","createdAt"]);if(d&&(!byPackage[k]||d<byPackage[k].start)) (byPackage[k]=byPackage[k]||{}).start=d;});
+    list(state.bags).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var d=dateValue(r,["packingCompletedAt","completedAt","movedAt","createdAt"]);if(d)(byPackage[k]=byPackage[k]||{}).end=d;});
+    list(state.movements).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var st=upper(pick(r,["toStatus","status","type"]));if(/COMPLETE|완료|PACK/.test(st)){var d=dateValue(r,["completedAt","movedAt","createdAt"]);if(d)(byPackage[k]=byPackage[k]||{}).end=d;}});
+    var waits={};
+    list(state.workWaits).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var h=num(pick(r,["processingHours","workHours","hours"]));if(!h)h=hoursBetween(dateValue(r,["workStartedAt","startedAt","createdAt"]),dateValue(r,["workCompletedAt","completedAt","finishedAt"]));waits[k]=(waits[k]||0)+h*20000;});
+    pos.forEach(function(p){p.rows.forEach(function(r){var k=sourcePackageId(r),w=weightOf(r),g=normGrade(gradeOf(r)||p.grade),t=byPackage[k]||{};var continuous=hoursBetween(t.start,t.end)*(400000/24);var total=continuous+(waits[k]||0);if(!g||!w)return;var x=out[g]||(out[g]={weight:0,cost:0});x.weight+=w;x.cost+=total;});});
+    return out;
+  }
+  function allocationWeight(state,shipment,sale) {
+    var sid=txt(shipment.id), soid=txt(sale&&sale.id), sono=txt(pick(sale||shipment,["soNo","salesNo"]));
+    return list(state.shipmentAllocations).filter(active).filter(function(a){return (sid&&txt(a.shipmentId)===sid)||(soid&&txt(a.salesOrderId)===soid)||(sono&&txt(pick(a,["soNo","salesNo"]))===sono);});
+  }
+  function outboundSummaries(state,pos) {
+    var rates=rateMap(state), sales=list(state.salesOrders).filter(active), saleById={}, saleByNo={}, costs=settings(state).exportCostByOutbound, gradeCosts=gradeCostIndex(pos), workCosts=workCostIndex(state,pos);
+    sales.forEach(function(s){saleById[txt(s.id)]=s;var no=txt(pick(s,["soNo","salesNo","orderNo"]));if(no)(saleByNo[no]=saleByNo[no]||[]).push(s);});
+    var shipments=list(state.shipments).filter(active).filter(finalShipment), out=[];
+    shipments.forEach(function(sh){
+      var soNo=txt(pick(sh,["soNo","salesNo"])), rows=(saleByNo[soNo]||[]).slice(), direct=saleById[txt(sh.salesOrderId)];if(direct&&rows.indexOf(direct)<0)rows.push(direct);if(!rows.length)rows=[sh];
+      var totalContract=rows.reduce(function(a,r){return a+(weightOf(r)||num(pick(r,["salesWeight","quantity"])));},0);
+      var shipped=num(pick(sh,["shippedWeight","weight","netWeight","nw"]))||totalContract;
+      var date=dateValue(sh,["shippedAt","shippingCompletedAt","completedAt","confirmedAt","updatedAt"]);
+      var remaining=shipped, salesAmount=0, gradeParts=[], weightedCost=0, work=0, inboundWeighted=0, inboundWeight=0;
+      rows.forEach(function(r){var rw=weightOf(r)||num(pick(r,["salesWeight","quantity"]));var use=totalContract?shipped*(rw/totalContract):shipped/rows.length;var g=gradeOf(r)||gradeOf(sh);gradeParts.push(g);salesAmount+=saleRowAmount(r,use,rates);var ci=closestGrade(gradeCosts,g);var wi=closestGrade(workCosts,g);if(ci){weightedCost+=use*(ci.cost/ci.weight);ci.dateWeights.forEach(function(dw){if(dw.date){inboundWeighted+=new Date(dw.date).getTime()*dw.weight;inboundWeight+=dw.weight;}});}if(wi)work+=use*(wi.cost/wi.weight);remaining-=use;});
+      var allocations=allocationWeight(state,sh,rows[0]), allocInbound=[];
+      allocations.forEach(function(a){var pid=sourcePackageId(a), pdate="";pos.some(function(p){return p.rows.some(function(r){if(sourcePackageId(r)===pid){pdate=p.receivedAt||p.expectedAt;return true;}return false;});});if(pdate)allocInbound.push(pdate);});
+      var inboundDate=allocInbound.sort()[0]||(inboundWeight?new Date(inboundWeighted/inboundWeight).toISOString():"");
+      var inventoryDays=daysBetween(inboundDate,date), interest=weightedCost*inventoryDays*0.0001;
+      var key=txt(sh.id)||soNo||txt(sh.salesOrderId), exp=costs[key]||costs[soNo]||{}, exportCost=num(exp.total), profit=salesAmount-weightedCost-work-interest-exportCost;
+      out.push({kind:"outbound",key:key,soNo:soNo||txt(sh.salesOrderId)||key,partner:pick(rows[0],["customer","company","buyer","partner"]),grade:gradeParts.filter(Boolean).join(" / "),weight:shipped,date:date,salesAmount:salesAmount,purchaseCost:weightedCost,workCost:work,interestCost:interest,exportCost:exportCost,profit:profit,margin:salesAmount?profit/salesAmount*100:0,inventoryDays:inventoryDays,shipment:sh,salesRows:rows,costEntry:exp});
+    });
+    return out;
+  }
+  function forecastPhysical(state,pos) {
+    var forecasts=typeof root.mesForecastRows==="function"?list(root.mesForecastRows()):[], costIdx=gradeCostIndex(pos), rows=[];
+    forecasts.forEach(function(f){if(f.isFamilySummary)return;list(f.sources).forEach(function(src){if(["uninspected","workWaiting","unpacked","completed"].indexOf(src.stage)<0)return;var rec=src.record||{},w=num(src.weight),g=src.rawSourceLabel||src.sourceLabel||f.gradeLabel||gradeOf(rec),ci=closestGrade(costIdx,g);var costPerKg=ci?ci.cost/ci.weight:0;var d=dateValue(rec,["receivedAt","receiptConfirmedAt","inboundCompletedAt","createdAt","updatedAt"]);rows.push({kind:"inventory",key:src.groupId||sourcePackageId(rec)||g,partner:pick(rec,["company","supplier","vendor","partner"]),poNo:pick(rec,["poNo","purchaseNo","contractNo"]),packageNo:sourcePackageId(rec),grade:g,stage:src.stage,weight:w,date:d,costPerKg:costPerKg,value:w*costPerKg,record:rec});});});
+    return rows;
+  }
+  function selected(rows,month,dateKey) { return rows.filter(function(r){return monthOf(r[dateKey||"date"])===month;}); }
+  function build(month) {
+    var state=runtime.getState(), pos=poSummaries(state), outbound=outboundSummaries(state,pos), inbound=pos.filter(function(p){return monthOf(p.receivedAt)===month;}), sales=selected(outbound,month), physical=forecastPhysical(state,pos), asOf=endOfMonth(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
+    physical.forEach(function(r){r.days=daysBetween(r.date,asOf);});
+    var buckets=age.map(function(b){var rs=physical.filter(function(r){return r.days>=b.min&&r.days<=b.max;}),weight=rs.reduce(function(a,r){return a+r.weight;},0),value=rs.reduce(function(a,r){return a+r.value;},0);return {label:b.label,weight:weight,value:value,rows:rs};});
+    var purchase=inbound.reduce(function(a,r){return a+r.totalCost;},0), purchaseBase=inbound.reduce(function(a,r){return a+r.purchaseAmount;},0), customs=inbound.reduce(function(a,r){return a+r.customs;},0), inboundWeight=inbound.reduce(function(a,r){return a+r.weight;},0);
+    var prev=pos.filter(function(p){return monthOf(p.receivedAt)===prevMonth(month);}).reduce(function(a,r){return a+r.totalCost;},0);
+    var salesAmount=sales.reduce(function(a,r){return a+r.salesAmount;},0), cogs=sales.reduce(function(a,r){return a+r.purchaseCost;},0),work=sales.reduce(function(a,r){return a+r.workCost;},0),interest=sales.reduce(function(a,r){return a+r.interestCost;},0),exports=sales.reduce(function(a,r){return a+r.exportCost;},0),profit=sales.reduce(function(a,r){return a+r.profit;},0);
+    var stockValue=physical.reduce(function(a,r){return a+r.value;},0), stockWeight=physical.reduce(function(a,r){return a+r.weight;},0), longRows=physical.filter(function(r){return r.days>=90;}), longValue=longRows.reduce(function(a,r){return a+r.value;},0), longWeight=longRows.reduce(function(a,r){return a+r.weight;},0);
+    return {month:month,state:state,pos:pos,outbound:outbound,inbound:inbound,sales:sales,physical:physical,buckets:buckets,purchase:purchase,purchaseBase:purchaseBase,customs:customs,inboundWeight:inboundWeight,prevPurchase:prev,mom:prev?(purchase-prev)/prev*100:0,salesAmount:salesAmount,cogs:cogs,work:work,interest:interest,exports:exports,profit:profit,margin:salesAmount?profit/salesAmount*100:0,stockValue:stockValue,stockWeight:stockWeight,longRows:longRows,longValue:longValue,longWeight:longWeight,turnover:sales.length?sales.reduce(function(a,r){return a+r.inventoryDays;},0)/sales.length:0,missingCustoms:inbound.filter(function(p){return p.isImport&&!p.customEntry.updatedAt;}),missingExports:sales.filter(function(r){return !r.costEntry.updatedAt;})};
+  }
+  function drillRows(report,kind) {
+    if(kind==="purchase")return report.inbound;
+    if(kind==="sales"||kind==="profit"||kind==="turnover")return report.sales;
+    if(kind==="long")return report.longRows;
+    if(kind.indexOf("bucket:")===0){var label=kind.slice(7),b=report.buckets.find(function(x){return x.label===label;});return b?b.rows:[];}
+    return report.physical;
+  }
+  function drillTitle(kind) { return kind==="purchase"?"이번 달 매입":kind==="sales"?"이번 달 매출":kind==="profit"?"실현이익":kind==="long"?"90일 이상 장기재고":kind==="turnover"?"출고 재고회전":kind.indexOf("bucket:")===0?kind.slice(7)+" 재고":"현재재고"; }
+  function table(report) {
+    var rows=drillRows(report,drillKind),q=upper(drillQuery);if(q)rows=rows.filter(function(r){return upper([r.partner,r.poNo,r.soNo,r.packageNo,r.key,r.grade].join(" ")).indexOf(q)>=0;});
+    var head='<tr><th>거래처</th><th>P.O / S.O</th><th>사내입고 / 출고번호</th><th>강종</th><th>중량</th><th>금액·원가</th><th>세부비용·보유일</th><th>상세</th></tr>';
+    var body=rows.map(function(r,i){var ref=r.poNo||r.soNo||"-",sub=r.packageNo||r.key||"-",amount=r.kind==="purchase"?r.totalCost:r.kind==="outbound"?r.salesAmount:r.value,details=r.kind==="purchase"?"통관 "+fmt(r.customs)+"원 · kg당 "+fmt(r.costPerKg):r.kind==="outbound"?"원가 "+fmt(r.purchaseCost)+" · 작업 "+fmt(r.workCost)+" · 이자 "+fmt(r.interestCost)+" · 수출 "+fmt(r.exportCost):"보유 "+fmt(r.days)+"일";return '<tr><td>'+esc(r.partner||"-")+'</td><td>'+esc(ref)+'</td><td>'+esc(sub)+'</td><td>'+esc(r.grade||"-")+'</td><td>'+kg(r.weight)+'</td><td>'+fmt(amount)+'원</td><td>'+esc(details)+'</td><td><button class="btn" onclick="openExecutiveFinanceDetail(\''+drillKind+'\','+i+')">보기</button></td></tr>';}).join("");
+    return '<div class="mes-fin-drill"><div class="mes-fin-drill-head"><div><h2>'+drillTitle(drillKind)+'</h2><p>거래처 → P.O/S.O → 사내입고번호/출고번호까지 확인합니다.</p></div><form onsubmit="event.preventDefault();setExecutiveFinanceQuery(this.q.value)"><input name="q" value="'+esc(drillQuery)+'" placeholder="거래처·P.O·S.O·사내입고·출고 검색"><button class="btn primary">검색</button></form></div><div class="mes-fin-table"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';
+  }
+  function renderDashboard() {
+    var report=build(financeMonth), content=root.document.getElementById("content"), pageTitle=root.document.getElementById("pageTitle");if(!content)return;if(pageTitle)pageTitle.textContent="임원용 현황판";
+    var kpis=[
+      {k:"purchase",t:"매입총액 / 매입원가",v:money(report.purchase),s:"매입 "+money(report.purchaseBase)+" + 통관 "+money(report.customs)},
+      {k:"sales",t:"이번 달 매출액",v:money(report.salesAmount),s:"출고확정 "+fmt(report.sales.length)+"건"},
+      {k:"profit",t:"실현이익",v:money(report.profit),s:"작업 "+money(report.work)+" · 이자 "+money(report.interest)+" · 수출 "+money(report.exports)},
+      {k:"profit",t:"실현이익률",v:pct(report.margin),s:"실현이익 ÷ 매출액"},
+      {k:"long",t:"90일 이상 장기재고",v:money(report.longValue),s:kg(report.longWeight)},
+      {k:"turnover",t:"평균 재고회전일",v:report.turnover.toFixed(1)+"일",s:"출고 완료 재고 기준"}
+    ];
+    var alerts="";
+    if(report.missingCustoms.length||report.missingExports.length)alerts='<section class="mes-fin-alert"><h2>누락 비용 즉시 입력</h2><div class="mes-fin-alert-grid">'+report.missingCustoms.map(function(p){return '<button onclick="openExecutiveCostEditor(\'import\',\''+esc(p.poNo)+'\')"><b>통관비 기입요망</b><span>'+esc(p.poNo)+' · '+esc(p.partner)+' · '+kg(p.weight)+'</span></button>';}).join("")+report.missingExports.map(function(o){return '<button onclick="openExecutiveCostEditor(\'export\',\''+esc(o.key)+'\')"><b>수출비용 기입요망</b><span>'+esc(o.soNo)+' · '+esc(o.partner)+' · '+kg(o.weight)+'</span></button>';}).join("")+'</div></section>';
+    var buckets=report.buckets.map(function(b){return '<button onclick="setExecutiveFinanceDrill(\'bucket:'+b.label+'\')"><b>'+b.label+'</b><strong>'+money(b.value)+'</strong><span>'+kg(b.weight)+' · '+pct(report.stockWeight?b.weight/report.stockWeight*100:0)+'</span></button>';}).join("");
+    content.innerHTML='<div class="dashboard-head"><div><h1>임원용 MES 대시보드</h1><p>선택한 월의 매입·출고와 현재 공용재고를 같은 계산 함수로 집계합니다.</p></div><div class="actions"><label class="mes-fin-month">기준월<input type="month" value="'+financeMonth+'" onchange="setExecutiveFinanceMonth(this.value)"></label><button class="btn" onclick="openExecutiveExchangeRates()">환율·환차손익</button><button class="btn" onclick="openExecutiveUserManager()">임원 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>'+
+      '<div class="mes-fin-kpis">'+kpis.map(function(k){return '<button class="'+(drillKind===k.k?"on":"")+'" onclick="setExecutiveFinanceDrill(\''+k.k+'\')"><small>'+k.t+'</small><strong>'+k.v+'</strong><span>'+k.s+'</span></button>';}).join("")+'</div>'+alerts+
+      '<section class="mes-fin-flow"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'purchase\')"><small>입고 · '+financeMonth+'</small><strong>'+money(report.purchase)+' / '+(report.inboundWeight/1000).toFixed(1)+'톤</strong><span>평균 매입단가 '+fmt(report.inboundWeight?report.purchase/report.inboundWeight:0)+'원/kg · 전월대비 '+(report.mom>=0?"▲ ":"▼ ")+pct(Math.abs(report.mom))+'</span></button><div class="mes-fin-arrow">↓</div>'+
+      '<div class="mes-fin-current"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'stock\')"><small>현재재고</small><strong>'+money(report.stockValue)+' / '+(report.stockWeight/1000).toFixed(1)+'톤</strong><span>선택월 말일을 기준으로 보유기간을 계산</span></button><div class="mes-fin-buckets">'+buckets+'</div></div><div class="mes-fin-arrow">↓</div>'+
+      '<button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'sales\')"><small>출고 · '+financeMonth+'</small><strong>매출 '+money(report.salesAmount)+' / 원가 '+money(report.cogs)+'</strong><span>이익 '+money(report.profit)+' · '+pct(report.margin)+'</span></button></section>'+table(report);
+  }
+  root.mesExecutiveFinance={build:build,poSummaries:poSummaries,outboundSummaries:outboundSummaries,forecastPhysical:forecastPhysical};
+  root.setExecutiveFinanceMonth=function(v){if(/^\d{4}-\d{2}$/.test(v))financeMonth=v;renderDashboard();};
+  root.setExecutiveFinanceDrill=function(v){drillKind=v;drillQuery="";renderDashboard();root.setTimeout(function(){var x=root.document.querySelector(".mes-fin-drill");if(x)x.scrollIntoView({behavior:"smooth",block:"start"});},30);};
+  root.setExecutiveFinanceQuery=function(v){drillQuery=txt(v);renderDashboard();};
+  root.openExecutiveFinanceDetail=function(kind,index){var report=build(financeMonth),rows=drillRows(report,kind),r=rows[index];if(!r)return;var detail=r.kind==="purchase"?'<p><b>매입금액</b> '+fmt(r.purchaseAmount)+'원</p><p><b>수입통관비</b> '+fmt(r.customs)+'원 ('+fmt(r.weight?r.customs/r.weight:0)+'원/kg)</p><p><b>매입총액</b> '+fmt(r.totalCost)+'원</p><button class="btn primary" onclick="openExecutiveCostEditor(\'import\',\''+esc(r.poNo)+'\')">통관비 입력·수정</button>':r.kind==="outbound"?'<p><b>매출액</b> '+fmt(r.salesAmount)+'원</p><p><b>수입원가</b> '+fmt(r.purchaseCost)+'원</p><p><b>작업비</b> '+fmt(r.workCost)+'원</p><p><b>재고이자부담비</b> '+fmt(r.interestCost)+'원 ('+fmt(r.inventoryDays)+'일)</p><p><b>수출비용</b> '+fmt(r.exportCost)+'원</p><p><b>실현이익</b> '+fmt(r.profit)+'원 · '+pct(r.margin)+'</p><button class="btn primary" onclick="openExecutiveCostEditor(\'export\',\''+esc(r.key)+'\')">수출비용 입력·수정</button>':'<p><b>재고단계</b> '+esc(r.stage)+'</p><p><b>보유일</b> '+fmt(r.days)+'일</p><p><b>원가</b> '+fmt(r.costPerKg)+'원/kg</p><p><b>재고금액</b> '+fmt(r.value)+'원</p>';
+    root.document.getElementById("modal").innerHTML='<div class="modal-backdrop" onclick="if(event.target===this)this.innerHTML=\'\'"><div class="modal-card"><div class="modal-head"><h2>'+esc(r.poNo||r.soNo||r.key)+' · 상세</h2><button onclick="this.closest(\'.modal-backdrop\').remove()">×</button></div><div class="mes-fin-detail"><p><b>거래처</b> '+esc(r.partner||"-")+'</p><p><b>강종</b> '+esc(r.grade||"-")+'</p><p><b>중량</b> '+kg(r.weight)+'</p>'+detail+'</div></div></div>';
+  };
+  root.openExecutiveCostEditor=function(type,key){
+    var report=build(financeMonth), isImport=type==="import", row=isImport?report.pos.find(function(p){return p.poNo===key;}):report.outbound.find(function(o){return o.key===key||o.soNo===key;});if(!row)return;
+    var old=isImport?row.customs:row.exportCost, title=isImport?"수입통관비":"수출비용", meta=isImport?row.poNo:row.soNo;
+    root.document.getElementById("modal").innerHTML='<div class="modal-backdrop"><div class="modal-card"><div class="modal-head"><h2>'+title+' 입력</h2><button onclick="this.closest(\'.modal-backdrop\').remove()">×</button></div><form class="form-grid" onsubmit="event.preventDefault();saveExecutiveCost(\''+type+'\',\''+esc(key)+'\',this.total.value)"><div class="mes-fin-cost-info"><b>'+esc(meta)+'</b><span>'+esc(row.partner||"-")+'</span><span>기준중량 '+kg(row.weight)+'</span></div><label>'+title+' 총액(원)<input name="total" type="number" min="0" step="1" value="'+num(old)+'" required oninput="document.getElementById(\'mesCostPerKg\').textContent=(Number(this.value||0)/'+(row.weight||1)+').toLocaleString(\'ko-KR\',{maximumFractionDigits:2})+\' 원/kg\'"></label><div class="mes-fin-perkg"><small>자동 계산 kg당 비용</small><strong id="mesCostPerKg">'+(row.weight?num(old)/row.weight:0).toLocaleString("ko-KR",{maximumFractionDigits:2})+' 원/kg</strong></div><div class="form-actions"><button class="btn primary">저장</button><button type="button" class="btn" onclick="this.closest(\'.modal-backdrop\').remove()">취소</button></div></form></div></div>';
+  };
+  root.saveExecutiveCost=async function(type,key,value){
+    var state=runtime.getState(), s=settings(state), entry={total:num(value),updatedAt:new Date().toISOString(),updatedBy:runtime.currentUserName?runtime.currentUserName():""};
+    if(type==="import")s.importCustomsByPo[key]=entry;else s.exportCostByOutbound[key]=entry;
+    try{await runtime.getCommit()(["systemSettings"]);var m=root.document.getElementById("modal");if(m)m.innerHTML="";if(runtime.getToast())runtime.getToast()((type==="import"?"통관비":"수출비용")+" 저장 완료","success");renderDashboard();}catch(e){if(runtime.getToast())runtime.getToast()("비용 저장 실패: "+(e.message||e),"error");}
+  };
+  function decorateFinanceForms(){
+    var modal=root.document.getElementById("modal");if(!modal)return;var form=modal.querySelector("form[onsubmit*='saveEdit']");if(!form||form.dataset.executiveFinanceDecorated)return;var raw=form.getAttribute("onsubmit")||"",m=raw.match(/saveEdit\('([^']+)'\s*,\s*'(purchase|shipping)'/);if(!m)return;var id=m[1],type=m[2],report=build(financeMonth),row=type==="purchase"?report.pos.find(function(p){return p.poNo===id;}):report.outbound.find(function(o){return o.key===id||o.soNo===id||txt(o.shipment.id)===id;});var cost=row?(type==="purchase"?row.customs:row.exportCost):0;var label=type==="purchase"?"수입통관비 총액(원)":"수출비용 총액(원)";var wrap=root.document.createElement("label");wrap.className="mes-fin-embedded";wrap.innerHTML=label+'<input type="number" min="0" step="1" value="'+num(cost)+'" data-exec-cost><small>'+(type==="purchase"&&row&&row.weight?"자동 kg당 "+fmt(cost/row.weight)+"원":"임원 KPI 실현원가에 반영")+'</small>';var actions=form.querySelector(".form-actions");if(actions)form.insertBefore(wrap,actions);else form.appendChild(wrap);wrap.querySelector("input").addEventListener("change",function(){root.saveExecutiveCost(type,type==="purchase"?id:(row?row.key:id),this.value);});form.dataset.executiveFinanceDecorated="1";
+  }
+  var baseRender=root.render;
+  root.render=function(){var out=baseRender.apply(this,arguments);if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);root.requestAnimationFrame(decorateFinanceForms);return out;};
+  new MutationObserver(decorateFinanceForms).observe(root.document.body,{childList:true,subtree:true});
+  var style=root.document.createElement("style");style.id="mesExecutiveFinanceV2Style";style.textContent='.mes-fin-month{display:flex;align-items:center;gap:8px;font-weight:800}.mes-fin-month input{padding:10px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.mes-fin-kpis button,.mes-fin-flow-main,.mes-fin-buckets button{border:1px solid #cbd8d5;border-radius:16px;background:#fff;text-align:left;padding:18px;color:#102d28}.mes-fin-kpis button.on{border-color:#0798a9;box-shadow:0 0 0 2px #0798a922}.mes-fin-kpis small,.mes-fin-flow small{display:block;color:#5f7470;font-weight:800}.mes-fin-kpis strong,.mes-fin-flow-main strong{display:block;font-size:26px;margin:8px 0}.mes-fin-kpis span,.mes-fin-flow span{display:block;color:#5f7470}.mes-fin-alert{background:#fff5dc;border:1px solid #efc34e;border-radius:16px;padding:16px;margin:16px 0}.mes-fin-alert-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mes-fin-alert button{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e7b640;border-radius:12px;background:#fff;text-align:left}.mes-fin-alert b{color:#b14920}.mes-fin-flow{display:grid;gap:10px;background:#edf7f5;border-radius:20px;padding:18px}.mes-fin-flow-main{width:100%;background:linear-gradient(135deg,#0b314b,#078b83);color:#fff}.mes-fin-flow-main small,.mes-fin-flow-main span{color:#d8f3ee}.mes-fin-arrow{text-align:center;font-size:28px;font-weight:900;color:#07887c}.mes-fin-current{display:grid;gap:10px}.mes-fin-buckets{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.mes-fin-buckets strong{display:block;margin:7px 0}.mes-fin-drill{background:#fff;border-radius:18px;padding:18px;margin-top:16px}.mes-fin-drill-head{display:flex;justify-content:space-between;gap:16px}.mes-fin-drill-head form{display:flex;gap:8px}.mes-fin-drill-head input{min-width:300px;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-table{overflow:auto;max-height:55vh}.mes-fin-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-fin-table th,.mes-fin-table td{padding:11px;border-bottom:1px solid #e1e9e7;text-align:left}.mes-fin-cost-info{display:grid;gap:5px;padding:14px;border-radius:12px;background:#edf7f5}.mes-fin-perkg{padding:14px;border:1px solid #cbd8d5;border-radius:12px}.mes-fin-perkg strong{display:block;font-size:22px}.mes-fin-detail{display:grid;gap:10px}.mes-fin-detail p{margin:0;padding:10px;background:#f4f8f7;border-radius:10px}.mes-fin-embedded{border:2px solid #0798a9;border-radius:12px;padding:12px;background:#effafa}.mes-fin-embedded small{display:block;margin-top:5px;color:#607672}@media(max-width:900px){.mes-fin-kpis{grid-template-columns:repeat(2,1fr)}.mes-fin-buckets{grid-template-columns:repeat(2,1fr)}.mes-fin-alert-grid{grid-template-columns:1fr}.mes-fin-drill-head{display:block}.mes-fin-drill-head form{margin-top:10px}.mes-fin-drill-head input{min-width:0;flex:1}}@media(max-width:560px){.mes-fin-kpis{grid-template-columns:1fr}.mes-fin-kpis strong,.mes-fin-flow-main strong{font-size:22px}.dashboard-head .actions{display:grid;grid-template-columns:1fr 1fr}.mes-fin-month{grid-column:1/-1}.mes-fin-buckets{grid-template-columns:1fr}.mes-fin-flow{padding:12px}}';root.document.head.appendChild(style);
+  if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);
+})(window);
