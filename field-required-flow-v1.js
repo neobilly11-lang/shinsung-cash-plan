@@ -6,7 +6,7 @@
   const state={lastAction:null,queue:[],currentKey:'',timer:0,notice:null};
   const SAVE_WORDS=/(저장|확정|등록|완료|이동|요청|처리|생성)/;
   const IGNORE_ACTION=/(삭제|취소|닫기|조회|검색|선택|보기|미리보기|다운로드|인쇄|출력|촬영|사진|QR|카톡|공유|임시보관|임시저장)/i;
-  const OPTIONAL=/(선택사항|선택\s*(?:정보|입력|항목|사진|파일)|필요할 때|필요시|직접 입력|메모|비고|이상 사진|상세강종)/;
+  const OPTIONAL=/(선택사항|선택\s*(?:정보|입력|항목|사진|파일)|필요할 때(?:\s*직접 입력)?|필요시(?:\s*직접 입력)?|메모|비고|이상 사진|상세강종)/;
   const ACTIONABLE_ERROR=/(입력하세요|선택하세요|필수|모든 .*항목|모든 .*행|정확히 입력|촬영하거나 업로드|한 건 이상 선택|행을 하나 이상|0kg보다 커|이하여야|일치해야|등록된 .*선택|확인하세요)/;
   const NON_FIELD_ERROR=/(이미 .*등록|중복|찾을 수 없습니다|저장 실패|HTTP|서버|시간 초과|같습니다|없습니다\.?$)/;
 
@@ -276,7 +276,7 @@
     state.lastAction=button;
     const scope=button.closest('form,.card,.donecard,.domestic-step,article,.view.on')||activeView();
     setTimeout(()=>{
-      if(!button.isConnected||!visible(button))return;
+      if(!button.isConnected||!isVisible(button))return;
       const items=explicitRequired(scope&&scope.isConnected?scope:activeView());
       if(items.length)startFlow(items,'필수사항을 순서대로 입력해 주세요. 선택사항은 건너뜁니다.');
     },90);
@@ -312,5 +312,5 @@
   });
   observer.observe(doc.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   wrapMsg();wrapAlert();ensureNotice();
-  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-1'};
+  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-2'};
 })();
