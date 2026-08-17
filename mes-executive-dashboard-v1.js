@@ -8,7 +8,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260817-fx-purchase-fix-1";
+  var VERSION = "20260817-finance-costs-kpi-1";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -624,14 +624,21 @@
     var rates=rateMap(state), costs=settings(state).importCustomsByPo;
     var groups=groupBy(list(state.pos).filter(active),function(r){return pick(r,["poNo","purchaseNo","contractNo"]);});
     return Object.keys(groups).map(function(poNo){
-      var rows=groups[poNo], first=rows[0]||{}, weight=0, purchase=0, receivedDates=[], expectedDates=[], purchaseDates=[];
-      rows.forEach(function(r){var w=weightOf(r);weight+=w;purchase+=rowAmountKrw(r,w,rates);var rd=dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"]);if(rd)receivedDates.push(rd);var ed=dateValue(r,["arrivalExpectedAt","expectedArrivalDate","expectedAt","expectedDate","eta"]);if(ed)expectedDates.push(ed);var pd=dateValue(r,["purchaseDate","contractDate","orderDate","poDate","savedAt","createdAt","updatedAt"]);if(pd)purchaseDates.push(pd);});
+      var rows=groups[poNo], first=rows[0]||{}, weight=0, purchase=0, receivedDates=[], expectedDates=[], purchaseDates=[], receivedCount=0;
+      rows.forEach(function(r){
+        var w=weightOf(r);weight+=w;purchase+=rowAmountKrw(r,w,rates);
+        var rd=dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"]);
+        if(rd){receivedDates.push(rd);receivedCount++;}
+        var ed=dateValue(r,["arrivalExpectedAt","expectedArrivalDate","expectedAt","expectedDate","eta"]);if(ed)expectedDates.push(ed);
+        var pd=dateValue(r,["purchaseDate","contractDate","orderDate","poDate","savedAt","createdAt","updatedAt"]);if(pd)purchaseDates.push(pd);
+      });
       var custom=costs[poNo]||{}, customs=num(custom.total), total=purchase+customs;
       var origin=upper(pick(first,["purchaseOrigin","origin","type"]));
-      return {kind:"purchase",key:poNo,poNo:poNo,partner:pick(first,["company","supplier","vendor","partner"]),grade:rows.map(gradeOf).filter(Boolean).join(" / "),weight:weight,purchaseAmount:purchase,customs:customs,totalCost:total,costPerKg:weight?total/weight:0,purchaseDate:purchaseDates.sort()[0]||"",receivedAt:receivedDates.sort()[0]||"",expectedAt:expectedDates.sort()[0]||"",isImport:!(origin.indexOf("국내")>=0||origin==="DOMESTIC"),currency:currency(pick(first,["currency","purchaseCurrency"])),rows:rows,customEntry:custom};
+      var receivedAt=receivedDates.sort().slice(-1)[0]||"";
+      return {kind:"purchase",key:poNo,poNo:poNo,partner:pick(first,["company","supplier","vendor","partner"]),grade:rows.map(gradeOf).filter(Boolean).join(" / "),weight:weight,purchaseAmount:purchase,customs:customs,totalCost:total,costPerKg:weight?total/weight:0,purchaseDate:purchaseDates.sort()[0]||"",receivedAt:receivedAt,isReceived:rows.length>0&&receivedCount===rows.length,receivedCount:receivedCount,expectedAt:expectedDates.sort()[0]||"",isImport:!(origin.indexOf("국내")>=0||origin==="DOMESTIC"),currency:currency(pick(first,["currency","purchaseCurrency"])),rows:rows,customEntry:custom};
     });
   }
-  function finalShipment(s) { var st=upper(pick(s,["status","shippingStatus","shipmentStatus"])); return !!dateValue(s,["shippedAt","completedAt","confirmedAt","shippingCompletedAt"]) || /SHIPPED|DONE|COMPLETE|FINAL|확정|완료/.test(st); }
+    function finalShipment(s) { var st=upper(pick(s,["status","shippingStatus","shipmentStatus"])); return !!dateValue(s,["shippedAt","completedAt","confirmedAt","shippingCompletedAt"]) || /SHIPPED|DONE|COMPLETE|FINAL|확정|완료/.test(st); }
   function saleRowAmount(row,weight,rates) {
     var curr=currency(pick(row,["currency","salesCurrency","moneyUnit"])), rate=num(pick(row,["rate","exchangeRate","salesRate"]));
     var explicit=num(pick(row,["salesAmount","totalSalesAmount","lineAmount","totalAmount","amount"]));
@@ -690,23 +697,30 @@
   }
   function selected(rows,month,dateKey) { return rows.filter(function(r){return monthOf(r[dateKey||"date"])===month;}); }
   function build(month) {
-    var state=runtime.getState(), pos=poSummaries(state), outbound=outboundSummaries(state,pos), inbound=pos.filter(function(p){return monthOf(p.purchaseDate)===month;}), sales=selected(outbound,month), physical=forecastPhysical(state,pos), asOf=endOfMonth(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
+    var state=runtime.getState(), pos=poSummaries(state), outbound=outboundSummaries(state,pos);
+    var inbound=pos.filter(function(p){return monthOf(p.purchaseDate)===month;});
+    var received=pos.filter(function(p){return p.isReceived&&monthOf(p.receivedAt)===month;});
+    var sales=selected(outbound,month), allPhysical=forecastPhysical(state,pos);
+    var physical=allPhysical.filter(function(r){return ["workWaiting","unpacked","completed"].indexOf(r.stage)>=0;});
+    var asOf=endOfMonth(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
     physical.forEach(function(r){r.days=daysBetween(r.date,asOf);});
     var buckets=age.map(function(b){var rs=physical.filter(function(r){return r.days>=b.min&&r.days<=b.max;}),weight=rs.reduce(function(a,r){return a+r.weight;},0),value=rs.reduce(function(a,r){return a+r.value;},0);return {label:b.label,weight:weight,value:value,rows:rs};});
     var purchase=inbound.reduce(function(a,r){return a+r.totalCost;},0), purchaseBase=inbound.reduce(function(a,r){return a+r.purchaseAmount;},0), customs=inbound.reduce(function(a,r){return a+r.customs;},0), inboundWeight=inbound.reduce(function(a,r){return a+r.weight;},0);
+    var receivedTotal=received.reduce(function(a,r){return a+r.totalCost;},0), receivedBase=received.reduce(function(a,r){return a+r.purchaseAmount;},0), receivedCustoms=received.reduce(function(a,r){return a+r.customs;},0), receivedWeight=received.reduce(function(a,r){return a+r.weight;},0);
     var prev=pos.filter(function(p){return monthOf(p.purchaseDate)===prevMonth(month);}).reduce(function(a,r){return a+r.totalCost;},0);
     var salesAmount=sales.reduce(function(a,r){return a+r.salesAmount;},0), cogs=sales.reduce(function(a,r){return a+r.purchaseCost;},0),work=sales.reduce(function(a,r){return a+r.workCost;},0),interest=sales.reduce(function(a,r){return a+r.interestCost;},0),exports=sales.reduce(function(a,r){return a+r.exportCost;},0),profit=sales.reduce(function(a,r){return a+r.profit;},0);
     var stockValue=physical.reduce(function(a,r){return a+r.value;},0), stockWeight=physical.reduce(function(a,r){return a+r.weight;},0), longRows=physical.filter(function(r){return r.days>=90;}), longValue=longRows.reduce(function(a,r){return a+r.value;},0), longWeight=longRows.reduce(function(a,r){return a+r.weight;},0);
-    return {month:month,state:state,pos:pos,outbound:outbound,inbound:inbound,sales:sales,physical:physical,buckets:buckets,purchase:purchase,purchaseBase:purchaseBase,customs:customs,inboundWeight:inboundWeight,prevPurchase:prev,mom:prev?(purchase-prev)/prev*100:0,salesAmount:salesAmount,cogs:cogs,work:work,interest:interest,exports:exports,profit:profit,margin:salesAmount?profit/salesAmount*100:0,stockValue:stockValue,stockWeight:stockWeight,longRows:longRows,longValue:longValue,longWeight:longWeight,turnover:sales.length?sales.reduce(function(a,r){return a+r.inventoryDays;},0)/sales.length:0,missingCustoms:inbound.filter(function(p){return p.isImport&&!p.customEntry.updatedAt;}),missingExports:sales.filter(function(r){return !r.costEntry.updatedAt;})};
+    return {month:month,state:state,pos:pos,outbound:outbound,inbound:inbound,received:received,sales:sales,allPhysical:allPhysical,physical:physical,buckets:buckets,purchase:purchase,purchaseBase:purchaseBase,customs:customs,inboundWeight:inboundWeight,receivedTotal:receivedTotal,receivedBase:receivedBase,receivedCustoms:receivedCustoms,receivedWeight:receivedWeight,prevPurchase:prev,mom:prev?(purchase-prev)/prev*100:0,salesAmount:salesAmount,cogs:cogs,work:work,interest:interest,exports:exports,profit:profit,margin:salesAmount?profit/salesAmount*100:0,stockValue:stockValue,stockWeight:stockWeight,longRows:longRows,longValue:longValue,longWeight:longWeight,turnover:sales.length?sales.reduce(function(a,r){return a+r.inventoryDays;},0)/sales.length:0,missingCustoms:inbound.filter(function(p){return p.isImport&&!p.customEntry.updatedAt;}),missingExports:sales.filter(function(r){return !r.costEntry.updatedAt;})};
   }
-  function drillRows(report,kind) {
+    function drillRows(report,kind) {
     if(kind==="purchase")return report.inbound;
+    if(kind==="received")return report.received;
     if(kind==="sales"||kind==="profit"||kind==="turnover")return report.sales;
     if(kind==="long")return report.longRows;
     if(kind.indexOf("bucket:")===0){var label=kind.slice(7),b=report.buckets.find(function(x){return x.label===label;});return b?b.rows:[];}
     return report.physical;
   }
-  function drillTitle(kind) { return kind==="purchase"?"이번 달 매입":kind==="sales"?"이번 달 매출":kind==="profit"?"실현이익":kind==="long"?"90일 이상 장기재고":kind==="turnover"?"출고 재고회전":kind.indexOf("bucket:")===0?kind.slice(7)+" 재고":"현재재고"; }
+  function drillTitle(kind) { return kind==="purchase"?"이번 달 매입":kind==="received"?"입고완료 총액":kind==="sales"?"이번 달 매출":kind==="profit"?"실현이익":kind==="long"?"90일 이상 장기재고":kind==="turnover"?"출고 재고회전":kind.indexOf("bucket:")===0?kind.slice(7)+" 재고":"검수완료 현재재고"; }
   function table(report) {
     var rows=drillRows(report,drillKind),q=upper(drillQuery);if(q)rows=rows.filter(function(r){return upper([r.partner,r.poNo,r.soNo,r.packageNo,r.key,r.grade].join(" ")).indexOf(q)>=0;});
     var head='<tr><th>거래처</th><th>P.O / S.O</th><th>사내입고 / 출고번호</th><th>강종</th><th>중량</th><th>금액·원가</th><th>세부비용·보유일</th><th>상세</th></tr>';
@@ -716,7 +730,9 @@
   function renderDashboard() {
     var report=build(financeMonth), content=root.document.getElementById("content"), pageTitle=root.document.getElementById("pageTitle");if(!content)return;if(pageTitle)pageTitle.textContent="임원용 현황판";
     var kpis=[
-      {k:"purchase",t:"매입총액 / 매입원가",v:money(report.purchase),s:"구매계획 "+fmt(report.inbound.length)+"건 · 매입 "+money(report.purchaseBase)+" + 통관 "+money(report.customs)},
+      {k:"purchase",t:"매입총액",v:money(report.purchase),s:"구매계획 "+fmt(report.inbound.length)+"건 전체 · 매입 "+money(report.purchaseBase)+" + 통관 "+money(report.customs)},
+      {k:"received",t:"입고총액",v:money(report.receivedTotal),s:"입고완료 "+fmt(report.received.length)+"건 · "+kg(report.receivedWeight)},
+      {k:"stock",t:"현재재고",v:money(report.stockValue),s:"검수완료 재고 "+kg(report.stockWeight)},
       {k:"sales",t:"이번 달 매출액",v:money(report.salesAmount),s:"출고확정 "+fmt(report.sales.length)+"건"},
       {k:"profit",t:"실현이익",v:money(report.profit),s:"작업 "+money(report.work)+" · 이자 "+money(report.interest)+" · 수출 "+money(report.exports)},
       {k:"profit",t:"실현이익률",v:pct(report.margin),s:"실현이익 ÷ 매출액"},
@@ -746,16 +762,36 @@
     root.document.getElementById("modal").innerHTML='<div class="modal-backdrop"><div class="modal-card"><div class="modal-head"><h2>'+title+' 입력</h2><button onclick="this.closest(\'.modal-backdrop\').remove()">×</button></div><form class="form-grid" onsubmit="event.preventDefault();saveExecutiveCost(\''+type+'\',\''+esc(key)+'\',this.total.value)"><div class="mes-fin-cost-info"><b>'+esc(meta)+'</b><span>'+esc(row.partner||"-")+'</span><span>기준중량 '+kg(row.weight)+'</span></div><label>'+title+' 총액(원)<input name="total" type="number" min="0" step="1" value="'+num(old)+'" required oninput="document.getElementById(\'mesCostPerKg\').textContent=(Number(this.value||0)/'+(row.weight||1)+').toLocaleString(\'ko-KR\',{maximumFractionDigits:2})+\' 원/kg\'"></label><div class="mes-fin-perkg"><small>자동 계산 kg당 비용</small><strong id="mesCostPerKg">'+(row.weight?num(old)/row.weight:0).toLocaleString("ko-KR",{maximumFractionDigits:2})+' 원/kg</strong></div><div class="form-actions"><button class="btn primary">저장</button><button type="button" class="btn" onclick="this.closest(\'.modal-backdrop\').remove()">취소</button></div></form></div></div>';
   };
   root.saveExecutiveCost=async function(type,key,value){
-    var state=runtime.getState(), s=settings(state), entry={total:num(value),updatedAt:new Date().toISOString(),updatedBy:runtime.currentUserName?runtime.currentUserName():""};
-    if(type==="import")s.importCustomsByPo[key]=entry;else s.exportCostByOutbound[key]=entry;
-    try{await runtime.getCommit()(["systemSettings"]);var m=root.document.getElementById("modal");if(m)m.innerHTML="";if(runtime.getToast())runtime.getToast()((type==="import"?"통관비":"수출비용")+" 저장 완료","success");(runtime.getView&&runtime.getView()==="executive")?renderDashboard():null;}catch(e){if(runtime.getToast())runtime.getToast()("비용 저장 실패: "+(e.message||e),"error");}
+    var entry={total:num(value),updatedAt:new Date().toISOString(),updatedBy:runtime.currentUserName?runtime.currentUserName():""};
+    try{
+      await runtime.getCommit()(type==="import"?"통관비":"수출비용",["systemSettings"],function(shared){
+        var target=settings(shared);
+        if(type==="import")target.importCustomsByPo[key]=entry;else target.exportCostByOutbound[key]=entry;
+      });
+      var m=root.document.getElementById("modal");if(m)m.innerHTML="";
+      if(runtime.getToast())runtime.getToast()((type==="import"?"통관비":"수출비용")+" 저장 완료","success");
+      if(typeof root.render==="function")root.render();
+      if(runtime.getView&&runtime.getView()==="executive")renderDashboard();
+    }catch(e){if(runtime.getToast())runtime.getToast()("비용 저장 실패: "+(e.message||e),"error");}
   };
+  function financeCostButton(type,row){
+    var isImport=type==="import", report=build(financeMonth), found=isImport?report.pos.find(function(p){return p.poNo===row.poNo;}):report.outbound.find(function(o){return o.key===row.shipmentId||o.soNo===row.soNo;});
+    var key=isImport?row.poNo:(found?found.key:(row.shipmentId||row.soNo)), entry=found?(isImport?found.customEntry:found.costEntry):{}, value=found?(isImport?found.customs:found.exportCost):0, has=!!(entry&&entry.updatedAt), missing=isImport?(found&&found.isImport&&!has):!has;
+    var label=isImport?(missing?"통관비 기입요망":has?"통관비 "+fmt(value)+"원":"통관비 입력(선택)"):(missing?"수출비용 기입요망":"수출비용 "+fmt(value)+"원");
+    return '<button type="button" class="mes-fin-list-cost '+(missing?"missing":"saved")+'" onclick="event.stopPropagation();openExecutiveCostEditor(\''+type+'\',\''+esc(key)+'\')">'+label+'</button>';
+  }
+  function installFinanceColumns(){
+    var p=runtime.schemas&&runtime.schemas.purchase&&runtime.schemas.purchase.cols, s=runtime.schemas&&runtime.schemas.shipping&&runtime.schemas.shipping.cols;
+    if(p&&!p.some(function(c){return c[0]==="통관비";}))p.splice(5,0,["통관비",function(r){return financeCostButton("import",r);},"left"]);
+    if(s&&!s.some(function(c){return c[0]==="수출비용";}))s.splice(5,0,["수출비용",function(r){return financeCostButton("export",r);},"left"]);
+  }
+  installFinanceColumns();
   function decorateFinanceForms(){
     var modal=root.document.getElementById("modal");if(!modal)return;var form=modal.querySelector("form[onsubmit*='saveEdit']");if(!form||form.dataset.executiveFinanceDecorated)return;var raw=form.getAttribute("onsubmit")||"",m=raw.match(/saveEdit\('([^']+)'\s*,\s*'(purchase|shipping)'/);if(!m)return;var id=m[1],type=m[2],report=build(financeMonth),row=type==="purchase"?report.pos.find(function(p){return p.poNo===id;}):report.outbound.find(function(o){return o.key===id||o.soNo===id||txt(o.shipment.id)===id;});var cost=row?(type==="purchase"?row.customs:row.exportCost):0;var label=type==="purchase"?"수입통관비 총액(원)":"수출비용 총액(원)";var wrap=root.document.createElement("label");wrap.className="mes-fin-embedded";wrap.innerHTML=label+'<input type="number" min="0" step="1" value="'+num(cost)+'" data-exec-cost><small>'+(type==="purchase"&&row&&row.weight?"자동 kg당 "+fmt(cost/row.weight)+"원":"임원 KPI 실현원가에 반영")+'</small>';var actions=form.querySelector(".form-actions");if(actions)form.insertBefore(wrap,actions);else form.appendChild(wrap);wrap.querySelector("input").addEventListener("change",function(){root.saveExecutiveCost(type,type==="purchase"?id:(row?row.key:id),this.value);});form.dataset.executiveFinanceDecorated="1";
   }
   var baseRender=root.render;
-  root.render=function(){var out=baseRender.apply(this,arguments);if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);root.requestAnimationFrame(decorateFinanceForms);return out;};
+  root.render=function(){installFinanceColumns();var out=baseRender.apply(this,arguments);if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);root.requestAnimationFrame(decorateFinanceForms);return out;};
   new MutationObserver(decorateFinanceForms).observe(root.document.body,{childList:true,subtree:true});
-  var style=root.document.createElement("style");style.id="mesExecutiveFinanceV2Style";style.textContent='.mes-fin-month{display:flex;align-items:center;gap:8px;font-weight:800}.mes-fin-month input{padding:10px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.mes-fin-kpis button,.mes-fin-flow-main,.mes-fin-buckets button{border:1px solid #cbd8d5;border-radius:16px;background:#fff;text-align:left;padding:18px;color:#102d28}.mes-fin-kpis button.on{border-color:#0798a9;box-shadow:0 0 0 2px #0798a922}.mes-fin-kpis small,.mes-fin-flow small{display:block;color:#5f7470;font-weight:800}.mes-fin-kpis strong,.mes-fin-flow-main strong{display:block;font-size:26px;margin:8px 0}.mes-fin-kpis span,.mes-fin-flow span{display:block;color:#5f7470}.mes-fin-alert{background:#fff5dc;border:1px solid #efc34e;border-radius:16px;padding:16px;margin:16px 0}.mes-fin-alert-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mes-fin-alert button{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e7b640;border-radius:12px;background:#fff;text-align:left}.mes-fin-alert b{color:#b14920}.mes-fin-flow{display:grid;gap:10px;background:#edf7f5;border-radius:20px;padding:18px}.mes-fin-flow-main{width:100%;background:linear-gradient(135deg,#0b314b,#078b83);color:#fff}.mes-fin-flow-main small,.mes-fin-flow-main span{color:#d8f3ee}.mes-fin-arrow{text-align:center;font-size:28px;font-weight:900;color:#07887c}.mes-fin-current{display:grid;gap:10px}.mes-fin-buckets{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.mes-fin-buckets strong{display:block;margin:7px 0}.mes-fin-drill{background:#fff;border-radius:18px;padding:18px;margin-top:16px}.mes-fin-drill-head{display:flex;justify-content:space-between;gap:16px}.mes-fin-drill-head form{display:flex;gap:8px}.mes-fin-drill-head input{min-width:300px;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-table{overflow:auto;max-height:55vh}.mes-fin-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-fin-table th,.mes-fin-table td{padding:11px;border-bottom:1px solid #e1e9e7;text-align:left}.mes-fin-cost-info{display:grid;gap:5px;padding:14px;border-radius:12px;background:#edf7f5}.mes-fin-perkg{padding:14px;border:1px solid #cbd8d5;border-radius:12px}.mes-fin-perkg strong{display:block;font-size:22px}.mes-fin-detail{display:grid;gap:10px}.mes-fin-detail p{margin:0;padding:10px;background:#f4f8f7;border-radius:10px}.mes-fin-embedded{border:2px solid #0798a9;border-radius:12px;padding:12px;background:#effafa}.mes-fin-embedded small{display:block;margin-top:5px;color:#607672}@media(max-width:900px){.mes-fin-kpis{grid-template-columns:repeat(2,1fr)}.mes-fin-buckets{grid-template-columns:repeat(2,1fr)}.mes-fin-alert-grid{grid-template-columns:1fr}.mes-fin-drill-head{display:block}.mes-fin-drill-head form{margin-top:10px}.mes-fin-drill-head input{min-width:0;flex:1}}@media(max-width:560px){.mes-fin-kpis{grid-template-columns:1fr}.mes-fin-kpis strong,.mes-fin-flow-main strong{font-size:22px}.dashboard-head .actions{display:grid;grid-template-columns:1fr 1fr}.mes-fin-month{grid-column:1/-1}.mes-fin-buckets{grid-template-columns:1fr}.mes-fin-flow{padding:12px}}';root.document.head.appendChild(style);
+  var style=root.document.createElement("style");style.id="mesExecutiveFinanceV2Style";style.textContent='.mes-fin-month{display:flex;align-items:center;gap:8px;font-weight:800}.mes-fin-month input{padding:10px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.mes-fin-kpis button,.mes-fin-flow-main,.mes-fin-buckets button{border:1px solid #cbd8d5;border-radius:16px;background:#fff;text-align:left;padding:18px;color:#102d28}.mes-fin-kpis button.on{border-color:#0798a9;box-shadow:0 0 0 2px #0798a922}.mes-fin-kpis small,.mes-fin-flow small{display:block;color:#5f7470;font-weight:800}.mes-fin-kpis strong,.mes-fin-flow-main strong{display:block;font-size:26px;margin:8px 0}.mes-fin-kpis span,.mes-fin-flow span{display:block;color:#5f7470}.mes-fin-alert{background:#fff5dc;border:1px solid #efc34e;border-radius:16px;padding:16px;margin:16px 0}.mes-fin-alert-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mes-fin-alert button{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e7b640;border-radius:12px;background:#fff;text-align:left}.mes-fin-alert b{color:#b14920}.mes-fin-flow{display:grid;gap:10px;background:#edf7f5;border-radius:20px;padding:18px}.mes-fin-flow-main{width:100%;background:linear-gradient(135deg,#0b314b,#078b83);color:#fff}.mes-fin-flow-main small,.mes-fin-flow-main span{color:#d8f3ee}.mes-fin-arrow{text-align:center;font-size:28px;font-weight:900;color:#07887c}.mes-fin-current{display:grid;gap:10px}.mes-fin-buckets{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.mes-fin-buckets strong{display:block;margin:7px 0}.mes-fin-drill{background:#fff;border-radius:18px;padding:18px;margin-top:16px}.mes-fin-drill-head{display:flex;justify-content:space-between;gap:16px}.mes-fin-drill-head form{display:flex;gap:8px}.mes-fin-drill-head input{min-width:300px;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-table{overflow:auto;max-height:55vh}.mes-fin-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-fin-table th,.mes-fin-table td{padding:11px;border-bottom:1px solid #e1e9e7;text-align:left}.mes-fin-cost-info{display:grid;gap:5px;padding:14px;border-radius:12px;background:#edf7f5}.mes-fin-perkg{padding:14px;border:1px solid #cbd8d5;border-radius:12px}.mes-fin-perkg strong{display:block;font-size:22px}.mes-fin-detail{display:grid;gap:10px}.mes-fin-detail p{margin:0;padding:10px;background:#f4f8f7;border-radius:10px}.mes-fin-embedded{border:2px solid #0798a9;border-radius:12px;padding:12px;background:#effafa}.mes-fin-embedded small{display:block;margin-top:5px;color:#607672}.mes-fin-list-cost{display:inline-flex;align-items:center;justify-content:center;min-width:124px;padding:8px 10px;border-radius:9px;border:1px solid #8bcfc7;background:#eaf8f5;color:#087467;font-weight:900;cursor:pointer}.mes-fin-list-cost.missing{border-color:#efb33d;background:#fff3cf;color:#a34c16}.mes-fin-list-cost.saved{border-color:#70c2b8;background:#e7f7f3;color:#096e63}@media(max-width:900px){.mes-fin-kpis{grid-template-columns:repeat(2,1fr)}.mes-fin-buckets{grid-template-columns:repeat(2,1fr)}.mes-fin-alert-grid{grid-template-columns:1fr}.mes-fin-drill-head{display:block}.mes-fin-drill-head form{margin-top:10px}.mes-fin-drill-head input{min-width:0;flex:1}}@media(max-width:560px){.mes-fin-kpis{grid-template-columns:1fr}.mes-fin-kpis strong,.mes-fin-flow-main strong{font-size:22px}.dashboard-head .actions{display:grid;grid-template-columns:1fr 1fr}.mes-fin-month{grid-column:1/-1}.mes-fin-buckets{grid-template-columns:1fr}.mes-fin-flow{padding:12px}}';root.document.head.appendChild(style);
   if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);
 })(window);
