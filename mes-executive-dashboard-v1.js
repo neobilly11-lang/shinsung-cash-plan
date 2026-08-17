@@ -17,7 +17,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260817-finance-costs-kpi-2";
+  var VERSION = "20260817-total-purchase-sync-1";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -412,6 +412,7 @@
       if (nav) nav.querySelectorAll(".nav-btn").forEach(function (button) { button.classList.toggle("on", button.dataset.id === "executive"); });
     }
     root.openExecutiveExchangeDashboard = function () { renderExecutive(); };
+    root.getExecutiveInventoryValuation = function () { return report(); };
 
     root.applyExecutiveHistoryFilters = function () {
       var from = root.document.getElementById("mesFxHistoryFrom");
@@ -606,6 +607,7 @@
   function hoursBetween(a,b) { var x=new Date(a), y=new Date(b); if (isNaN(x)||isNaN(y)) return 0; return Math.max(0,(y-x)/HOUR); }
   function fmt(v) { return Math.round(num(v)).toLocaleString("ko-KR"); }
   function money(v) { var n=num(v), a=Math.abs(n); if (a>=100000000) return (n/100000000).toFixed(2)+"억"; if (a>=10000) return (n/10000).toFixed(0)+"만"; return fmt(n)+"원"; }
+  function exactWon(v) { return num(v).toLocaleString("ko-KR",{minimumFractionDigits:0,maximumFractionDigits:2})+"원"; }
   function pct(v) { return (num(v)||0).toFixed(1)+"%"; }
   function kg(v) { return fmt(v)+" kg"; }
   function settings(state) { state.systemSettings=state.systemSettings||{}; state.systemSettings.executiveFinanceV2=state.systemSettings.executiveFinanceV2||{}; var s=state.systemSettings.executiveFinanceV2; s.importCustomsByPo=s.importCustomsByPo||{}; s.exportCostByOutbound=s.exportCostByOutbound||{}; return s; }
@@ -741,9 +743,9 @@
     return '<div class="mes-fin-drill"><div class="mes-fin-drill-head"><div><h2>'+drillTitle(drillKind)+'</h2><p>거래처 → P.O/S.O → 사내입고번호/출고번호까지 확인합니다.</p></div><form onsubmit="event.preventDefault();setExecutiveFinanceQuery(this.q.value)"><input name="q" value="'+esc(drillQuery)+'" placeholder="거래처·P.O·S.O·사내입고·출고 검색"><button class="btn primary">검색</button></form></div><div class="mes-fin-table"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';
   }
   function renderDashboard() {
-    var report=build(financeMonth), content=root.document.getElementById("content"), pageTitle=root.document.getElementById("pageTitle");if(!content)return;if(pageTitle)pageTitle.textContent="임원용 현황판";
+    var report=build(financeMonth), valuation=typeof root.getExecutiveInventoryValuation==="function"?root.getExecutiveInventoryValuation():null, valuationTotals=valuation&&valuation.totals?valuation.totals:null, totalPurchase=valuationTotals&&num(valuationTotals.total)>0?num(valuationTotals.total):report.purchase, totalPurchaseWeight=valuationTotals&&num(valuationTotals.totalWeight)>0?num(valuationTotals.totalWeight):report.inboundWeight, content=root.document.getElementById("content"), pageTitle=root.document.getElementById("pageTitle");if(!content)return;if(pageTitle)pageTitle.textContent="임원용 현황판";
     var kpis=[
-      {k:"purchase",t:"매입총액",v:money(report.purchase),s:"구매계획 "+fmt(report.inbound.length)+"건 전체 · 매입 "+money(report.purchaseBase)+" + 통관 "+money(report.customs)},
+      {k:"purchase",onclick:"openExecutiveExchangeDashboard()",t:"총 매입액",v:exactWon(totalPurchase),s:"총재고 환산액과 동일 · "+kg(totalPurchaseWeight)+" · P.O 매입단가·적용환율 기준"},
       {k:"received",t:"입고총액",v:money(report.receivedTotal),s:"입고완료 "+fmt(report.received.length)+"건 · "+kg(report.receivedWeight)},
       {k:"stock",t:"현재재고",v:money(report.stockValue),s:"검수완료 재고 "+kg(report.stockWeight)},
       {k:"sales",t:"이번 달 매출액",v:money(report.salesAmount),s:"출고확정 "+fmt(report.sales.length)+"건"},
@@ -756,7 +758,7 @@
     if(report.missingCustoms.length||report.missingExports.length)alerts='<section class="mes-fin-alert"><h2>누락 비용 즉시 입력</h2><div class="mes-fin-alert-grid">'+report.missingCustoms.map(function(p){return '<button onclick="openExecutiveCostEditor(\'import\',\''+esc(p.poNo)+'\')"><b>통관비 기입요망</b><span>'+esc(p.poNo)+' · '+esc(p.partner)+' · '+kg(p.weight)+'</span></button>';}).join("")+report.missingExports.map(function(o){return '<button onclick="openExecutiveCostEditor(\'export\',\''+esc(o.key)+'\')"><b>수출비용 기입요망</b><span>'+esc(o.soNo)+' · '+esc(o.partner)+' · '+kg(o.weight)+'</span></button>';}).join("")+'</div></section>';
     var buckets=report.buckets.map(function(b){return '<button onclick="setExecutiveFinanceDrill(\'bucket:'+b.label+'\')"><b>'+b.label+'</b><strong>'+money(b.value)+'</strong><span>'+kg(b.weight)+' · '+pct(report.stockWeight?b.weight/report.stockWeight*100:0)+'</span></button>';}).join("");
     content.innerHTML='<div class="dashboard-head"><div><h1>임원용 MES 대시보드</h1><p>선택한 월의 매입·출고와 현재 공용재고를 같은 계산 함수로 집계합니다.</p></div><div class="actions"><label class="mes-fin-month">기준월<input type="month" value="'+financeMonth+'" onchange="setExecutiveFinanceMonth(this.value)"></label><button class="btn" onclick="openExecutiveExchangeDashboard()">환율·환차손익 화면</button><button class="btn" onclick="openExecutiveUserManager()">임원 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>'+
-      '<div class="mes-fin-kpis">'+kpis.map(function(k){return '<button class="'+(drillKind===k.k?"on":"")+'" onclick="setExecutiveFinanceDrill(\''+k.k+'\')"><small>'+k.t+'</small><strong>'+k.v+'</strong><span>'+k.s+'</span></button>';}).join("")+'</div>'+alerts+
+      '<div class="mes-fin-kpis">'+kpis.map(function(k){return '<button class="'+(drillKind===k.k?"on":"")+'" onclick="'+(k.onclick||("setExecutiveFinanceDrill(\'"+k.k+"\')"))+'"><small>'+k.t+'</small><strong>'+k.v+'</strong><span>'+k.s+'</span></button>';}).join("")+'</div>'+alerts+
       '<section class="mes-fin-flow"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'purchase\')"><small>입고 · '+financeMonth+'</small><strong>'+money(report.purchase)+' / '+(report.inboundWeight/1000).toFixed(1)+'톤</strong><span>평균 매입단가 '+fmt(report.inboundWeight?report.purchase/report.inboundWeight:0)+'원/kg · 전월대비 '+(report.mom>=0?"▲ ":"▼ ")+pct(Math.abs(report.mom))+'</span></button><div class="mes-fin-arrow">↓</div>'+
       '<div class="mes-fin-current"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'stock\')"><small>현재재고</small><strong>'+money(report.stockValue)+' / '+(report.stockWeight/1000).toFixed(1)+'톤</strong><span>선택월 말일을 기준으로 보유기간을 계산</span></button><div class="mes-fin-buckets">'+buckets+'</div></div><div class="mes-fin-arrow">↓</div>'+
       '<button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'sales\')"><small>출고 · '+financeMonth+'</small><strong>매출 '+money(report.salesAmount)+' / 원가 '+money(report.cogs)+'</strong><span>이익 '+money(report.profit)+' · '+pct(report.margin)+'</span></button></section>'+table(report);
