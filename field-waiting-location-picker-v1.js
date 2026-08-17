@@ -1,3 +1,5 @@
+/* load standalone domestic required alert before legacy setup */
+(function(){try{if(!document.querySelector('script[data-domestic-alert-v11]')){var s=document.createElement('script');s.src='field-required-domestic-alert-fix-v11.js?v=20260818-15';s.async=false;s.dataset.domesticAlertV11='1';(document.head||document.documentElement).appendChild(s);}}catch(_){}})();
 (function(root){
   'use strict';
   function text(value){return String(value==null?'':value).trim();}
