@@ -369,5 +369,5 @@
   wrapMsg();wrapAlert();ensureNotice();
   setInterval(()=>{wrapMsg();wrapAlert()},500);
   guardRoot.dataset.fieldRequiredFlowV1='loaded';
-  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-4'}}catch(_){ }
+  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-5'}}catch(_){ }
 })();
