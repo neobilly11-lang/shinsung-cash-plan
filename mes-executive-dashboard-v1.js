@@ -8,7 +8,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260816-2";
+  var VERSION = "20260817-fx-purchase-fix-1";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -189,13 +189,13 @@
         pools.forEach(function (pool) {
           if (saleRemaining <= 0 || pool.remaining <= 0) return;
           var quantity = Math.min(pool.remaining, saleRemaining);
-          var currency = sale.currency || pool.currency;
-          var unitPrice = sale.unitPrice || pool.unitPrice;
-          var value = convertedAmount(quantity, unitPrice, currency, sale.exchangeRate || pool.exchangeRate, rates);
+          var currency = pool.currency;
+          var unitPrice = pool.unitPrice;
+          var value = convertedAmount(quantity, unitPrice, currency, pool.exchangeRate, rates);
           planned.push(Object.assign({}, pool, sale, value, {
             category: "planned", stage: "shippingPlanned", weight: round(quantity),
             partner: sale.customer || pool.partner, supplier: pool.partner,
-            currency: currency, unitPrice: unitPrice
+            currency: currency, unitPrice: unitPrice, exchangeRate: pool.exchangeRate
           }));
           pool.remaining = round(pool.remaining - quantity);
           saleRemaining = round(saleRemaining - quantity);
@@ -394,13 +394,14 @@
       var content = root.document.getElementById("content");
       var pageTitle = root.document.getElementById("pageTitle");
       if (pageTitle) pageTitle.textContent = "임원용 현황판";
-      content.innerHTML = '<div class="dashboard-head"><div><h1>임원용 현황판</h1><p>지정된 임원 2명만 조회할 수 있습니다. 금액은 적용환율 기준 원화 환산액입니다.</p></div><div class="actions"><button class="btn" onclick="openExecutiveExchangeRates()">예상환차손 · 환율 일괄변경</button><button class="btn" onclick="openExecutiveUserManager()">임원 2명 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료 조회</button></div></div>' +
+      content.innerHTML = '<div class="dashboard-head"><div><h1>환율 변경 이력 · 예상 환차손익</h1><p>모든 재고금액은 판매단가가 아닌 P.O 매입단가와 수입원가를 기준으로 원화 환산합니다.</p></div><div class="actions"><button class="btn" onclick="openExecutiveFinanceDashboard()">월별 KPI 대시보드</button><button class="btn" onclick="openExecutiveExchangeRates()">예상환차손 · 환율 일괄변경</button><button class="btn" onclick="openExecutiveUserManager()">임원 2명 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료 조회</button></div></div>' +
         '<div class="mes-exec-kpis"><button class="mes-exec-kpi ' + (category === "total" ? "on" : "") + '" onclick="setExecutiveCategory(\'total\')"><small>총재고 환산액</small><strong>' + fmt(totals.total) + '원</strong><span>' + fmt(totals.totalWeight) + ' kg</span></button><button class="mes-exec-kpi ' + (category === "unsold" ? "on" : "") + '" onclick="setExecutiveCategory(\'unsold\')"><small>미판매 예상재고액</small><strong>' + fmt(totals.unsold) + '원</strong><span>' + fmt(totals.unsoldWeight) + ' kg</span></button><button class="mes-exec-kpi ' + (category === "planned" ? "on" : "") + '" onclick="setExecutiveCategory(\'planned\')"><small>판매계획완료 재고액</small><strong>' + fmt(totals.planned) + '원</strong><span>' + fmt(totals.plannedWeight) + ' kg</span></button></div>' +
         '<div class="panel"><div class="dashboard-head"><div><h2>' + title + ' 상세 재고</h2><p>S.O 출하확정 재고는 제외됩니다.</p></div></div><form id="mesExecutiveFilter" class="mes-exec-filter" onsubmit="event.preventDefault();applyExecutiveFilters()"><label>강종<input name="grade" value="' + encode(filters.grade) + '" placeholder="강종 검색"></label><label>거래처<input name="partner" value="' + encode(filters.partner) + '" placeholder="공급사·판매처 검색"></label><label>P.O / S.O<input name="po" value="' + encode(filters.po) + '" placeholder="P.O·S.O·사내번호 검색"></label><label>통화<select name="currency"><option value="">전체</option>' + ["KRW", "USD", "JPY", "EURO"].map(function (value) { return '<option ' + (filters.currency === value ? "selected" : "") + '>' + value + '</option>'; }).join("") + '</select></label><button class="btn primary">검색</button><button type="button" class="btn" onclick="clearExecutiveFilters()">초기화</button></form>' + rowTable(rows) + '</div>' + exchangeHistoryTable();
       decorateCurrencies();
       var nav = root.document.getElementById("nav");
       if (nav) nav.querySelectorAll(".nav-btn").forEach(function (button) { button.classList.toggle("on", button.dataset.id === "executive"); });
     }
+    root.openExecutiveExchangeDashboard = function () { renderExecutive(); };
 
     root.applyExecutiveHistoryFilters = function () {
       var from = root.document.getElementById("mesFxHistoryFrom");
@@ -473,7 +474,7 @@
       if (!allowed()) { root.toast("임원만 예상환차손 환율을 변경할 수 있습니다.", true); return; }
       var data = report(), rates = data.rates, saved = settings(state()).executiveExchangeRates || {};
       root.$("modalTitle").textContent = "예상환차손 · 환율 일괄변경";
-      root.$("modalBody").innerHTML = '<form id="mesExecutiveRatesForm" class="form-grid"><label>USD 환율<input name="USD" type="number" min="0" step="0.01" value="' + (number(rates.USD) || "") + '" placeholder="1 USD당 KRW"></label><label>JPY 환율<input name="JPY" type="number" min="0" step="0.0001" value="' + (number(rates.JPY) || "") + '" placeholder="1 JPY당 KRW"></label><label>EURO 환율<input name="EURO" type="number" min="0" step="0.01" value="' + (number(rates.EURO) || "") + '" placeholder="1 EURO당 KRW"></label><div class="wide mes-exec-note"><b>적용 범위</b><br>총재고·미판매·판매계획완료 재고의 환산액에 동시에 적용합니다. P.O와 S.O 원본 환율은 변경하지 않습니다.<br>현재 총 환산액: ' + fmt(data.totals.total) + '원</div><div class="wide actions"><button type="button" class="btn primary" onclick="saveExecutiveExchangeRates()">예상환율 일괄 적용</button><button type="button" class="btn" onclick="closeModal()">취소</button></div></form>';
+      root.$("modalBody").innerHTML = '<form id="mesExecutiveRatesForm" class="form-grid"><label>USD 환율<input name="USD" type="number" min="0" step="0.01" value="' + (number(rates.USD) || "") + '" placeholder="1 USD당 KRW"></label><label>JPY 환율<input name="JPY" type="number" min="0" step="0.0001" value="' + (number(rates.JPY) || "") + '" placeholder="1 JPY당 KRW"></label><label>EURO 환율<input name="EURO" type="number" min="0" step="0.01" value="' + (number(rates.EURO) || "") + '" placeholder="1 EURO당 KRW"></label><div class="wide mes-exec-note"><b>적용 범위</b><br>P.O 매입단가 기준의 총재고·미판매·판매계획완료 재고 환산액에 동시에 적용합니다. P.O와 S.O 원본 환율은 변경하지 않습니다.<br>현재 총 매입원가 환산액: ' + fmt(data.totals.total) + '원</div><div class="wide actions"><button type="button" class="btn primary" onclick="saveExecutiveExchangeRates()">예상환율 일괄 적용</button><button type="button" class="btn" onclick="closeModal()">취소</button></div></form>';
       root.$("modal").classList.add("on");
     };
     root.saveExecutiveExchangeRates = async function () {
@@ -612,9 +613,10 @@
   }
   function rowAmountKrw(row,weight,rates) {
     var curr=currency(pick(row,["currency","purchaseCurrency","moneyUnit"]));
-    var rate=num(pick(row,["rate","exchangeRate","purchaseRate"]));
-    var explicit=num(pick(row,["purchaseAmount","totalPurchaseAmount","lineAmount","totalAmount"]));
-    var amount=explicit||weight*priceOf(row);
+    var rate=num(pick(row,["exchangeRate","purchaseRate","rate"]));
+    var explicit=num(pick(row,["purchaseAmount","totalPurchaseAmount","lineAmount","totalAmount","amount"]));
+    var unit=priceOf(row);
+    var amount=(weight>0&&unit>0)?weight*unit:explicit;
     return toKrw(amount,curr,rate,rates);
   }
   function groupBy(rows,keyFn) { var m={}; rows.forEach(function(r){var k=txt(keyFn(r))||"-";(m[k]=m[k]||[]).push(r);}); return m; }
@@ -622,11 +624,11 @@
     var rates=rateMap(state), costs=settings(state).importCustomsByPo;
     var groups=groupBy(list(state.pos).filter(active),function(r){return pick(r,["poNo","purchaseNo","contractNo"]);});
     return Object.keys(groups).map(function(poNo){
-      var rows=groups[poNo], first=rows[0]||{}, weight=0, purchase=0, receivedDates=[], expectedDates=[];
-      rows.forEach(function(r){var w=weightOf(r);weight+=w;purchase+=rowAmountKrw(r,w,rates);var rd=dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"]);if(rd)receivedDates.push(rd);var ed=dateValue(r,["arrivalExpectedAt","expectedAt","expectedDate","eta","createdAt"]);if(ed)expectedDates.push(ed);});
+      var rows=groups[poNo], first=rows[0]||{}, weight=0, purchase=0, receivedDates=[], expectedDates=[], purchaseDates=[];
+      rows.forEach(function(r){var w=weightOf(r);weight+=w;purchase+=rowAmountKrw(r,w,rates);var rd=dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"]);if(rd)receivedDates.push(rd);var ed=dateValue(r,["arrivalExpectedAt","expectedArrivalDate","expectedAt","expectedDate","eta"]);if(ed)expectedDates.push(ed);var pd=dateValue(r,["purchaseDate","contractDate","orderDate","poDate","savedAt","createdAt","updatedAt"]);if(pd)purchaseDates.push(pd);});
       var custom=costs[poNo]||{}, customs=num(custom.total), total=purchase+customs;
       var origin=upper(pick(first,["purchaseOrigin","origin","type"]));
-      return {kind:"purchase",key:poNo,poNo:poNo,partner:pick(first,["company","supplier","vendor","partner"]),grade:rows.map(gradeOf).filter(Boolean).join(" / "),weight:weight,purchaseAmount:purchase,customs:customs,totalCost:total,costPerKg:weight?total/weight:0,receivedAt:receivedDates.sort()[0]||"",expectedAt:expectedDates.sort()[0]||"",isImport:!(origin.indexOf("국내")>=0||origin==="DOMESTIC"),currency:currency(pick(first,["currency","purchaseCurrency"])),rows:rows,customEntry:custom};
+      return {kind:"purchase",key:poNo,poNo:poNo,partner:pick(first,["company","supplier","vendor","partner"]),grade:rows.map(gradeOf).filter(Boolean).join(" / "),weight:weight,purchaseAmount:purchase,customs:customs,totalCost:total,costPerKg:weight?total/weight:0,purchaseDate:purchaseDates.sort()[0]||"",receivedAt:receivedDates.sort()[0]||"",expectedAt:expectedDates.sort()[0]||"",isImport:!(origin.indexOf("국내")>=0||origin==="DOMESTIC"),currency:currency(pick(first,["currency","purchaseCurrency"])),rows:rows,customEntry:custom};
     });
   }
   function finalShipment(s) { var st=upper(pick(s,["status","shippingStatus","shipmentStatus"])); return !!dateValue(s,["shippedAt","completedAt","confirmedAt","shippingCompletedAt"]) || /SHIPPED|DONE|COMPLETE|FINAL|확정|완료/.test(st); }
@@ -688,11 +690,11 @@
   }
   function selected(rows,month,dateKey) { return rows.filter(function(r){return monthOf(r[dateKey||"date"])===month;}); }
   function build(month) {
-    var state=runtime.getState(), pos=poSummaries(state), outbound=outboundSummaries(state,pos), inbound=pos.filter(function(p){return monthOf(p.receivedAt)===month;}), sales=selected(outbound,month), physical=forecastPhysical(state,pos), asOf=endOfMonth(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
+    var state=runtime.getState(), pos=poSummaries(state), outbound=outboundSummaries(state,pos), inbound=pos.filter(function(p){return monthOf(p.purchaseDate)===month;}), sales=selected(outbound,month), physical=forecastPhysical(state,pos), asOf=endOfMonth(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
     physical.forEach(function(r){r.days=daysBetween(r.date,asOf);});
     var buckets=age.map(function(b){var rs=physical.filter(function(r){return r.days>=b.min&&r.days<=b.max;}),weight=rs.reduce(function(a,r){return a+r.weight;},0),value=rs.reduce(function(a,r){return a+r.value;},0);return {label:b.label,weight:weight,value:value,rows:rs};});
     var purchase=inbound.reduce(function(a,r){return a+r.totalCost;},0), purchaseBase=inbound.reduce(function(a,r){return a+r.purchaseAmount;},0), customs=inbound.reduce(function(a,r){return a+r.customs;},0), inboundWeight=inbound.reduce(function(a,r){return a+r.weight;},0);
-    var prev=pos.filter(function(p){return monthOf(p.receivedAt)===prevMonth(month);}).reduce(function(a,r){return a+r.totalCost;},0);
+    var prev=pos.filter(function(p){return monthOf(p.purchaseDate)===prevMonth(month);}).reduce(function(a,r){return a+r.totalCost;},0);
     var salesAmount=sales.reduce(function(a,r){return a+r.salesAmount;},0), cogs=sales.reduce(function(a,r){return a+r.purchaseCost;},0),work=sales.reduce(function(a,r){return a+r.workCost;},0),interest=sales.reduce(function(a,r){return a+r.interestCost;},0),exports=sales.reduce(function(a,r){return a+r.exportCost;},0),profit=sales.reduce(function(a,r){return a+r.profit;},0);
     var stockValue=physical.reduce(function(a,r){return a+r.value;},0), stockWeight=physical.reduce(function(a,r){return a+r.weight;},0), longRows=physical.filter(function(r){return r.days>=90;}), longValue=longRows.reduce(function(a,r){return a+r.value;},0), longWeight=longRows.reduce(function(a,r){return a+r.weight;},0);
     return {month:month,state:state,pos:pos,outbound:outbound,inbound:inbound,sales:sales,physical:physical,buckets:buckets,purchase:purchase,purchaseBase:purchaseBase,customs:customs,inboundWeight:inboundWeight,prevPurchase:prev,mom:prev?(purchase-prev)/prev*100:0,salesAmount:salesAmount,cogs:cogs,work:work,interest:interest,exports:exports,profit:profit,margin:salesAmount?profit/salesAmount*100:0,stockValue:stockValue,stockWeight:stockWeight,longRows:longRows,longValue:longValue,longWeight:longWeight,turnover:sales.length?sales.reduce(function(a,r){return a+r.inventoryDays;},0)/sales.length:0,missingCustoms:inbound.filter(function(p){return p.isImport&&!p.customEntry.updatedAt;}),missingExports:sales.filter(function(r){return !r.costEntry.updatedAt;})};
@@ -714,7 +716,7 @@
   function renderDashboard() {
     var report=build(financeMonth), content=root.document.getElementById("content"), pageTitle=root.document.getElementById("pageTitle");if(!content)return;if(pageTitle)pageTitle.textContent="임원용 현황판";
     var kpis=[
-      {k:"purchase",t:"매입총액 / 매입원가",v:money(report.purchase),s:"매입 "+money(report.purchaseBase)+" + 통관 "+money(report.customs)},
+      {k:"purchase",t:"매입총액 / 매입원가",v:money(report.purchase),s:"구매계획 "+fmt(report.inbound.length)+"건 · 매입 "+money(report.purchaseBase)+" + 통관 "+money(report.customs)},
       {k:"sales",t:"이번 달 매출액",v:money(report.salesAmount),s:"출고확정 "+fmt(report.sales.length)+"건"},
       {k:"profit",t:"실현이익",v:money(report.profit),s:"작업 "+money(report.work)+" · 이자 "+money(report.interest)+" · 수출 "+money(report.exports)},
       {k:"profit",t:"실현이익률",v:pct(report.margin),s:"실현이익 ÷ 매출액"},
@@ -724,12 +726,13 @@
     var alerts="";
     if(report.missingCustoms.length||report.missingExports.length)alerts='<section class="mes-fin-alert"><h2>누락 비용 즉시 입력</h2><div class="mes-fin-alert-grid">'+report.missingCustoms.map(function(p){return '<button onclick="openExecutiveCostEditor(\'import\',\''+esc(p.poNo)+'\')"><b>통관비 기입요망</b><span>'+esc(p.poNo)+' · '+esc(p.partner)+' · '+kg(p.weight)+'</span></button>';}).join("")+report.missingExports.map(function(o){return '<button onclick="openExecutiveCostEditor(\'export\',\''+esc(o.key)+'\')"><b>수출비용 기입요망</b><span>'+esc(o.soNo)+' · '+esc(o.partner)+' · '+kg(o.weight)+'</span></button>';}).join("")+'</div></section>';
     var buckets=report.buckets.map(function(b){return '<button onclick="setExecutiveFinanceDrill(\'bucket:'+b.label+'\')"><b>'+b.label+'</b><strong>'+money(b.value)+'</strong><span>'+kg(b.weight)+' · '+pct(report.stockWeight?b.weight/report.stockWeight*100:0)+'</span></button>';}).join("");
-    content.innerHTML='<div class="dashboard-head"><div><h1>임원용 MES 대시보드</h1><p>선택한 월의 매입·출고와 현재 공용재고를 같은 계산 함수로 집계합니다.</p></div><div class="actions"><label class="mes-fin-month">기준월<input type="month" value="'+financeMonth+'" onchange="setExecutiveFinanceMonth(this.value)"></label><button class="btn" onclick="openExecutiveExchangeRates()">환율·환차손익</button><button class="btn" onclick="openExecutiveUserManager()">임원 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>'+
+    content.innerHTML='<div class="dashboard-head"><div><h1>임원용 MES 대시보드</h1><p>선택한 월의 매입·출고와 현재 공용재고를 같은 계산 함수로 집계합니다.</p></div><div class="actions"><label class="mes-fin-month">기준월<input type="month" value="'+financeMonth+'" onchange="setExecutiveFinanceMonth(this.value)"></label><button class="btn" onclick="openExecutiveExchangeDashboard()">환율·환차손익 화면</button><button class="btn" onclick="openExecutiveUserManager()">임원 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>'+
       '<div class="mes-fin-kpis">'+kpis.map(function(k){return '<button class="'+(drillKind===k.k?"on":"")+'" onclick="setExecutiveFinanceDrill(\''+k.k+'\')"><small>'+k.t+'</small><strong>'+k.v+'</strong><span>'+k.s+'</span></button>';}).join("")+'</div>'+alerts+
       '<section class="mes-fin-flow"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'purchase\')"><small>입고 · '+financeMonth+'</small><strong>'+money(report.purchase)+' / '+(report.inboundWeight/1000).toFixed(1)+'톤</strong><span>평균 매입단가 '+fmt(report.inboundWeight?report.purchase/report.inboundWeight:0)+'원/kg · 전월대비 '+(report.mom>=0?"▲ ":"▼ ")+pct(Math.abs(report.mom))+'</span></button><div class="mes-fin-arrow">↓</div>'+
       '<div class="mes-fin-current"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'stock\')"><small>현재재고</small><strong>'+money(report.stockValue)+' / '+(report.stockWeight/1000).toFixed(1)+'톤</strong><span>선택월 말일을 기준으로 보유기간을 계산</span></button><div class="mes-fin-buckets">'+buckets+'</div></div><div class="mes-fin-arrow">↓</div>'+
       '<button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'sales\')"><small>출고 · '+financeMonth+'</small><strong>매출 '+money(report.salesAmount)+' / 원가 '+money(report.cogs)+'</strong><span>이익 '+money(report.profit)+' · '+pct(report.margin)+'</span></button></section>'+table(report);
   }
+  root.openExecutiveFinanceDashboard=function(){renderDashboard();};
   root.mesExecutiveFinance={build:build,poSummaries:poSummaries,outboundSummaries:outboundSummaries,forecastPhysical:forecastPhysical};
   root.setExecutiveFinanceMonth=function(v){if(/^\d{4}-\d{2}$/.test(v))financeMonth=v;renderDashboard();};
   root.setExecutiveFinanceDrill=function(v){drillKind=v;drillQuery="";renderDashboard();root.setTimeout(function(){var x=root.document.querySelector(".mes-fin-drill");if(x)x.scrollIntoView({behavior:"smooth",block:"start"});},30);};
