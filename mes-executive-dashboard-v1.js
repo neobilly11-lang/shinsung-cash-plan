@@ -266,6 +266,7 @@
     var baseSaveEdit = root.saveEdit;
     var category = "total";
     var filters = { grade: "", partner: "", po: "", currency: "" };
+    var historyFilters = { from: "", to: "" };
 
     function state() { return runtime.getState(); }
     function fmt(value) { return (runtime.fmt || function (v) { return number(v).toLocaleString("ko-KR"); })(value); }
@@ -342,15 +343,47 @@
       var parsed = new Date(value);
       return Number.isNaN(parsed.getTime()) ? text(value) : parsed.toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
     }
-    function exchangeHistoryTable() {
-      var history = list(settings(state()).executiveExchangeRateHistory);
-      if (!history.length) return '<div class="panel mes-exec-history"><h2>환율 변경 이력</h2><div class="empty">아직 환율 변경 이력이 없습니다.</div></div>';
+    function exchangeHistoryEntries() {
+      var from = text(historyFilters.from), to = text(historyFilters.to);
+      return list(settings(state()).executiveExchangeRateHistory).filter(function (entry) {
+        var changedDate = text(entry && entry.changedAt).slice(0, 10);
+        return (!from || changedDate >= from) && (!to || changedDate <= to);
+      });
+    }
+    function exchangeHistoryRows(history) {
       var categories = [{ key: "total", label: "총재고" }, { key: "unsold", label: "미판매 예상재고" }, { key: "planned", label: "판매계획완료 재고" }];
-      return '<div class="panel mes-exec-history"><div class="dashboard-head"><div><h2>환율 변경 이력 · 예상 환차손익</h2><p>변경 전 금액과 변경 후 금액을 기준일별로 보존합니다.</p></div></div><div class="mes-exec-table"><table><thead><tr><th>구분</th><th>변경 전 기준일</th><th>변경 전 금액</th><th>변경일</th><th>변경 후 금액</th><th>환차익 / 환차손</th><th>적용 환율</th><th>변경자</th></tr></thead><tbody>' + history.flatMap(function (entry) {
+      return history.flatMap(function (entry) {
         return categories.map(function (category) {
+          return {
+            id: text(entry.id),
+            category: category.label,
+            previousEffectiveAt: localDate(entry.previousEffectiveAt),
+            previousTotal: number(entry.previousTotals && entry.previousTotals[category.key]),
+            changedAt: localDate(entry.changedAt),
+            nextTotal: number(entry.nextTotals && entry.nextTotals[category.key]),
+            difference: number(entry.differences && entry.differences[category.key]),
+            previousRates: Object.assign({}, entry.previousRates || {}),
+            nextRates: Object.assign({}, entry.nextRates || {}),
+            changedBy: text(entry.changedBy || "-")
+          };
+        });
+      });
+    }
+    function exchangeHistoryTable() {
+      var allHistory = list(settings(state()).executiveExchangeRateHistory);
+      var history = exchangeHistoryEntries();
+      var controls = '<div class="mes-exec-history-filter"><label>시작일<input id="mesFxHistoryFrom" type="date" value="' + encode(historyFilters.from) + '"></label><label>종료일<input id="mesFxHistoryTo" type="date" value="' + encode(historyFilters.to) + '"></label><button type="button" class="btn primary" onclick="applyExecutiveHistoryFilters()">기간 검색</button><button type="button" class="btn" onclick="clearExecutiveHistoryFilters()">전체 보기</button><button type="button" class="btn" onclick="downloadExecutiveExchangeHistory()">엑셀 다운로드</button></div>';
+      var head = '<div class="panel mes-exec-history"><div class="dashboard-head"><div><h2>환율 변경 이력 · 예상 환차손익</h2><p>변경 전 금액과 변경 후 금액을 기준일별로 보존합니다. 검색 결과 ' + history.length + '건 / 전체 ' + allHistory.length + '건</p></div></div>' + controls;
+      if (!allHistory.length) return head + '<div class="empty">아직 환율 변경 이력이 없습니다.</div></div>';
+      if (!history.length) return head + '<div class="empty">선택한 기간에 환율 변경 이력이 없습니다.</div></div>';
+      var categories = [{ key: "total", label: "총재고" }, { key: "unsold", label: "미판매 예상재고" }, { key: "planned", label: "판매계획완료 재고" }];
+      return head + '<div class="mes-exec-table"><table><thead><tr><th>구분</th><th>변경 전 기준일</th><th>변경 전 금액</th><th>변경일</th><th>변경 후 금액</th><th>환차익 / 환차손</th><th>변경 전 환율</th><th>변경 후 환율</th><th>변경자</th><th>관리</th></tr></thead><tbody>' + history.flatMap(function (entry) {
+        return categories.map(function (category, index) {
           var difference = number(entry.differences && entry.differences[category.key]);
-          var rateText = ["USD", "JPY", "EURO"].map(function (currency) { return currency + " " + fmt(entry.nextRates && entry.nextRates[currency]); }).join(" · ");
-          return '<tr><td class="left"><b>' + category.label + '</b></td><td>' + encode(localDate(entry.previousEffectiveAt)) + '</td><td>' + fmt(entry.previousTotals && entry.previousTotals[category.key]) + '원</td><td>' + encode(localDate(entry.changedAt)) + '</td><td>' + fmt(entry.nextTotals && entry.nextTotals[category.key]) + '원</td><td class="' + (difference >= 0 ? "gain" : "loss") + '"><b>' + (difference > 0 ? "+" : "") + fmt(difference) + '원</b></td><td>' + encode(rateText) + '</td><td>' + encode(entry.changedBy || "-") + '</td></tr>';
+          var previousRateText = ["USD", "JPY", "EURO"].map(function (currency) { return currency + " " + fmt(entry.previousRates && entry.previousRates[currency]); }).join(" · ");
+          var nextRateText = ["USD", "JPY", "EURO"].map(function (currency) { return currency + " " + fmt(entry.nextRates && entry.nextRates[currency]); }).join(" · ");
+          var removeCell = index === 0 ? '<td rowspan="3"><button type="button" class="btn danger" onclick="deleteExecutiveExchangeHistory(\'' + encode(entry.id) + '\')">삭제</button></td>' : '';
+          return '<tr><td class="left"><b>' + category.label + '</b></td><td>' + encode(localDate(entry.previousEffectiveAt)) + '</td><td>' + fmt(entry.previousTotals && entry.previousTotals[category.key]) + '원</td><td>' + encode(localDate(entry.changedAt)) + '</td><td>' + fmt(entry.nextTotals && entry.nextTotals[category.key]) + '원</td><td class="' + (difference >= 0 ? "gain" : "loss") + '"><b>' + (difference > 0 ? "+" : "") + fmt(difference) + '원</b></td><td>' + encode(previousRateText) + '</td><td>' + encode(nextRateText) + '</td><td>' + encode(entry.changedBy || "-") + '</td>' + removeCell + '</tr>';
         });
       }).join("") + '</tbody></table></div></div>';
     }
@@ -368,6 +401,52 @@
       var nav = root.document.getElementById("nav");
       if (nav) nav.querySelectorAll(".nav-btn").forEach(function (button) { button.classList.toggle("on", button.dataset.id === "executive"); });
     }
+
+    root.applyExecutiveHistoryFilters = function () {
+      var from = root.document.getElementById("mesFxHistoryFrom");
+      var to = root.document.getElementById("mesFxHistoryTo");
+      historyFilters = { from: text(from && from.value), to: text(to && to.value) };
+      if (historyFilters.from && historyFilters.to && historyFilters.from > historyFilters.to) {
+        root.toast("시작일은 종료일보다 늦을 수 없습니다.", true);
+        return;
+      }
+      renderExecutive();
+    };
+    root.clearExecutiveHistoryFilters = function () {
+      historyFilters = { from: "", to: "" };
+      renderExecutive();
+    };
+    root.downloadExecutiveExchangeHistory = async function () {
+      var history = exchangeHistoryEntries();
+      if (!history.length) { root.toast("다운로드할 환율 변경 이력이 없습니다.", true); return; }
+      var rows = [["구분", "변경 전 기준일", "변경 전 금액(KRW)", "변경일", "변경 후 금액(KRW)", "환차익·환차손(KRW)", "변경 전 USD", "변경 전 JPY", "변경 전 EURO", "변경 후 USD", "변경 후 JPY", "변경 후 EURO", "변경자"]];
+      exchangeHistoryRows(history).forEach(function (row) {
+        rows.push([row.category, row.previousEffectiveAt, row.previousTotal, row.changedAt, row.nextTotal, row.difference, number(row.previousRates.USD), number(row.previousRates.JPY), number(row.previousRates.EURO), number(row.nextRates.USD), number(row.nextRates.JPY), number(row.nextRates.EURO), row.changedBy]);
+      });
+      var from = historyFilters.from || "전체", to = historyFilters.to || "전체";
+      var fileName = "환율변경이력_예상환차손익_" + from + "_" + to + ".xlsx";
+      try {
+        if (typeof root.mesEnsureXlsx === "function") await root.mesEnsureXlsx();
+        if (!root.XLSX) throw new Error("Excel 모듈을 불러오지 못했습니다.");
+        var sheet = root.XLSX.utils.aoa_to_sheet(rows);
+        sheet["!cols"] = [{ wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 24 }];
+        var book = root.XLSX.utils.book_new();
+        root.XLSX.utils.book_append_sheet(book, sheet, "환율 변경 이력");
+        root.XLSX.writeFile(book, fileName, { compression: true });
+        root.toast("환율 변경 이력 엑셀 다운로드를 시작했습니다.");
+      } catch (error) {
+        root.toast("엑셀 다운로드 실패: " + text(error && error.message), true);
+      }
+    };
+    root.deleteExecutiveExchangeHistory = async function (id) {
+      if (!allowed()) { root.toast("임원만 환율 이력을 삭제할 수 있습니다.", true); return; }
+      if (!root.confirm("선택한 환율 변경 이력을 삭제하시겠습니까?")) return;
+      var ok = await root.commit("환율 변경 이력 삭제", ["systemSettings"], function (next) {
+        var config = settings(next);
+        config.executiveExchangeRateHistory = list(config.executiveExchangeRateHistory).filter(function (entry) { return text(entry && entry.id) !== text(id); });
+      });
+      if (ok) { root.toast("환율 변경 이력을 삭제했습니다."); renderExecutive(); }
+    };
 
     root.openExecutiveUserManager = function () {
       if (!manageAllowed()) { root.toast("임원 지정 권한이 없습니다.", true); return; }
@@ -467,7 +546,7 @@
 
     var style = root.document.createElement("style");
     style.id = "mesExecutiveDashboardV1Style";
-    style.textContent = '.mes-exec-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 18px}.mes-exec-kpi{border:1px solid #cddbd8;border-radius:20px;background:#fff;padding:22px;text-align:left;cursor:pointer}.mes-exec-kpi.on{background:linear-gradient(135deg,#0b3040,#0b8778);color:#fff}.mes-exec-kpi small,.mes-exec-kpi span{display:block}.mes-exec-kpi strong{display:block;font-size:28px;margin:10px 0}.mes-exec-filter{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto auto;gap:10px;align-items:end;margin-bottom:16px}.mes-exec-filter label{display:grid;gap:6px;font-weight:700}.mes-exec-filter input,.mes-exec-filter select{width:100%;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-exec-table{overflow:auto;max-height:58vh}.mes-exec-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-exec-table th,.mes-exec-table td{border:1px solid #dbe3e1;padding:10px;text-align:right}.mes-exec-table th{background:#eef5f4}.mes-exec-table .left{text-align:left}.mes-exec-table .gain{color:#08785f}.mes-exec-table .loss{color:#b4232f}.mes-exec-history{margin-top:18px}.mes-exec-note{padding:16px;border-radius:12px;background:#eef7f5;line-height:1.7}@media(max-width:760px){.mes-exec-kpis{grid-template-columns:1fr}.mes-exec-filter{grid-template-columns:1fr 1fr}.mes-exec-kpi strong{font-size:24px}.mes-exec-table{max-height:52vh}.mes-exec-filter .btn{min-height:48px}}';
+    style.textContent = '.mes-exec-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 18px}.mes-exec-kpi{border:1px solid #cddbd8;border-radius:20px;background:#fff;padding:22px;text-align:left;cursor:pointer}.mes-exec-kpi.on{background:linear-gradient(135deg,#0b3040,#0b8778);color:#fff}.mes-exec-kpi small,.mes-exec-kpi span{display:block}.mes-exec-kpi strong{display:block;font-size:28px;margin:10px 0}.mes-exec-filter{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto auto;gap:10px;align-items:end;margin-bottom:16px}.mes-exec-filter label{display:grid;gap:6px;font-weight:700}.mes-exec-filter input,.mes-exec-filter select{width:100%;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-exec-table{overflow:auto;max-height:58vh}.mes-exec-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-exec-table th,.mes-exec-table td{border:1px solid #dbe3e1;padding:10px;text-align:right}.mes-exec-table th{background:#eef5f4}.mes-exec-table .left{text-align:left}.mes-exec-table .gain{color:#08785f}.mes-exec-table .loss{color:#b4232f}.mes-exec-history{margin-top:18px}.mes-exec-history-filter{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,1fr) auto auto auto;gap:10px;align-items:end;margin:0 0 16px}.mes-exec-history-filter label{display:grid;gap:6px;font-weight:700}.mes-exec-history-filter input{width:100%;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-exec-note{padding:16px;border-radius:12px;background:#eef7f5;line-height:1.7}@media(max-width:760px){.mes-exec-history-filter{grid-template-columns:1fr 1fr}.mes-exec-history-filter .btn{min-height:48px}.mes-exec-kpis{grid-template-columns:1fr}.mes-exec-filter{grid-template-columns:1fr 1fr}.mes-exec-kpi strong{font-size:24px}.mes-exec-table{max-height:52vh}.mes-exec-filter .btn{min-height:48px}}';
     root.document.head.appendChild(style);
     root.buildNav();
     root.requestAnimationFrame(decorateDashboard);
