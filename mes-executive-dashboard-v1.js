@@ -17,7 +17,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260817-total-purchase-sync-1";
+  var VERSION = "20260817-cost-editor-click-1";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -592,11 +592,30 @@
   var financeMonth = new Date().toISOString().slice(0, 7);
   var drillKind = "purchase";
   var drillQuery = "";
+  var costTargetSeq = 0;
+  var costTargets = {};
+  var costEditorTarget = null;
   function list(v) { return Array.isArray(v) ? v : []; }
   function num(v) { var n = Number(String(v == null ? "" : v).replace(/,/g, "")); return Number.isFinite(n) ? n : 0; }
   function txt(v) { return String(v == null ? "" : v).trim(); }
   function upper(v) { return txt(v).toUpperCase(); }
   function esc(v) { return txt(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function registerCostTarget(type,key) {
+    costTargetSeq += 1;
+    costTargets[String(costTargetSeq)] = { type: type, key: txt(key) };
+    if (costTargetSeq > 5000) {
+      Object.keys(costTargets).slice(0, 2500).forEach(function(token){ delete costTargets[token]; });
+    }
+    return costTargetSeq;
+  }
+  root.openExecutiveCostTarget = function(token) {
+    var target = costTargets[String(token)];
+    if (!target) {
+      if (runtime.getToast()) runtime.getToast()("비용 입력 대상을 다시 불러와 주세요.","error");
+      return false;
+    }
+    return root.openExecutiveCostEditor(target.type,target.key);
+  };
   function active(v) { return v && v.active !== false && v.deleted !== true && v.isDeleted !== true && !v.deletedAt && upper(v.status) !== "CANCELLED"; }
   function pick(row, keys) { for (var i=0;i<keys.length;i+=1) { var value=row && row[keys[i]]; if (value !== undefined && value !== null && txt(value) !== "") return value; } return ""; }
   function dateValue(row, keys) { var raw=pick(row,keys); if (!raw) return ""; var d=new Date(raw); return isNaN(d.getTime()) ? "" : d.toISOString(); }
@@ -755,7 +774,7 @@
       {k:"turnover",t:"평균 재고회전일",v:report.turnover.toFixed(1)+"일",s:"출고 완료 재고 기준"}
     ];
     var alerts="";
-    if(report.missingCustoms.length||report.missingExports.length)alerts='<section class="mes-fin-alert"><h2>누락 비용 즉시 입력</h2><div class="mes-fin-alert-grid">'+report.missingCustoms.map(function(p){return '<button onclick="openExecutiveCostEditor(\'import\',\''+esc(p.poNo)+'\')"><b>통관비 기입요망</b><span>'+esc(p.poNo)+' · '+esc(p.partner)+' · '+kg(p.weight)+'</span></button>';}).join("")+report.missingExports.map(function(o){return '<button onclick="openExecutiveCostEditor(\'export\',\''+esc(o.key)+'\')"><b>수출비용 기입요망</b><span>'+esc(o.soNo)+' · '+esc(o.partner)+' · '+kg(o.weight)+'</span></button>';}).join("")+'</div></section>';
+    if(report.missingCustoms.length||report.missingExports.length)alerts='<section class="mes-fin-alert"><h2>누락 비용 즉시 입력</h2><div class="mes-fin-alert-grid">'+report.missingCustoms.map(function(p){var token=registerCostTarget("import",p.poNo);return '<button type="button" onclick="openExecutiveCostTarget('+token+')"><b>통관비 기입요망</b><span>'+esc(p.poNo)+' · '+esc(p.partner)+' · '+kg(p.weight)+'</span></button>';}).join("")+report.missingExports.map(function(o){var token=registerCostTarget("export",o.key||o.soNo);return '<button type="button" onclick="openExecutiveCostTarget('+token+')"><b>수출비용 기입요망</b><span>'+esc(o.soNo)+' · '+esc(o.partner)+' · '+kg(o.weight)+'</span></button>';}).join("")+'</div></section>';
     var buckets=report.buckets.map(function(b){return '<button onclick="setExecutiveFinanceDrill(\'bucket:'+b.label+'\')"><b>'+b.label+'</b><strong>'+money(b.value)+'</strong><span>'+kg(b.weight)+' · '+pct(report.stockWeight?b.weight/report.stockWeight*100:0)+'</span></button>';}).join("");
     content.innerHTML='<div class="dashboard-head"><div><h1>임원용 MES 대시보드</h1><p>선택한 월의 매입·출고와 현재 공용재고를 같은 계산 함수로 집계합니다.</p></div><div class="actions"><label class="mes-fin-month">기준월<input type="month" value="'+financeMonth+'" onchange="setExecutiveFinanceMonth(this.value)"></label><button class="btn" onclick="openExecutiveExchangeDashboard()">환율·환차손익 화면</button><button class="btn" onclick="openExecutiveUserManager()">임원 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>'+
       '<div class="mes-fin-kpis">'+kpis.map(function(k){return '<button class="'+(drillKind===k.k?"on":"")+'" onclick="'+(k.onclick||("setExecutiveFinanceDrill(\'"+k.k+"\')"))+'"><small>'+k.t+'</small><strong>'+k.v+'</strong><span>'+k.s+'</span></button>';}).join("")+'</div>'+alerts+
@@ -772,9 +791,46 @@
     root.document.getElementById("modal").innerHTML='<div class="modal-backdrop" onclick="if(event.target===this)this.innerHTML=\'\'"><div class="modal-card"><div class="modal-head"><h2>'+esc(r.poNo||r.soNo||r.key)+' · 상세</h2><button onclick="this.closest(\'.modal-backdrop\').remove()">×</button></div><div class="mes-fin-detail"><p><b>거래처</b> '+esc(r.partner||"-")+'</p><p><b>강종</b> '+esc(r.grade||"-")+'</p><p><b>중량</b> '+kg(r.weight)+'</p>'+detail+'</div></div></div>';
   };
   root.openExecutiveCostEditor=function(type,key){
-    var report=build(financeMonth), isImport=type==="import", row=isImport?report.pos.find(function(p){return p.poNo===key;}):report.outbound.find(function(o){return o.key===key||o.soNo===key;});if(!row)return;
+    var report=build(financeMonth), isImport=type==="import", normalizedKey=txt(key);
+    var row=isImport
+      ? report.pos.find(function(p){return txt(p.poNo)===normalizedKey;})
+      : report.outbound.find(function(o){return txt(o.key)===normalizedKey||txt(o.soNo)===normalizedKey;});
+    if(!row&&!isImport){
+      var liveState=runtime.getState(), raw=list(liveState.shipments).filter(active).find(function(sh){
+        return txt(sh.id)===normalizedKey||txt(pick(sh,["soNo","salesNo"]))===normalizedKey||txt(sh.salesOrderId)===normalizedKey;
+      });
+      if(raw){
+        var rawSoNo=txt(pick(raw,["soNo","salesNo"]))||txt(raw.salesOrderId)||normalizedKey;
+        var rawKey=txt(raw.id)||rawSoNo;
+        var rawCosts=settings(liveState).exportCostByOutbound;
+        var rawEntry=rawCosts[rawKey]||rawCosts[rawSoNo]||{};
+        row={key:rawKey,soNo:rawSoNo,partner:pick(raw,["customer","company","buyer","partner"]),weight:weightOf(raw)||num(pick(raw,["shippedWeight","quantity"])),exportCost:num(rawEntry.total),costEntry:rawEntry};
+        normalizedKey=rawKey;
+      }
+    }
+    if(!row){
+      if(runtime.getToast())runtime.getToast()((isImport?"통관비":"수출비용")+" 입력 대상을 찾지 못했습니다. 최신자료 조회 후 다시 눌러 주세요.","error");
+      return false;
+    }
     var old=isImport?row.customs:row.exportCost, title=isImport?"수입통관비":"수출비용", meta=isImport?row.poNo:row.soNo;
-    root.document.getElementById("modal").innerHTML='<div class="modal-backdrop"><div class="modal-card"><div class="modal-head"><h2>'+title+' 입력</h2><button onclick="this.closest(\'.modal-backdrop\').remove()">×</button></div><form class="form-grid" onsubmit="event.preventDefault();saveExecutiveCost(\''+type+'\',\''+esc(key)+'\',this.total.value)"><div class="mes-fin-cost-info"><b>'+esc(meta)+'</b><span>'+esc(row.partner||"-")+'</span><span>기준중량 '+kg(row.weight)+'</span></div><label>'+title+' 총액(원)<input name="total" type="number" min="0" step="1" value="'+num(old)+'" required oninput="document.getElementById(\'mesCostPerKg\').textContent=(Number(this.value||0)/'+(row.weight||1)+').toLocaleString(\'ko-KR\',{maximumFractionDigits:2})+\' 원/kg\'"></label><div class="mes-fin-perkg"><small>자동 계산 kg당 비용</small><strong id="mesCostPerKg">'+(row.weight?num(old)/row.weight:0).toLocaleString("ko-KR",{maximumFractionDigits:2})+' 원/kg</strong></div><div class="form-actions"><button class="btn primary">저장</button><button type="button" class="btn" onclick="this.closest(\'.modal-backdrop\').remove()">취소</button></div></form></div></div>';
+    var modal=root.document.getElementById("modal"), modalTitle=root.document.getElementById("modalTitle"), modalBody=root.document.getElementById("modalBody");
+    if(!modal||!modalBody){
+      if(runtime.getToast())runtime.getToast()("비용 입력창을 열 수 없습니다. 새로고침 후 다시 시도해 주세요.","error");
+      return false;
+    }
+    costEditorTarget={type:type,key:normalizedKey};
+    if(modalTitle)modalTitle.textContent=title+" 입력";
+    modalBody.innerHTML='<form class="form-grid" onsubmit="event.preventDefault();saveCurrentExecutiveCost(this.total.value)"><div class="mes-fin-cost-info"><b>'+esc(meta)+'</b><span>'+esc(row.partner||"-")+'</span><span>기준중량 '+kg(row.weight)+'</span></div><label>'+title+' 총액(원)<input name="total" type="number" min="0" step="1" value="'+num(old)+'" required oninput="document.getElementById(\'mesCostPerKg\').textContent=(Number(this.value||0)/'+(row.weight||1)+').toLocaleString(\'ko-KR\',{maximumFractionDigits:2})+\' 원/kg\'"></label><div class="mes-fin-perkg"><small>자동 계산 kg당 비용</small><strong id="mesCostPerKg">'+(row.weight?num(old)/row.weight:0).toLocaleString("ko-KR",{maximumFractionDigits:2})+' 원/kg</strong></div><div class="form-actions"><button type="submit" class="btn primary">저장</button><button type="button" class="btn" onclick="closeModal()">취소</button></div></form>';
+    modal.classList.add("on");
+    root.setTimeout(function(){var input=modalBody.querySelector('input[name="total"]');if(input){input.focus();input.select();}},50);
+    return true;
+  };
+  root.saveCurrentExecutiveCost=function(value){
+    if(!costEditorTarget){
+      if(runtime.getToast())runtime.getToast()("비용 입력 대상을 다시 선택해 주세요.","error");
+      return false;
+    }
+    return root.saveExecutiveCost(costEditorTarget.type,costEditorTarget.key,value);
   };
   root.saveExecutiveCost=async function(type,key,value){
     var entry={total:num(value),updatedAt:new Date().toISOString(),updatedBy:runtime.currentUserName?runtime.currentUserName():""};
@@ -783,17 +839,21 @@
         var target=settings(shared);
         if(type==="import")target.importCustomsByPo[key]=entry;else target.exportCostByOutbound[key]=entry;
       });
-      var m=root.document.getElementById("modal");if(m)m.innerHTML="";
+      var m=root.document.getElementById("modal"), body=root.document.getElementById("modalBody");
+      if(typeof root.closeModal==="function")root.closeModal();else if(m)m.classList.remove("on");
+      if(body)body.innerHTML="";
+      costEditorTarget=null;
       if(runtime.getToast())runtime.getToast()((type==="import"?"통관비":"수출비용")+" 저장 완료","success");
       if(typeof root.render==="function")root.render();
       if(runtime.getView&&runtime.getView()==="executive")renderDashboard();
     }catch(e){if(runtime.getToast())runtime.getToast()("비용 저장 실패: "+(e.message||e),"error");}
   };
   function financeCostButton(type,row){
-    var isImport=type==="import", report=build(financeMonth), found=isImport?report.pos.find(function(p){return p.poNo===row.poNo;}):report.outbound.find(function(o){return o.key===row.shipmentId||o.soNo===row.soNo;});
+    var isImport=type==="import", report=build(financeMonth), found=isImport?report.pos.find(function(p){return txt(p.poNo)===txt(row.poNo);}):report.outbound.find(function(o){return txt(o.key)===txt(row.shipmentId)||txt(o.soNo)===txt(row.soNo);});
     var key=isImport?row.poNo:(found?found.key:(row.shipmentId||row.soNo)), entry=found?(isImport?found.customEntry:found.costEntry):{}, value=found?(isImport?found.customs:found.exportCost):0, has=!!(entry&&entry.updatedAt), missing=isImport?(found&&found.isImport&&!has):!has;
     var label=isImport?(missing?"통관비 기입요망":has?"통관비 "+fmt(value)+"원":"통관비 입력(선택)"):(missing?"수출비용 기입요망":"수출비용 "+fmt(value)+"원");
-    return '<button type="button" class="mes-fin-list-cost '+(missing?"missing":"saved")+'" onclick="event.stopPropagation();openExecutiveCostEditor(\''+type+'\',\''+esc(key)+'\')">'+label+'</button>';
+    var token=registerCostTarget(type,key);
+    return '<button type="button" class="mes-fin-list-cost '+(missing?"missing":"saved")+'" onclick="event.stopPropagation();openExecutiveCostTarget('+token+')">'+label+'</button>';
   }
   function installFinanceColumns(){
     var p=runtime.schemas&&runtime.schemas.purchase&&runtime.schemas.purchase.cols, s=runtime.schemas&&runtime.schemas.shipping&&runtime.schemas.shipping.cols;
