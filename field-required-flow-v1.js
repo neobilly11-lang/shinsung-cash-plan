@@ -68,6 +68,7 @@
     }
     return norm([el.id,el.name,el.getAttribute('aria-label'),el.placeholder,labelText].filter(Boolean).join(' '));
   }
+  function isOptionalControl(el){return !!el&&OPTIONAL.test(controlText(el))}
   function displayName(el,fallback='필수 입력항목'){
     const label=el.closest('label');
     if(label){
@@ -109,7 +110,7 @@
       .filter(isVisible);
   }
   function addUnique(list,el,name,force=false){
-    if(!el||!isVisible(el)||list.some(item=>item.el===el))return;
+    if(!el||!isVisible(el)||isOptionalControl(el)||list.some(item=>item.el===el))return;
     if(!force&&!isEmpty(el))return;
     list.push({el,name:name||displayName(el),key:el.id||el.name||('required-'+list.length)});
   }
@@ -154,7 +155,11 @@
   function locateMissing(message,messageId){
     const root=actionRoot(messageId),handler=actionHandler(state.lastAction),result=[];
     controlsForSchema(root,handler).forEach(item=>addUnique(result,item.el,item.name));
-    const matched=categories.filter(category=>category.test.test(message));
+    const matched=categories.filter(category=>{
+      if(!category.test.test(message))return false;
+      if(category.name==='최종강종·강종'&&/(분석기 사진|분석치 사진)/.test(message)&&!/(최종\s*강종.*(?:입력|선택)|모든 .*분류행)/.test(message))return false;
+      return true;
+    });
     matched.forEach(category=>{
       const force=/(검색해 선택|선택하세요|확인하세요)/.test(message)&&!/(모든 .*행|모든 .*항목)/.test(message);
       controlsForCategory(root,category,force).forEach(item=>addUnique(result,item.el,item.name,force));
@@ -289,5 +294,5 @@
   });
   observer.observe(doc.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   wrapMsg();ensureNotice();
-  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260814-1'};
+  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-detail-optional-1'};
 })();
