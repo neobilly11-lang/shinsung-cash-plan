@@ -267,10 +267,11 @@
     window.saveOrderCreate=async function(event,form,type){
       if(type!=="SO")return baseSaveOrderCreate.apply(this,arguments);
       event.preventDefault();
-      var head=Object.fromEntries(new FormData(form).entries());
+      var head=Object.fromEntries(new FormData(form).entries()),exchangeRate=Number(head.exchangeRate)||1;
+      if(typeof window.recalculateOrderAmounts==="function")window.recalculateOrderAmounts(form);
       var lines=Array.from(form.querySelectorAll(".order-create-line")).map(function(line){
-        var product=text(line.querySelector('input[name="productType"]')&&line.querySelector('input[name="productType"]').value),main=text(line.querySelector('input[name="mainGrade"]')&&line.querySelector('input[name="mainGrade"]').value),sub=text(line.querySelector('input[name="subGrade"]')&&line.querySelector('input[name="subGrade"]').value),detail=text(line.querySelector('input[name="lineNote"]')&&line.querySelector('input[name="lineNote"]').value),quantity=Number(line.querySelector('input[name="quantity"]')&&line.querySelector('input[name="quantity"]').value)||0,price=Number(line.querySelector('input[name="price"]')&&line.querySelector('input[name="price"]').value)||0,amount=Number(line.querySelector('input[name="amount"]')&&line.querySelector('input[name="amount"]').value)||quantity*price;
-        return{productType:product,mainGrade:main,subGrade:sub,detailGrade:detail,weight:quantity,unitPrice:price,amount:amount,grade:[product,main,sub,detail].filter(Boolean).join(" · ")};
+        var product=text(line.querySelector('input[name="productType"]')&&line.querySelector('input[name="productType"]').value),main=text(line.querySelector('input[name="mainGrade"]')&&line.querySelector('input[name="mainGrade"]').value),sub=text(line.querySelector('input[name="subGrade"]')&&line.querySelector('input[name="subGrade"]').value),detail=text(line.querySelector('input[name="lineNote"]')&&line.querySelector('input[name="lineNote"]').value),quantity=Number(line.querySelector('input[name="quantity"]')&&line.querySelector('input[name="quantity"]').value)||0,price=Number(line.querySelector('input[name="price"]')&&line.querySelector('input[name="price"]').value)||0,amount=quantity*price,krwAmount=amount*exchangeRate;
+        return{productType:product,mainGrade:main,subGrade:sub,detailGrade:detail,weight:quantity,unitPrice:price,amount:amount,krwAmount:krwAmount,grade:[product,main,sub,detail].filter(Boolean).join(" · ")};
       });
       if(!text(head.orderNo)||!text(head.partner)||!lines.length||lines.some(function(line){return !line.mainGrade||line.weight<=0})){
         if(typeof toast==="function")toast("S.O 번호·판매처·최종강종·중량을 모두 입력하세요.",true);
@@ -279,7 +280,7 @@
       var stamp=new Date().toISOString();
       var ok=await commit("MES S.O 등록",["salesOrders"],function(shared){
         shared.salesOrders=(Array.isArray(shared.salesOrders)?shared.salesOrders:[]).filter(function(row){return text(row.soNo)!==text(head.orderNo)});
-        lines.forEach(function(line){shared.salesOrders.push({id:crypto.randomUUID(),soNo:text(head.orderNo),poNo:text(head.linkedNo),customer:text(head.partner),address:text(head.address),tel:text(head.tel),fax:text(head.fax),shipDate:text(head.orderDate),shipment:text(head.shipment),packing:text(head.packing),note:text(head.note),currency:text(head.currency)||"USD",productType:line.productType,mainGrade:line.mainGrade,subGrade:line.subGrade,detailGrade:line.detailGrade,grade:line.grade,weight:line.weight,unitPrice:line.unitPrice,amount:line.amount,status:"WAITING",createdAt:stamp,createdByName:typeof currentUserName==="function"?currentUserName():"MES"})});
+        lines.forEach(function(line){shared.salesOrders.push({id:crypto.randomUUID(),soNo:text(head.orderNo),poNo:text(head.linkedNo),customer:text(head.partner),address:text(head.address),tel:text(head.tel),fax:text(head.fax),shipDate:text(head.orderDate),shipment:text(head.shipment),packing:text(head.packing),note:text(head.note),currency:text(head.currency)||"USD",exchangeRate:exchangeRate,productType:line.productType,mainGrade:line.mainGrade,subGrade:line.subGrade,detailGrade:line.detailGrade,grade:line.grade,weight:line.weight,unitPrice:line.unitPrice,amount:line.amount,foreignAmount:line.amount,krwAmount:line.krwAmount,convertedAmount:line.krwAmount,status:"WAITING",createdAt:stamp,createdByName:typeof currentUserName==="function"?currentUserName():"MES"})});
       });
       if(ok){if(typeof closeModal==="function")closeModal();if(typeof openView==="function")openView("sales")}
     };
