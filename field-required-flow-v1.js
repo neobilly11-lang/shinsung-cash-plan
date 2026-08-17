@@ -45,7 +45,7 @@
     {name:'형상 사진',test:/(형상 사진|물품사진|작업후 사진)/,select:['#shapeLabel','#shapePhoto','#editShapeLabel','#editShapePhoto','[id*="ResultPhoto"]','[id*="ItemPhoto"]'],words:['형상 사진','물품사진','작업후 사진']},
     {name:'분석기 사진',test:/(분석기 사진|분석치 사진)/,select:['#analyzerLabel','#analyzerPhoto','#editAnalyzerLabel','#editAnalyzerPhoto','[id*="AnalyzerPhoto"]','[id*="AnalysisPhoto"]'],words:['분석기 사진','분석치 사진']},
     {name:'미작업 사진',test:/미작업 사진/,select:['#handoverPhoto'],words:['미작업 사진']},
-    {name:'계근표 사진',test:/계근표 사진/,select:['[id*="weightSlip" i]'],words:['계근표 사진']},
+    {name:'계근표 사진',test:/계근표 사진/,select:['label:has(#domesticWeightSlipPhoto)','label:has([id*="weightSlip" i])','[id*="weightSlip" i]'],words:['계근표 사진']},
     {name:'수정 사유',test:/수정 사유/,select:['#editReason','[id*="Reason"]'],words:['수정 사유']},
     {name:'로스 처리 사유',test:/로스 처리 사유/,select:['[id*="lossReason" i]'],words:['로스 처리 사유']},
     {name:'작업 종류',test:/작업 종류/,select:['[id*="workType" i]','[name*="workType" i]'],words:['작업 종류']},
@@ -216,15 +216,16 @@
     if(state.notice?.isConnected)return state.notice;
     const style=doc.createElement('style');
     style.textContent=`
-      #fieldRequiredNotice{position:fixed;z-index:520;left:50%;top:max(88px,10vh);width:min(560px,calc(100vw - 24px));transform:translateX(-50%);border:3px solid #c74444;border-radius:20px;background:#fff;padding:16px 18px;box-shadow:0 18px 55px #07110e66;color:#3b1515;pointer-events:none}
-      #fieldRequiredNotice[hidden]{display:none}#fieldRequiredNotice b{display:block;font-size:21px}#fieldRequiredNotice p{margin:7px 0 0;line-height:1.45;font-weight:800}#fieldRequiredNotice .required-list{color:#9a2929}#fieldRequiredNotice .required-progress{color:#176d57;font-size:14px}
+      #fieldRequiredNotice{position:fixed;z-index:520;left:50%;top:max(88px,10vh);width:min(560px,calc(100vw - 24px));transform:translateX(-50%);border:3px solid #c74444;border-radius:20px;background:#fff;padding:16px 54px 16px 18px;box-shadow:0 18px 55px #07110e66;color:#3b1515;pointer-events:auto}
+      #fieldRequiredNotice[hidden]{display:none}#fieldRequiredNotice b{display:block;font-size:21px}#fieldRequiredNotice p{margin:7px 0 0;line-height:1.45;font-weight:800}#fieldRequiredNotice .required-list{color:#9a2929}#fieldRequiredNotice .required-progress{color:#176d57;font-size:14px}#fieldRequiredNotice .required-close{position:absolute;right:10px;top:10px;width:38px;height:38px;border:0;border-radius:12px;background:#f2e7e7;color:#721d1d;font-size:24px;font-weight:900;line-height:1;cursor:pointer}
       .field-required-missing{outline:4px solid #d44b4b!important;outline-offset:3px!important;background:#fff0f0!important}.field-required-current{outline-color:#f1a600!important;box-shadow:0 0 0 7px #f1a60033!important}
       @media(max-width:600px){#fieldRequiredNotice{top:82px;padding:14px 15px;border-radius:16px}#fieldRequiredNotice b{font-size:19px}}
     `;
     doc.head.appendChild(style);
     const notice=doc.createElement('div');
     notice.id='fieldRequiredNotice';notice.hidden=true;notice.setAttribute('role','alert');notice.setAttribute('aria-live','assertive');
-    notice.innerHTML='<b>⚠ 필수사항을 확인해 주세요</b><p class="required-list"></p><p class="required-progress"></p>';
+    notice.innerHTML='<button type="button" class="required-close" aria-label="알림 닫기">×</button><b>⚠ 필수사항을 확인해 주세요</b><p class="required-list"></p><p class="required-progress"></p>';
+    notice.querySelector('.required-close').addEventListener('click',()=>{notice.hidden=true;state.queue=[];state.currentKey='';clearMarks()});
     doc.body.appendChild(notice);state.notice=notice;return notice;
   }
   function clearMarks(){doc.querySelectorAll('.field-required-missing,.field-required-current').forEach(el=>el.classList.remove('field-required-missing','field-required-current'))}
@@ -386,5 +387,5 @@
   wrapMsg();wrapAlert();ensureNotice();
   setInterval(()=>{wrapMsg();wrapAlert()},500);
   guardRoot.dataset.fieldRequiredFlowV1='loaded';
-  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-7'}}catch(_){ }
+  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-8'}}catch(_){ }
 })();
