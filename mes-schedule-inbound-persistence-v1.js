@@ -23,6 +23,9 @@
   function fullGrade(items,fallback){return unique(list(items).map(itemGrade).concat([fallback])).join(' / ');}
   function short(value){value=text(value);return value.length>15?value.slice(0,15)+' 외':value;}
   function hasStatus(row,statuses){return statuses.includes(text(row&&row.status).toUpperCase());}
+  function isDomesticForcedRow(row){return !!row&&(row.domesticReceipt===true||!!row.domesticReceiptId);}
+  function isDomesticForcedPo(po){return !!po&&(po.purchaseOrigin==='DOMESTIC'||list(po.rows).some(isDomesticForcedRow));}
+  function isDomesticForcedRequest(request){return !!request&&(isDomesticForcedRow(request)||list(request.items).some(isDomesticForcedRow));}
   function requestForPo(poNo){
     var rows=window.mesInboundRequestRows?window.mesInboundRequestRows():list(state.purchaseRequests);
     return rows.find(function(row){return key(row.poNo)===key(poNo)&&!hasStatus(row,['CANCELLED','CANCELED','DELETED']);})||null;
@@ -45,13 +48,15 @@
   function arrivalEvents(){
     var seen=new Set(),events=[];
     list(poRows()).forEach(function(po){
+      if(isDomesticForcedPo(po))return;
       var request=requestForPo(po.poNo),first=list(po.rows)[0]||{},when=dateKey(request&&request.arrivalPlanDate||first.arrivalPlanDate||first.expectedArrivalDate||po.expected),items=request&&request.items||po.rows;
       if(!when)return;
       seen.add(key(po.poNo));
       events.push({type:'arrival',date:when,time:'',number:po.poNo,partner:text(request&&request.company||po.company),grade:fullGrade(items,po.grade),weight:number(request&&request.totalNw||po.nw),id:po.poNo});
     });
+    var domesticPoKeys=new Set(list(poRows()).filter(isDomesticForcedPo).map(function(po){return key(po.poNo);}));
     list(state.purchaseRequests).forEach(function(request){
-      if(!request||seen.has(key(request.poNo))||hasStatus(request,['CANCELLED','CANCELED','DELETED']))return;
+      if(!request||domesticPoKeys.has(key(request.poNo))||isDomesticForcedRequest(request)||seen.has(key(request.poNo))||hasStatus(request,['CANCELLED','CANCELED','DELETED']))return;
       var when=dateKey(request.arrivalPlanDate||request.expectedArrivalDate);if(!when)return;
       events.push({type:'arrival',date:when,time:'',number:request.poNo,partner:text(request.company),grade:fullGrade(request.items,request.gradeSummary),weight:list(request.items).reduce(function(sum,item){return sum+number(item.nw||item.netWeight||item.weight);},0),id:request.poNo});
     });
