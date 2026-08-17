@@ -13,6 +13,9 @@
   const schemas={
     addPackage:['poNo','company','grade','weight'],
     createSalesOrder:['soNo','soCustomer','soGrade','soWeight','soDate'],
+    saveInspection:['finalType','finalMain','finalSub','finalWeight'],
+    addDomesticPackage:['domesticPackageGrade','domesticPackageNo','domesticPackageGW'],
+    confirmDomesticReceipt:['domesticSupplier','domesticVehicleNo','domesticFirstWeight','domesticFinalWeight'],
     saveInspectionHandover:['handoverWorker1','handoverWorker2','handoverEstimatedRemain','handoverPhoto'],
     saveInspectionEdit:['editFinalType','editFinalMain','editFinalSub','editFinalWeight','editReason'],
     saveMainGrade:['masterType','masterMain'],
@@ -122,6 +125,37 @@
     });
     return result;
   }
+  function inspectionRequiredControls(root){
+    const result=[];
+    const addRow=(typeId,mainId,subId,weightId)=>{
+      [
+        [typeId,'품종'],
+        [mainId,'최종 강종'],
+        [subId,'소강종'],
+        [weightId,'확정 중량']
+      ].forEach(([id,name])=>{
+        const el=doc.getElementById(id);
+        if(el&&(root===doc.body||root.contains(el)))addUnique(result,el,name);
+      });
+    };
+    addRow('finalType','finalMain','finalSub','finalWeight');
+    const indexes=[...doc.querySelectorAll('[id^="inspectionMain-"]')]
+      .map(el=>String(el.id).replace('inspectionMain-',''))
+      .filter(Boolean);
+    indexes.forEach(index=>addRow('inspectionType-'+index,'inspectionMain-'+index,'inspectionSub-'+index,'inspectionWeight-'+index));
+    return result;
+  }
+  function handlerRequiredControls(button,root=activeView()){
+    const handler=actionHandler(button),result=[];
+    controlsForSchema(root,handler).forEach(item=>addUnique(result,item.el,item.name));
+    if(handler==='saveInspection')inspectionRequiredControls(root).forEach(item=>addUnique(result,item.el,item.name));
+    explicitRequired(root).forEach(item=>addUnique(result,item.el,item.name));
+    return result.sort((a,b)=>{
+      if(a.el===b.el)return 0;
+      const pos=a.el.compareDocumentPosition(b.el);
+      return pos&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;
+    });
+  }
   function controlsForCategory(root,category,force=false){
     const result=[];
     category.select.forEach(selector=>{
@@ -155,6 +189,7 @@
   function locateMissing(message,messageId){
     const root=actionRoot(messageId),handler=actionHandler(state.lastAction),result=[];
     controlsForSchema(root,handler).forEach(item=>addUnique(result,item.el,item.name));
+    if(handler==='saveInspection')inspectionRequiredControls(root).forEach(item=>addUnique(result,item.el,item.name));
     const matched=categories.filter(category=>{
       if(!category.test.test(message))return false;
       if(category.name==='최종강종·강종'&&/(분석기 사진|분석치 사진)/.test(message)&&!/(최종\s*강종.*(?:입력|선택)|모든 .*분류행)/.test(message))return false;
@@ -201,8 +236,18 @@
     item.el.classList.add('field-required-current');state.currentKey=item.key;
     const target=item.el.type==='file'?(item.el.closest('label')||item.el):item.el;
     if(target!==item.el&&!target.hasAttribute('tabindex'))target.tabIndex=-1;
-    target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
-    state.timer=setTimeout(()=>{try{target.focus({preventScroll:true});if(item.el.select&&/^(text|number|search|tel|email|date|time)$/.test(item.el.type||'text'))item.el.select()}catch(_){ }},220);
+    const tryFocus=(attempt=0)=>{
+      if(state.currentKey!==item.key||!item.el?.isConnected)return;
+      const busy=doc.body.getAttribute('aria-busy')==='true'||!!doc.querySelector('#saveProgressOverlay.on,.save-progress-overlay.on');
+      if(busy&&attempt<24){state.timer=setTimeout(()=>tryFocus(attempt+1),140);return}
+      try{
+        target.scrollIntoView({behavior:attempt?'auto':'smooth',block:'center',inline:'nearest'});
+        target.focus({preventScroll:true});
+        if(item.el.select&&/^(text|number|search|tel|email|date|time)$/.test(item.el.type||'text'))item.el.select();
+      }catch(_){ }
+      if(attempt<2)state.timer=setTimeout(()=>tryFocus(attempt+1),attempt?420:220);
+    };
+    tryFocus(0);
     renderNotice();
   }
   function remainingItems(){return currentItems().filter(item=>isEmpty(item.el)||item.key===state.currentKey&&item.el.dataset.requiredForce==='1')}
@@ -274,7 +319,15 @@
     const button=event.target.closest('button,input[type="button"],input[type="submit"]');
     if(!isSaveAction(button))return;
     state.lastAction=button;
-    const scope=button.closest('form,.card,.donecard,.domestic-step,article,.view.on')||activeView();
+    const view=activeView(),handler=actionHandler(button);
+    const directHandlers=/^(saveInspection|saveInspectionEdit|addPackage|createSalesOrder|addDomesticPackage|confirmDomesticReceipt|saveInspectionHandover)$/;
+    const directItems=directHandlers.test(handler)?handlerRequiredControls(button,view):[];
+    if(directItems.length){
+      event.preventDefault();event.stopImmediatePropagation();
+      startFlow(directItems,'필수사항을 순서대로 입력해 주세요. 상세강종·메모·비고·선택사진은 건너뜁니다.');
+      return;
+    }
+    const scope=button.closest('form,.card,.donecard,.domestic-step,article,.view.on')||view;
     setTimeout(()=>{
       if(!button.isConnected||!isVisible(button))return;
       const items=explicitRequired(scope&&scope.isConnected?scope:activeView());
@@ -312,5 +365,6 @@
   });
   observer.observe(doc.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   wrapMsg();wrapAlert();ensureNotice();
-  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-2'};
+  setInterval(()=>{wrapMsg();wrapAlert()},500);
+  window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-3'};
 })();
