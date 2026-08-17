@@ -314,6 +314,7 @@ window.filterControls=function(){
   var inventorySummary=currentView==="inventory";
   return "<div class='mes-search-note'>검색어 입력 중에는 화면이 바뀌지 않습니다. 조건 입력 후 반드시 <b>조회</b>를 눌러 주세요. 기본 목록은 최근 저장 순입니다.</div>"
     +"<div class='control'><label>통합 검색</label><input value='"+esc(draft.q||"")+"' placeholder='번호·회사·강종' oninput=\"mesDraftSet('q',this.value)\" onkeydown='mesDraftKey(event)'></div>"
+    +(currentView==="purchase"?"<div class='control'><label>국내·해외</label><select onchange=\"mesDraftSet('purchaseOrigin',this.value)\"><option value=''>전체</option><option value='DOMESTIC' "+(draft.purchaseOrigin==="DOMESTIC"?"selected":"")+">국내</option><option value='OVERSEAS' "+(draft.purchaseOrigin==="OVERSEAS"?"selected":"")+">해외</option></select></div>":"")
     +(inventoryView?"<div class='control'><label>장소 검색</label><input value='"+esc(draft.location||"")+"' placeholder='창고·구역·미지정' oninput=\"mesDraftSet('location',this.value)\" onkeydown='mesDraftKey(event)'></div>":"")
     +(inventorySummary?"<div class='control'><label>상태별 선택</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="입항예정"?"selected":"")+">입항예정</option><option "+(draft.status==="미검수"?"selected":"")+">미검수</option><option "+(draft.status==="작업대기"?"selected":"")+">작업대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option><option "+(draft.status==="유사강종"?"selected":"")+">유사강종</option></select></div>":(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":""))
     +(inventorySummary?"<div class='control'><label>재고 표기방식</label><select onchange=\"mesDraftSet('inventoryMode',this.value)\"><option value='original' "+(!draft.inventoryMode||draft.inventoryMode==="original"?"selected":"")+">원문유지</option><option value='grouped' "+(draft.inventoryMode==="grouped"?"selected":"")+">묶음표기</option></select></div>":"")
@@ -358,6 +359,7 @@ window.filtered=function(rows){
   });
   var q=String(filters.q||"").trim().toLowerCase();
   if(q) out=out.filter(function(row){return mesSearchText(row).includes(q);});
+  if(currentView==="purchase"&&filters.purchaseOrigin) out=out.filter(function(row){return row.purchaseOrigin===filters.purchaseOrigin;});
   var location=String(filters.location||"").trim().toLowerCase();
   if(location) out=out.filter(function(row){return String(row.location||row.locations||"").toLowerCase().includes(location);});
   if(currentView==="inventory"){
