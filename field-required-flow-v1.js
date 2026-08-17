@@ -4,7 +4,7 @@
   const guardRoot=doc.documentElement;
   if(guardRoot.dataset.fieldRequiredFlowV1==='loaded'||guardRoot.dataset.fieldRequiredFlowV1==='loading')return;
   guardRoot.dataset.fieldRequiredFlowV1='loading';
-  const state={lastAction:null,queue:[],currentKey:'',timer:0,notice:null};
+  const state={lastAction:null,queue:[],currentKey:'',timer:0,notice:null,lastGuideMessage:'',lastGuideAt:0,errorScanTimer:0};
   const SAVE_WORDS=/(저장|확정|등록|완료|이동|요청|처리|생성)/;
   const IGNORE_ACTION=/(삭제|취소|닫기|조회|검색|선택|보기|미리보기|다운로드|인쇄|출력|촬영|사진|QR|카톡|공유|임시보관|임시저장)/i;
   const OPTIONAL=/(선택사항|선택\s*(?:정보|입력|항목|사진|파일)|\(\s*선택\s*\)|필요할 때(?:\s*직접 입력)?|필요시(?:\s*직접 입력)?|메모|비고|이상 사진|상세강종)/;
@@ -42,8 +42,8 @@
     {name:'중량',test:/(중량|수량|G\/W|N\/W|GW|NW)/i,select:['#finalWeight','[id^="inspectionWeight-"]','#editFinalWeight','#weight','#soWeight','[id*="Weight"]','[id*="weight"]','[id*="Quantity"]'],words:['확정 중량','이동 중량','작업대기 중량','남은 예상수량','중량','수량','g/w','n/w','gw','nw']},
     {name:'날짜',test:/(날짜|일자|출하예정일|입고확정일|입항예정일)/,select:['#soDate','input[type="date"]'],words:['출하예정일','입고확정일','입항예정일','날짜','일자']},
     {name:'시간',test:/(시간|시·분)/,select:['input[type="time"]','[id*="Hour"]','[id*="Minute"]','[id*="Time"]'],words:['가공시간','확정시간','시간','시·분']},
-    {name:'형상 사진',test:/(형상 사진|물품사진|작업후 사진)/,select:['#shapePhoto','[id*="ResultPhoto"]','[id*="ItemPhoto"]'],words:['형상 사진','물품사진','작업후 사진']},
-    {name:'분석기 사진',test:/(분석기 사진|분석치 사진)/,select:['#analyzerPhoto','[id*="AnalyzerPhoto"]','[id*="AnalysisPhoto"]'],words:['분석기 사진','분석치 사진']},
+    {name:'형상 사진',test:/(형상 사진|물품사진|작업후 사진)/,select:['#shapeLabel','#shapePhoto','#editShapeLabel','#editShapePhoto','[id*="ResultPhoto"]','[id*="ItemPhoto"]'],words:['형상 사진','물품사진','작업후 사진']},
+    {name:'분석기 사진',test:/(분석기 사진|분석치 사진)/,select:['#analyzerLabel','#analyzerPhoto','#editAnalyzerLabel','#editAnalyzerPhoto','[id*="AnalyzerPhoto"]','[id*="AnalysisPhoto"]'],words:['분석기 사진','분석치 사진']},
     {name:'미작업 사진',test:/미작업 사진/,select:['#handoverPhoto'],words:['미작업 사진']},
     {name:'계근표 사진',test:/계근표 사진/,select:['[id*="weightSlip" i]'],words:['계근표 사진']},
     {name:'수정 사유',test:/수정 사유/,select:['#editReason','[id*="Reason"]'],words:['수정 사유']},
@@ -85,6 +85,10 @@
   }
   function isEmpty(el){
     if(!el)return true;
+    if(el.matches?.('label')){
+      const file=el.querySelector('input[type="file"]')||(el.htmlFor?doc.getElementById(el.htmlFor):null);
+      if(file)return isEmpty(file);
+    }
     if(el.matches('input[type="checkbox"],input[type="radio"]')){
       const name=el.name;
       if(name)return !doc.querySelector(`input[name="${CSS.escape(name)}"]:checked`);
@@ -270,7 +274,8 @@
     focusItem(first);renderNotice(message);
   }
   function completeCurrentAndAdvance(el){
-    const item=currentItems().find(x=>x.el===el||x.key===state.currentKey);
+    const live=currentItems();
+    const item=live.find(x=>x.el===el||x.el?.contains?.(el)||x.key===el.id)||live.find(x=>x.key===state.currentKey);
     if(!item)return false;
     if(isEmpty(item.el))return false;
     delete item.el.dataset.requiredForce;item.el.classList.remove('field-required-missing','field-required-current');
@@ -283,10 +288,21 @@
     return true;
   }
   function guideFromError(messageId,text){
-    const message=String(text||'').trim();
+    const message=String(text||'').replace(/\\s+/g,' ').trim();
     if(!ACTIONABLE_ERROR.test(message)||NON_FIELD_ERROR.test(message)&&!/입력|선택|필수/.test(message))return;
+    const now=Date.now();
+    if(message===state.lastGuideMessage&&now-state.lastGuideAt<900)return;
     const items=locateMissing(message,messageId);
-    if(items.length)startFlow(items,message);
+    if(items.length){state.lastGuideMessage=message;state.lastGuideAt=now;startFlow(items,message);}
+  }
+  function scanInlineErrors(){
+    const notice=state.notice;
+    doc.querySelectorAll('[id$="Msg"],[id*="Msg"],.error,.err,.message,[role="alert"]').forEach(el=>{
+      if(!el||el===notice||el.closest?.('#fieldRequiredNotice')||!isVisible(el))return;
+      const message=String(el.textContent||'').replace(/\\s+/g,' ').trim();
+      if(!message||message.length>260||!ACTIONABLE_ERROR.test(message))return;
+      guideFromError(el.id||'',message);
+    });
   }
   function wrapMsg(){
     const original=window.msg;
@@ -342,18 +358,18 @@
   },true);
   doc.addEventListener('change',event=>{
     const el=event.target;
-    if(!state.queue.some(item=>item.el===el||item.key===el.id))return;
+    if(!state.queue.some(item=>item.el===el||item.el?.contains?.(el)||item.key===el.id))return;
     setTimeout(()=>completeCurrentAndAdvance(el),80);
   },true);
   doc.addEventListener('blur',event=>{
     const el=event.target;
-    if(!state.queue.some(item=>item.el===el||item.key===el.id))return;
+    if(!state.queue.some(item=>item.el===el||item.el?.contains?.(el)||item.key===el.id))return;
     setTimeout(()=>completeCurrentAndAdvance(el),120);
   },true);
   window.addEventListener('keydown',event=>{
     if(event.key!=='Enter'||event.isComposing||event.shiftKey||event.ctrlKey||event.altKey||event.metaKey)return;
     const el=event.target;
-    if(!state.queue.some(item=>item.el===el||item.key===el.id))return;
+    if(!state.queue.some(item=>item.el===el||item.el?.contains?.(el)||item.key===el.id))return;
     event.preventDefault();event.stopImmediatePropagation();
     if(!completeCurrentAndAdvance(el)){
       const item=currentItems().find(x=>x.el===el);
@@ -363,11 +379,12 @@
 
   const observer=new MutationObserver(()=>{
     wrapMsg();wrapAlert();
+    clearTimeout(state.errorScanTimer);state.errorScanTimer=setTimeout(scanInlineErrors,0);
     if(state.queue.length&&!currentItems().length){state.queue=[];state.currentKey='';clearMarks();if(state.notice)state.notice.hidden=true}
   });
-  observer.observe(doc.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  observer.observe(doc.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','hidden']});
   wrapMsg();wrapAlert();ensureNotice();
   setInterval(()=>{wrapMsg();wrapAlert()},500);
   guardRoot.dataset.fieldRequiredFlowV1='loaded';
-  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-6'}}catch(_){ }
+  try{if(Object.isExtensible(window))window.__fieldRequiredFlowV1={guideFromError,startFlow,get queue(){return currentItems()},version:'20260817-required-flow-all-7'}}catch(_){ }
 })();
