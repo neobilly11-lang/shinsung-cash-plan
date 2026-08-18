@@ -178,8 +178,10 @@
     if(!button||button.__mesLanguageBound)return;
     button.__mesLanguageBound=true;
     button.addEventListener('click',function(event){
-      event.preventDefault();event.stopPropagation();
-      root.toggleMesLanguage();
+      event.preventDefault();event.stopImmediatePropagation();
+      var nextLanguage=language==='en'?'ko':'en';
+      try{localStorage.setItem(LANG_KEY,nextLanguage);localStorage.setItem(LANG_KEY+':'+userKey(),nextLanguage)}catch(_){ }
+      root.location.assign(languageHref());
     },true);
   }
   function languageHref(){
@@ -275,14 +277,16 @@
     var target=event.target;
     while(target&&target!==doc){
       if(target.id==='mesLanguageToggle'&&!target.__mesLanguageBound){
-        event.preventDefault();event.stopPropagation();
-        root.toggleMesLanguage();return false;
+        event.preventDefault();event.stopImmediatePropagation();
+        var nextLanguage=language==='en'?'ko':'en';
+        try{localStorage.setItem(LANG_KEY,nextLanguage);localStorage.setItem(LANG_KEY+':'+userKey(),nextLanguage)}catch(_){ }
+        root.location.assign(languageHref());return false;
       }
       target=target.parentNode;
     }
   },false);
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-6'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-7'};
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
