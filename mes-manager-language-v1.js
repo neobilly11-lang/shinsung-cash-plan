@@ -20,33 +20,137 @@
   try{language=localStorage.getItem(LANG_KEY+':'+userKey())||localStorage.getItem(LANG_KEY)||'ko'}catch(_){ }
   if(language!=='en')language='ko';
   var translations={
+    /* main navigation */
     '통합 현황판':'Integrated Dashboard','입고·출하 일정':'Inbound / Shipping Schedule','구매계획':'Purchase Plan','판매계획':'Sales Plan',
     '입고요청현황':'Inbound Requests','입고현황':'Inbound Status','생산현황':'Production Status','세틀현황':'Settlement Status',
     '재고현황':'Inventory Status','재고상세':'Inventory Details','출하계획':'Shipping Plan','출고현황':'Shipment History',
     '일일 작업일지':'Daily Work Log','샘플관리':'Sample Management','분석치 관리':'Analysis Management','임원용 현황판':'Executive Dashboard',
-    '현장관리 열기':'Open Field App','조회':'Search','초기화':'Reset','엑셀':'Excel','상세보기':'Details','상세 수정':'Edit Details',
-    '목록으로 돌아가기':'Back to List','닫기':'Close','취소':'Cancel','저장':'Save','수정':'Edit','삭제':'Delete','완료':'Complete',
-    '지금 동기화':'Sync Now','오늘 작업일지':'Today Work Log','생산관리':'Production Management','작업분배':'Work Assignment',
-    '현장관리자 모드':'Field Manager Mode','작업자별 생산능력':'Capacity by Worker','저장된 작업분배':'Saved Assignments',
-    '합류':'Include','배제':'Exclude','작업분배 저장':'Save Assignment','예상 작업일수':'Estimated Work Days','예상 작업비':'Estimated Labor Cost',
-    '전체':'All','검색':'Search','공용서버에 수정 저장':'Save to Shared Server','PDF 다운로드':'Download PDF','PDF 카카오톡 전송':'Share PDF',
-    '국내 세틀 양식':'Domestic Settlement','해외 세틀 양식':'Overseas Settlement','국내 선세틀 양식':'Domestic Pre-Settlement',
-    '해외 Pre-Settlement':'Overseas Pre-Settlement','선세틀 수정':'Edit Pre-Settlement','양식 미리보기':'Preview Form',
-    '이번 달 매입총액':'Monthly Purchases','이번 달 매출액':'Monthly Sales','실현이익':'Realized Profit','실현이익률':'Profit Margin',
-    '현재재고':'Current Inventory','입항예정':'Expected Arrival','입고완료':'Inbound Complete','작업대기':'Work Queue','출하완료':'Shipped',
-    '누락비용 즉시 입력':'Enter Missing Costs','환율 변경 이력 · 예상 환차손익':'FX History & Estimated Gain/Loss',
-    '월별 KPI 대시보드':'Monthly KPI Dashboard','예상환차손 · 환율 일괄변경':'FX Estimate / Bulk Rate Change','임원 2명 지정':'Assign Two Executives'
+    '현장관리 열기':'Open Field App','계획 관리':'Planning','입고·생산':'Inbound / Production','재고·출하':'Inventory / Shipping',
+    '기록':'Records','품질관리':'Quality Management','임원 전용':'Executive Only','신성금속 MES':'Shinsung Metal MES',
+    '현장관리 실시간 연동 시스템':'Real-time Field Management Integration','메뉴 열기':'Open Menu','메뉴 닫기':'Close Menu',
+    /* common buttons and messages */
+    '조회':'Search','검색':'Search','초기화':'Reset','엑셀':'Excel','엑셀 다운로드':'Download Excel','상세보기':'Details','상세 수정':'Edit Details',
+    '목록으로 돌아가기':'Back to List','닫기':'Close','취소':'Cancel','저장':'Save','수정':'Edit','삭제':'Delete','완료':'Complete','등록':'Register',
+    '선택':'Select','확인':'Confirm','새로 입력':'New Entry','다시 불러오기':'Reload','최신자료 조회':'Load Latest Data','지금 동기화':'Sync Now',
+    '공용서버에 수정 저장':'Save to Shared Server','공용 서버 연결됨':'Shared Server Connected','실시간 연결':'Live Connection',
+    '로그인':'Log In','로그아웃':'Log Out','사용자 로그인':'User Login','로그인 후 공용자료를 불러옵니다.':'Log in to load shared data.',
+    '접속 지연 · 여기를 눌러 다시 연결':'Connection delayed · Tap to reconnect','저장 완료 · 현장관리 동시 반영':'Saved · Field app updated',
+    '검색어 입력 중에는 화면이 바뀌지 않습니다.':'The screen will not change while you type.','조건 입력 후 반드시 조회를 눌러 주세요.':'Enter filters, then press Search.',
+    '검색 조건에 맞는 자료가 없습니다.':'No records match the search criteria.','등록된 자료가 없습니다.':'No records found.','자료가 없습니다.':'No data available.',
+    '전체':'All','국내':'Domestic','국외':'Overseas','해외':'Overseas','대기':'Waiting','진행중':'In Progress','미완료':'Incomplete','완료':'Complete',
+    /* forms, filters and table columns */
+    '통합 검색':'Unified Search','저장일 시작':'Saved Date From','저장일 종료':'Saved Date To','저장일시':'Saved At','저장일':'Saved Date',
+    '상태':'Status','상태별 선택':'Filter by Status','표시건수':'Rows per Page','번호':'Number','No.':'No.','구분':'Category','상세':'Details',
+    '거래처':'Vendor / Customer','거래처명':'Company Name','공급사':'Supplier','고객사':'Customer','판매처':'Customer','회사':'Company',
+    'P.O 번호':'P.O Number','S.O 번호':'S.O Number','구매번호':'Purchase No.','판매번호':'Sales No.','사내입고번호':'Internal Receipt No.',
+    '완료번호':'Completed Pack No.','요청번호':'Request No.','관련번호':'Reference No.','패키지번호':'Package No.','패키지 수':'Packages',
+    '품종':'Category','강종':'Grade','대표강종':'Main Grade','거래처 강종':'Supplier Grade','거래처강종':'Supplier Grade',
+    '소강종':'Subgrade','상세강종':'Detailed Grade','품명':'Item Description','품목':'Items','품목설명':'Item Description','설명':'Description',
+    '중량':'Weight','중량(kg)':'Weight (kg)','확정중량':'Confirmed Weight','수량':'Quantity','단위':'Unit','중량단위':'Weight Unit','단가단위':'Price Unit',
+    '단가':'Unit Price','금액':'Amount','총금액':'Total Amount','합계금액':'Total Amount','통화':'Currency','환율':'Exchange Rate','적용환율':'Applied Rate',
+    '메모':'Memo','비고':'Remarks','주소':'Address','전화':'Telephone','이메일':'Email','계약일':'Contract Date','입고 구분':'Inbound Type',
+    '입고예정일':'Expected Inbound Date','입항예정일':'Expected Arrival Date','출항예정일':'Estimated Departure Date','출항확정일':'Confirmed Departure Date',
+    '입고요청일':'Inbound Request Date','출하요청일':'Shipping Request Date','컨테이너 작업일':'Container Work Date','작업일':'Work Date','완료일':'Completion Date',
+    '입고상태':'Inbound Status','검수상태':'Inspection Status','구매상태':'Purchase Status','판매상태':'Sales Status','출하상태':'Shipping Status',
+    '재고단계':'Inventory Stage','보관위치':'Storage Location','장소 검색':'Search Location','저장된 장소 검색':'Search Saved Locations',
+    /* plan and document workflow */
+    'P.O 등록':'Register P.O','S.O 등록':'Register S.O','P.O 생성':'Create P.O','S.O 생성':'Create S.O','P.O 다운로드':'Download P.O','S.O 다운로드':'Download S.O',
+    '직접입력':'Manual Entry','빈 P.O 직접입력':'Blank P.O Entry','거래처 파일로 등록':'Import Vendor Document','거래처 P.O·INVOICE 파일로 등록':'Import Vendor P.O / Invoice',
+    '거래처 파일 다시 선택':'Select Another Vendor File','파일선택':'Choose File','사진 선택':'Choose Photo','문서 등록':'Register Document','문자·표 분석':'Text / Table Analysis',
+    '분석 준비 중':'Preparing Analysis','페이지 분석 중':'Analyzing Page','쉬운 불러오기':'Easy Import','품목 행 추가':'Add Item Row','행 삭제':'Delete Row',
+    '우리 시스템 강종 분류 · 수정 가능':'Mapped to Our Grade System · Editable','직접입력 · 업로드 양식과 동일 항목':'Manual Entry · Same Fields as Upload Template',
+    '저장 · 구매계획 등록':'Save · Register Purchase Plan','입력 후 현장관리 공용서버 동시 반영':'Saves to MES and Field App Shared Server',
+    '구매확정':'Purchase Confirmed','판매확정':'Sales Confirmed','구매대기':'Purchase Pending','판매대기':'Sales Pending','부분입고':'Partially Received',
+    '입항예정':'Expected Arrival','입고요청':'Inbound Request','입고요청완료':'Inbound Request Complete','입고예정확정':'Confirm Inbound Schedule',
+    '출하예정':'Expected Shipping','출하요청':'Shipping Request','배차요청':'Vehicle Assignment Request','상차예정확정':'Confirm Loading Schedule',
+    '입항예정 수정':'Edit Expected Arrival','입고요청 수정':'Edit Inbound Request','배차요청 수정':'Edit Vehicle Request','상차예정 수정':'Edit Loading Schedule',
+    '카카오톡 보내기':'Share via KakaoTalk','카카오톡 공유':'Share via KakaoTalk','카톡':'KakaoTalk','공유하기':'Share','파일 만들기':'Create File',
+    '전체 흔적 삭제':'Delete All Related Records','전체흔적 삭제하기':'Delete All Related Records','강제 입고등록':'Force Inbound Registration',
+    /* dashboard and operations */
+    '신성금속 통합 생산현황':'Shinsung Metal Integrated Production Status','현장관리와 동일한 공용자료를 실시간으로 집계합니다.':'Live summary from the same shared field-management data.',
+    '입고대기':'Inbound Queue','검수대기':'Inspection Queue','생산대기':'Production Queue','작업대기':'Work Queue','포장대기':'Packing Queue',
+    '미검수':'Uninspected','미검수재고':'Uninspected Inventory','미포장':'Unpacked','미포장재고':'Unpacked Inventory','완료재고':'Completed Inventory',
+    '출하대기':'Shipping Queue','출하예정':'Scheduled to Ship','출하확정':'Shipping Confirmed','출하완료':'Shipped','오늘 작업':'Today’s Work','누적':'Cumulative',
+    '원재고':'Original Inventory','검수·작업 미완료':'Inspection / Work Incomplete','출하 가능':'Available to Ship','공정별 중량':'Weight by Process','MES 사용자':'MES Users',
+    '사진보기':'View Photos','사진':'Photo','첨부파일':'Attachments','작업자':'Worker','검수자':'Inspector','작업시간':'Work Time','소요시간':'Elapsed Time',
+    '생산관리':'Production Management','작업분배':'Work Assignment','현장관리자 모드':'Field Manager Mode','작업자별 생산능력':'Capacity by Worker',
+    '저장된 작업분배':'Saved Assignments','합류':'Include','배제':'Exclude','작업분배 저장':'Save Assignment','예상 작업일수':'Estimated Work Days',
+    '예상 작업비':'Estimated Labor Cost','합산 생산능력':'Combined Capacity','예상 작업시간':'Estimated Work Hours','달성예상율':'Estimated Completion Rate',
+    '작업 종류':'Work Type','배분 중량(kg)':'Assigned Weight (kg)','완료 목표일':'Target Completion Date','시간당 인건비(1명)':'Hourly Labor Cost (per person)',
+    '작업자 2명까지 합류':'Include Up to 2 Workers','작업지시 메모':'Work Instruction Memo','일반작업':'General Work','쇼트':'Shot Blasting','절단':'Cutting',
+    '산처리':'Acid Treatment','재선별':'Re-sorting','검수':'Inspection','재고이동':'Inventory Transfer',
+    /* schedule */
+    '구매계획 열기':'Open Purchase Plan','판매계획 열기':'Open Sales Plan','이전':'Previous','오늘':'Today','다음':'Next',
+    '입항예정일':'Expected Arrival Date','입고요청일':'Inbound Request Date','출하요청일':'Shipping Request Date','컨테이너작업일':'Container Work Date',
+    /* inventory */
+    '강종별 재고 총량':'Total Inventory by Grade','재고표기 방식':'Inventory Display Rules','재고표기 방식 · 비슷한 그레이드 묶기':'Inventory Display Rules · Group Similar Grades',
+    '원문 유지':'Keep Original','원문유지':'Keep Original','묶음표기':'Grouped View','유사강종':'Similar Grades','유사강종 재고':'Similar-grade Inventory',
+    '유사강종 출하예정':'Similar-grade Scheduled Shipping','유사강종 예상재고':'Estimated Similar-grade Inventory','예상남은재고':'Estimated Remaining Inventory',
+    '입항예정재고':'Expected-arrival Inventory','작업대기재고':'Work-queue Inventory','완료재고(kg)':'Completed Inventory (kg)',
+    '입항예정재고(kg)':'Expected-arrival Inventory (kg)','미검수재고(kg)':'Uninspected Inventory (kg)','작업대기재고(kg)':'Work-queue Inventory (kg)',
+    '미포장재고(kg)':'Unpacked Inventory (kg)','유사강종 재고(kg)':'Similar-grade Inventory (kg)','유사강종 출하예정(kg)':'Similar-grade Scheduled Shipping (kg)',
+    '유사강종 예상재고(kg)':'Estimated Similar-grade Inventory (kg)','단계별 원본 내역':'Original Records by Stage','원 강종':'Original Grade',
+    '구성 수정':'Edit Group','묶음 삭제':'Delete Group','묶음 이름':'Group Name','묶음 이름 저장':'Save Group Name','묶음 표시명':'Group Display Name',
+    '유사강종 묶음 수정':'Edit Similar-grade Group','선택 강종 묶음에서 제외':'Remove Selected Grades from Group','선택 강종 묶음에 합류':'Add Selected Grades to Group',
+    '다른 강종 유사강종 묶음 합류':'Add Other Grades to Similar-grade Group','재고표기 방식 저장':'Save Inventory Display Rule','재고표기 방식 삭제':'Delete Inventory Display Rule',
+    '예상 S.O 작성':'Create Estimated S.O','예상 S.O 작성하기':'Create Estimated S.O','예상 S.O 목록':'Estimated S.O List','예상 S.O 미리보기':'Estimated S.O Preview',
+    '예상 S.O 번호':'Estimated S.O Number','예상 S.O 저장':'Save Estimated S.O','예상 S.O 수정':'Edit Estimated S.O','예상 S.O 삭제':'Delete Estimated S.O',
+    '예상 판매중량(kg)':'Estimated Sales Weight (kg)','예상 단가':'Estimated Unit Price','예상 판매금액':'Estimated Sales Amount','예상 판매 참고사항':'Estimated Sales Notes',
+    '실제 판매와 별도 저장':'Saved Separately from Actual Sales','실제 판매·출하 재고에는 반영되지 않습니다.':'This does not affect actual sales or shipping inventory.',
+    /* settlement */
+    'PDF 다운로드':'Download PDF','PDF 카카오톡 전송':'Share PDF via KakaoTalk','양식 미리보기':'Preview Form','세틀 다운로드':'Download Settlement',
+    '사진 일괄 다운로드':'Download All Photos','국내 세틀 양식':'Domestic Settlement','해외 세틀 양식':'Overseas Settlement',
+    '국내 선세틀 양식':'Domestic Pre-Settlement','해외 Pre-Settlement':'Overseas Pre-Settlement','선세틀':'Pre-Settlement','선세틀 수정':'Edit Pre-Settlement',
+    '선세틀완료':'Pre-Settlement Complete','완료 세틀':'Completed Settlements','미완료 세틀':'Incomplete Settlements','세틀완료':'Settlement Complete',
+    '계약중량':'Contract Weight','검수확정':'Inspection Confirmed','로스':'Loss','리마크':'Remarks','PHOTO':'PHOTO',
+    /* executive dashboard */
+    '연간 총매입액':'Annual Purchases','월간 매입총액':'Monthly Purchases','이번 달 매입총액':'Monthly Purchases','이번 달 매출액':'Monthly Sales',
+    '입항예정 총액':'Expected-arrival Value','입고완료 총액':'Received Value','현재재고 총액':'Current Inventory Value','작업대기 총액':'Work-queue Value',
+    '매입총액':'Total Purchase Cost','매입원가':'Purchase Cost','매출액':'Sales','실현이익':'Realized Profit','실현이익률':'Profit Margin',
+    '작업비':'Processing Cost','재고이자부담비':'Inventory Interest Cost','수출비용':'Export Cost','수입통관비':'Import Clearance Cost',
+    '90일 이상 장기재고':'Inventory Over 90 Days','평균 재고회전일':'Average Inventory Turnover Days','누락비용 즉시 입력':'Enter Missing Costs',
+    '통관비 기입요망':'Clearance Cost Required','수출비용 기입요망':'Export Cost Required','월별 KPI 대시보드':'Monthly KPI Dashboard',
+    '환율 변경 이력 · 예상 환차손익':'FX History & Estimated Gain/Loss','예상환차손 · 환율 일괄변경':'FX Estimate / Bulk Rate Change',
+    '임원 2명 지정':'Assign Two Executives','임원 사용자 2명 지정':'Assign Two Executive Users','임원 1 이름':'Executive 1 Name','임원 1 이메일':'Executive 1 Email',
+    '임원 2 이름':'Executive 2 Name','임원 2 이메일':'Executive 2 Email','임원 2명 저장':'Save Executives','총재고 환산액':'Total Inventory Value',
+    '미판매 예상재고액':'Estimated Unsold Inventory Value','판매계획완료 재고액':'Sales-planned Inventory Value','미판매 예상재고':'Estimated Unsold Inventory',
+    '판매계획완료 재고':'Sales-planned Inventory','상세 재고':'Inventory Details','변경 전 금액':'Previous Amount','변경 후 금액':'Updated Amount',
+    '변경 전 기준일':'Previous Base Date','변경일':'Changed At','변경자':'Changed By','환차익 / 환차손':'FX Gain / Loss','환율 변경 이력':'FX History',
+    '적용 범위':'Scope','적용 환율':'Applied Exchange Rate','예상환율 일괄 적용':'Apply Estimated Rate to All','검색 결과 합계':'Search Result Total'
   };
-  var reverse={};Object.keys(translations).forEach(function(k){reverse[translations[k]]=k});
+  var reverse={};Object.keys(translations).forEach(function(k){if(!reverse[translations[k]])reverse[translations[k]]=k});
+  var originalText=new WeakMap(),originalAttrs=new WeakMap();
+  var phraseKeys=Object.keys(translations).filter(function(k){return k.length>=3}).sort(function(a,b){return b.length-a.length});
+  function translatedString(raw){
+    var trim=String(raw==null?'':raw).trim();if(!trim)return raw;
+    if(language==='ko')return reverse[trim]?String(raw).replace(trim,reverse[trim]):raw;
+    if(translations[trim])return String(raw).replace(trim,translations[trim]);
+    var out=String(raw);phraseKeys.forEach(function(k){if(out.indexOf(k)>=0)out=out.split(k).join(translations[k])});
+    out=out.replace(/(\d+(?:\.\d+)?)\s*건/g,'$1 items').replace(/(\d+(?:\.\d+)?)\s*개/g,'$1 pcs');
+    return out;
+  }
   function translateTextNode(node){
-    var raw=node.nodeValue,trim=raw.trim(),map=language==='en'?translations:reverse;
-    if(!trim||!map[trim])return;
-    node.nodeValue=raw.replace(trim,map[trim]);
+    var raw=node.nodeValue;if(!String(raw||'').trim())return;
+    if(language==='ko'){
+      if(originalText.has(node)){node.nodeValue=originalText.get(node);originalText.delete(node);return}
+      node.nodeValue=translatedString(raw);return;
+    }
+    if(!originalText.has(node)&&/[가-힣]/.test(raw))originalText.set(node,raw);
+    node.nodeValue=translatedString(raw);
+  }
+  function translateElementAttributes(el){
+    var attrs=['placeholder','title','aria-label'];
+    if(language==='ko'){
+      var saved=originalAttrs.get(el);if(saved){attrs.forEach(function(a){if(Object.prototype.hasOwnProperty.call(saved,a)){if(saved[a]==null)el.removeAttribute(a);else el.setAttribute(a,saved[a])}});originalAttrs.delete(el)}
+      return;
+    }
+    var before={},changed=false;attrs.forEach(function(a){if(!el.hasAttribute(a))return;var value=el.getAttribute(a),next=translatedString(value);if(next!==value){before[a]=value;el.setAttribute(a,next);changed=true}});if(changed&&!originalAttrs.has(el))originalAttrs.set(el,before);
   }
   function translateDOM(){
     doc.documentElement.lang=language==='en'?'en':'ko';
-    var walker=doc.createTreeWalker(doc.body||doc.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentElement;if(!p||/^(SCRIPT|STYLE|TEXTAREA|INPUT|OPTION)$/i.test(p.tagName)||p.closest('#mesLanguageToggle'))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}}),nodes=[];
+    var walker=doc.createTreeWalker(doc.body||doc.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentElement;if(!p||/^(SCRIPT|STYLE|TEXTAREA|INPUT)$/i.test(p.tagName)||p.closest('#mesLanguageToggle'))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}}),nodes=[];
     while(walker.nextNode())nodes.push(walker.currentNode);nodes.forEach(translateTextNode);
+    Array.from(doc.querySelectorAll('[placeholder],[title],[aria-label]')).forEach(translateElementAttributes);
     var toggle=doc.getElementById('mesLanguageToggle');if(toggle)toggle.textContent=language==='en'?'한국어':'English';
   }
   async function saveLanguage(){
@@ -133,6 +237,6 @@
 @media(max-width:760px){.manager-banner{align-items:flex-start;flex-direction:column}.manager-head{align-items:stretch}.manager-capacity-table{max-height:55vh}.manager-estimate{grid-template-columns:repeat(2,minmax(0,1fr))}.manager-assignment-list article{align-items:stretch;flex-direction:column}.mes-language-toggle{min-height:44px}}';doc.head.appendChild(style)}
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else decorate();
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,version:'20260818-1'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,version:'20260818-2'};
 })();
 
