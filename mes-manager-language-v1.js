@@ -135,7 +135,17 @@
     if(language==='ko')return reverse[trim]?String(raw).replace(trim,reverse[trim]):raw;
     if(translations[trim])return String(raw).replace(trim,translations[trim]);
     var out=String(raw);phraseKeys.forEach(function(k){if(out.indexOf(k)>=0)out=out.split(k).join(translations[k])});
-    out=out.replace(/(\d+(?:\.\d+)?)\s*건/g,'$1 items').replace(/(\d+(?:\.\d+)?)\s*개/g,'$1 pcs');
+    out=out
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*건/g,'$1 items')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*개\s*포장/g,'$1 packages')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*개/g,'$1 pcs')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*명/g,'$1 users')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*장/g,'$1 photos')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*회/g,'$1 times')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*일/g,'$1 days')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*kg\s*계획/g,'$1 kg planned')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*kg\s*완료/g,'$1 kg completed')
+      .replace(/(\d[\d,.]*(?:\.\d+)?)\s*kg\s*남음/g,'$1 kg remaining');
     return out;
   }
   function translateTextNode(node){
@@ -181,7 +191,20 @@
     button.dataset.language=nextLanguage;
     button.dataset.href=nextHref;
     button.setAttribute('aria-label',language==='en'?'한국어로 전환':'Switch to English');
-    button.setAttribute('onclick',"event.preventDefault();event.stopPropagation();try{localStorage.setItem('"+LANG_KEY+"',this.dataset.language);localStorage.setItem('"+LANG_KEY+":'+((window.__mesRuntime&&window.__mesRuntime.currentUserName&&window.__mesRuntime.currentUserName())||'사용자'),this.dataset.language)}catch(e){}window.location.href=this.dataset.href;return false;");
+    button.removeAttribute('onclick');
+    if(button.__mesLanguageHandler)button.removeEventListener('click',button.__mesLanguageHandler,true);
+    button.__mesLanguageHandler=function(event){
+      event.preventDefault();event.stopPropagation();
+      language=button.dataset.language==='en'?'en':'ko';
+      languageLocalChoice=true;languageHydrated=true;
+      try{localStorage.setItem(LANG_KEY,language);localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }
+      translateDOM();injectLanguageButton();
+      setTimeout(function(){translateDOM();injectLanguageButton()},0);
+      setTimeout(function(){translateDOM();injectLanguageButton()},160);
+      Promise.resolve(saveLanguage()).catch(function(){});
+    };
+    button.__mesLanguageBound=true;
+    button.addEventListener('click',button.__mesLanguageHandler,true);
   }
   function languageHref(){
     try{var nextUrl=new URL(root.location.href);nextUrl.searchParams.set('meslang',language==='en'?'ko':'en');return nextUrl.href}catch(_){return language==='en'?'?meslang=ko':'?meslang=en'}
@@ -285,7 +308,7 @@
     }
   },false);
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-9'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-11'};
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
