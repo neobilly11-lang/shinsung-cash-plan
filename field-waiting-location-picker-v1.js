@@ -197,3 +197,14 @@
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
 })(window);
+
+/* Settlement PDF template loader (domestic / overseas) */
+(function(){
+  function add(src,id,done){
+    var old=document.getElementById(id)||document.querySelector('script[src*="'+src.split('?')[0]+'"]');
+    if(old){if(done){if(src.indexOf('pdf-lib')<0||window.PDFLib)done();else old.addEventListener('load',done,{once:true});}return;}
+    var s=document.createElement('script');s.id=id;s.src=src;s.defer=true;if(done)s.onload=done;document.head.appendChild(s);
+  }
+  function settlement(){add('settlement-pdf-shared-v1.js?v=20260818-settlement-template-1','settlement-pdf-shared-v1');}
+  if(window.PDFLib)settlement();else add('pdf-lib.min.js?v=20260818-settlement-template-1','settlement-pdf-lib',settlement);
+})();
