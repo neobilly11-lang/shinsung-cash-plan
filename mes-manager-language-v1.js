@@ -176,27 +176,12 @@
   };
   function bindLanguageButton(button){
     if(!button)return;
-    var directNavigate=function(event){
-      if(event&&typeof event.button==='number'&&event.button!==0)return;
-      if(event){event.preventDefault();event.stopPropagation()}
-      var nextLanguage=language==='en'?'ko':'en';
-      try{localStorage.setItem(LANG_KEY,nextLanguage);localStorage.setItem(LANG_KEY+':'+userKey(),nextLanguage)}catch(_){ }
-      root.location.href=button.href||languageHref();
-      return false;
-    };
-    button.href=languageHref();
-    button.setAttribute('role','button');
+    var nextLanguage=language==='en'?'ko':'en',nextHref=languageHref();
+    button.type='button';
+    button.dataset.language=nextLanguage;
+    button.dataset.href=nextHref;
     button.setAttribute('aria-label',language==='en'?'한국어로 전환':'Switch to English');
-    button.onpointerdown=directNavigate;
-    button.onmousedown=function(event){if(!root.PointerEvent)return directNavigate(event)};
-    button.ontouchstart=function(event){if(!root.PointerEvent)return directNavigate(event)};
-    button.onkeydown=function(event){if(event.key==='Enter'||event.key===' '){return directNavigate(event)}};
-    button.onclick=directNavigate;
-    if(button.__mesLanguageBound)return;
-    button.__mesLanguageBound=true;
-    button.addEventListener('click',function(event){
-      event.preventDefault();event.stopImmediatePropagation();directNavigate(event);
-    },true);
+    button.setAttribute('onclick',"event.preventDefault();event.stopPropagation();try{localStorage.setItem('"+LANG_KEY+"',this.dataset.language);localStorage.setItem('"+LANG_KEY+":'+((window.__mesRuntime&&window.__mesRuntime.currentUserName&&window.__mesRuntime.currentUserName())||'사용자'),this.dataset.language)}catch(e){}window.location.href=this.dataset.href;return false;");
   }
   function languageHref(){
     try{var nextUrl=new URL(root.location.href);nextUrl.searchParams.set('meslang',language==='en'?'ko':'en');return nextUrl.href}catch(_){return language==='en'?'?meslang=ko':'?meslang=en'}
@@ -204,16 +189,16 @@
   function injectLanguageButton(){
     var existing=doc.getElementById('mesLanguageToggle');
     if(existing){
-      if(existing.tagName!=='A'){
-        var replacement=doc.createElement('a');replacement.id=existing.id;replacement.className=existing.className;existing.replaceWith(replacement);existing=replacement;
+      if(existing.tagName!=='BUTTON'){
+        var replacement=doc.createElement('button');replacement.id=existing.id;replacement.className='mes-language-toggle';existing.replaceWith(replacement);existing=replacement;
       }
-      existing.href=languageHref();
+      existing.className='mes-language-toggle';
       existing.textContent=language==='en'?'한국어':'English';
       bindLanguageButton(existing);
       return;
     }
     var target=doc.querySelector('.top-actions,.topbar .actions,.topbar')||doc.body;
-    var button=doc.createElement('a');button.id='mesLanguageToggle';button.className='btn mes-language-toggle';button.href=languageHref();button.textContent=language==='en'?'한국어':'English';bindLanguageButton(button);target.insertBefore(button,target.firstChild||null);
+    var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='mes-language-toggle';button.textContent=language==='en'?'한국어':'English';bindLanguageButton(button);target.insertBefore(button,target.firstChild||null);
   }
   function hydrateLanguage(){if(!languageHydrated){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(!languageLocalChoice&&prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}languageHydrated=true}injectLanguageButton();translateDOM()}
 
@@ -279,7 +264,7 @@
   function decorateProduction(){if(runtime().getView&&runtime().getView()!=='production')return;var actions=doc.querySelector('#content .dashboard-head .actions');if(actions&&!actions.querySelector('.production-manager-button')){var b=doc.createElement('button');b.className='btn primary production-manager-button';b.textContent=language==='en'?'Production Management':'생산관리';b.onclick=root.openProductionManager;actions.insertBefore(b,actions.firstChild||null)}}
   function decorate(){hydrateLanguage();decorateProduction()}
   function injectStyles(){if(doc.getElementById('mesManagerLanguageV1Style'))return;var style=doc.createElement('style');style.id='mesManagerLanguageV1Style';style.textContent='\
-.mes-language-toggle{white-space:nowrap;background:#fff;color:#0b5660;border:1px solid #9fd2d3}\
+.mes-language-toggle{white-space:nowrap;background:#fff;color:#0b5660;border:1px solid #9fd2d3;border-radius:10px;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer;min-height:42px}\
 .manager-banner{display:flex;gap:12px;align-items:center;padding:18px 20px;border-radius:18px;background:linear-gradient(120deg,#0c355a,#07989c);color:#fff;margin-bottom:18px}.manager-banner b{font-size:1.2rem}.manager-banner span{opacity:.9}\
 .manager-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0 10px}.manager-head h3{margin:0}\
 .manager-capacity-table th,.manager-capacity-table td{text-align:center;min-width:100px}.manager-capacity-table th:first-child{position:sticky;left:0;z-index:2;background:#eef5f8}.manager-capacity-table small,.manager-assignment-list small{display:block;margin-top:4px;color:#607080;font-weight:500}\
@@ -300,7 +285,7 @@
     }
   },false);
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-8'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-9'};
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
