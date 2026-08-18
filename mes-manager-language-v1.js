@@ -175,13 +175,27 @@
     Promise.resolve(saveLanguage()).catch(function(){});
   };
   function bindLanguageButton(button){
-    if(!button||button.__mesLanguageBound)return;
-    button.__mesLanguageBound=true;
-    button.addEventListener('click',function(event){
-      event.preventDefault();event.stopImmediatePropagation();
+    if(!button)return;
+    var directNavigate=function(event){
+      if(event&&typeof event.button==='number'&&event.button!==0)return;
+      if(event){event.preventDefault();event.stopPropagation()}
       var nextLanguage=language==='en'?'ko':'en';
       try{localStorage.setItem(LANG_KEY,nextLanguage);localStorage.setItem(LANG_KEY+':'+userKey(),nextLanguage)}catch(_){ }
-      root.location.assign(languageHref());
+      root.location.href=button.href||languageHref();
+      return false;
+    };
+    button.href=languageHref();
+    button.setAttribute('role','button');
+    button.setAttribute('aria-label',language==='en'?'한국어로 전환':'Switch to English');
+    button.onpointerdown=directNavigate;
+    button.onmousedown=function(event){if(!root.PointerEvent)return directNavigate(event)};
+    button.ontouchstart=function(event){if(!root.PointerEvent)return directNavigate(event)};
+    button.onkeydown=function(event){if(event.key==='Enter'||event.key===' '){return directNavigate(event)}};
+    button.onclick=directNavigate;
+    if(button.__mesLanguageBound)return;
+    button.__mesLanguageBound=true;
+    button.addEventListener('click',function(event){
+      event.preventDefault();event.stopImmediatePropagation();directNavigate(event);
     },true);
   }
   function languageHref(){
@@ -286,7 +300,7 @@
     }
   },false);
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-7'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-8'};
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
