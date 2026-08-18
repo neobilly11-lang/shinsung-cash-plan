@@ -187,20 +187,17 @@
   function bindLanguageButton(button){
     if(!button)return;
     var nextLanguage=language==='en'?'ko':'en',nextHref=languageHref();
-    button.type='button';
     button.dataset.language=nextLanguage;
     button.dataset.href=nextHref;
+    button.setAttribute('href',nextHref);
     button.setAttribute('aria-label',language==='en'?'한국어로 전환':'Switch to English');
     button.removeAttribute('onclick');
     if(button.__mesLanguageHandler)button.removeEventListener('click',button.__mesLanguageHandler,true);
     button.__mesLanguageHandler=function(event){
-      event.preventDefault();event.stopPropagation();
       language=button.dataset.language==='en'?'en':'ko';
       languageLocalChoice=true;languageHydrated=true;
       try{localStorage.setItem(LANG_KEY,language);localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }
-      translateDOM();injectLanguageButton();
-      setTimeout(function(){translateDOM();injectLanguageButton()},0);
-      setTimeout(function(){translateDOM();injectLanguageButton()},160);
+      translateDOM();
       Promise.resolve(saveLanguage()).catch(function(){});
     };
     button.__mesLanguageBound=true;
@@ -212,8 +209,8 @@
   function injectLanguageButton(){
     var existing=doc.getElementById('mesLanguageToggle');
     if(existing){
-      if(existing.tagName!=='BUTTON'){
-        var replacement=doc.createElement('button');replacement.id=existing.id;replacement.className='mes-language-toggle';existing.replaceWith(replacement);existing=replacement;
+      if(existing.tagName!=='A'){
+        var replacement=doc.createElement('a');replacement.id=existing.id;replacement.className='mes-language-toggle';existing.replaceWith(replacement);existing=replacement;
       }
       existing.className='mes-language-toggle';
       existing.textContent=language==='en'?'한국어':'English';
@@ -221,7 +218,7 @@
       return;
     }
     var target=doc.querySelector('.top-actions,.topbar .actions,.topbar')||doc.body;
-    var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='mes-language-toggle';button.textContent=language==='en'?'한국어':'English';bindLanguageButton(button);target.insertBefore(button,target.firstChild||null);
+    var button=doc.createElement('a');button.id='mesLanguageToggle';button.className='mes-language-toggle';button.textContent=language==='en'?'한국어':'English';bindLanguageButton(button);target.insertBefore(button,target.firstChild||null);
   }
   function hydrateLanguage(){if(!languageHydrated){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(!languageLocalChoice&&prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}languageHydrated=true}injectLanguageButton();translateDOM()}
 
@@ -308,7 +305,7 @@
     }
   },false);
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-11'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-12'};
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
