@@ -70,7 +70,7 @@ function purchaseContractWeight(row){row=row||{};const candidates=[row.purchaseC
 function purchaseContractGrade(row){row=row||{};return row.purchaseContractGrade||row.contractGrade||row.grade||row.mainGrade||row.itemName||''}
 function packageUsed(no){return safe(state.splits).filter(x=>x.packageNo===no&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)+safe(state.losses).filter(x=>x.packageNo===no&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
 function bagCode(b){return b.completionNo||b.bagNo||b.code||b.id}function bagWeight(b){return num(b.netWeight||b.nw||b.weight)}function activeBags(){return safe(state.bags).filter(b=>!['DEPLETED','SHIPPED','CANCELLED'].includes(b.status)&&bagWeight(b)>0)}
-function poRows(){return[...groupBy(safe(state.pos).filter(p=>p.status!=='CANCELLED'&&!p.inboundRequestSuperseded),p=>p.poNo||'미지정')].map(([poNo,rows])=>{const contractWeight=rows.reduce((s,x)=>s+purchaseContractWeight(x),0),isDomestic=rows.some(x=>x.domesticReceipt===true||!!x.domesticReceiptId);return{id:poNo,poNo,rows,company:rows[0]?.company||'',grade:[...new Set(rows.map(purchaseContractGrade).filter(Boolean))].join(' / '),packages:rows.length,gw:contractWeight,nw:contractWeight,expected:isDomestic?'':(rows[0]?.expectedArrivalDate||rows[0]?.arrivalDate||rows[0]?.createdAt),status:rows.every(x=>x.receivedAt)?'입고완료':rows.some(x=>x.receivedAt)?'부분입고':rows[0]?.purchaseStatus||'입고대기',purchaseOrigin:isDomestic?'DOMESTIC':'OVERSEAS',currency:rows[0]?.currency||(isDomestic?'KRW':'USD'),rate:num(rows[0]?.exchangeRate)||1}})}
+function poRows(){return[...groupBy(safe(state.pos).filter(p=>p.status!=='CANCELLED'&&!p.inboundRequestSuperseded),p=>p.poNo||'미지정')].map(([poNo,rows])=>{const contractWeight=rows.reduce((s,x)=>s+purchaseContractWeight(x),0),isDomestic=rows.some(x=>x.domesticReceipt===true||!!x.domesticReceiptId);return{id:poNo,poNo,rows,company:rows[0]?.company||'',grade:[...new Set(rows.map(purchaseContractGrade).filter(Boolean))].join(' / '),packages:rows.length,gw:contractWeight,nw:contractWeight,expected:rows[0]?.expectedArrivalDate||rows[0]?.arrivalDate||rows[0]?.createdAt,status:rows.every(x=>x.receivedAt)?'입고완료':rows.some(x=>x.receivedAt)?'부분입고':rows[0]?.purchaseStatus||'입고대기',purchaseOrigin:isDomestic?'DOMESTIC':'OVERSEAS',currency:rows[0]?.currency||(isDomestic?'KRW':'USD'),rate:num(rows[0]?.exchangeRate)||1}})}
 function salesRows(){return safe(state.salesOrders).filter(x=>x.status!=='CANCELLED').map(x=>({id:x.id,soNo:x.soNo,customer:x.customer,grade:x.grade,weight:num(x.weight),shipDate:x.shipDate,status:x.status||'WAITING',type:x.packingListType==='OVERSEAS'?'수출':'국내',currency:x.currency||((x.packingListType==='OVERSEAS')?'USD':'KRW'),amount:num(x.amount||x.salesAmount)}))}
 function inboundRows(){return safe(state.pos).filter(x=>x.status!=='CANCELLED').map(x=>({id:x.id,packageNo:x.packageNo,poNo:x.poNo,company:x.company,grade:x.grade,planWeight:num(x.weight),receivedWeight:num(x.netWeight||x.weight),receivedAt:x.receivedAt,status:x.receiptStatus||(!x.receivedAt?'WAITING':'RECEIVED'),inspection:x.inspectionStatus||'WAITING',memo:x.receiptMemo||''}))}
 function productionRows(){const splitByPackage=groupBy(safe(state.splits).filter(x=>x.status!=='CANCELLED'),'packageNo');return inboundRows().map(p=>{const splits=splitByPackage.get(p.packageNo)||[],confirmed=splits.reduce((s,x)=>s+num(x.weight),0),loss=safe(state.losses).filter(x=>x.packageNo===p.packageNo&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0),wait=safe(state.workWaits).filter(x=>x.packageNo===p.packageNo&&x.status==='WAITING').reduce((s,x)=>s+num(x.weight),0);return{...p,confirmed,loss,wait,remain:Math.max(0,p.planWeight-confirmed-loss),finalGrade:[...new Set(splits.map(x=>[x.productType,x.mainGrade,x.subGrade,x.detailGrade].filter(Boolean).join(' · ')))].join(' / ')}})}
@@ -80,7 +80,7 @@ function settlementRows(){return poRows().map(po=>{const items=productionRows().
 function dashboard(){const pos=inboundRows(),prod=productionRows(),inv=inventoryRows(),sales=salesRows();return`<div class="dashboard-head"><div><h1>신성금속 통합 생산현황</h1><p>현장관리와 동일한 공용자료를 실시간으로 집계합니다.</p></div><div class="actions"><button class="btn" onclick="loadState()">↻ 지금 동기화</button><button class="btn primary" onclick="openView('daily')">오늘 작업일지</button></div></div><div class="kpis">${kpi('입고대기',pos.filter(x=>!x.receivedAt).length+'건',fmt(pos.filter(x=>!x.receivedAt).reduce((s,x)=>s+x.planWeight,0))+' kg')}${kpi('생산대기',fmt(prod.reduce((s,x)=>s+x.remain,0))+' kg','검수·작업 미완료')}${kpi('완료재고',fmt(inv.reduce((s,x)=>s+x.nw,0))+' kg',inv.length+'개 포장')}${kpi('출하대기',sales.filter(x=>!['FINAL','SHIPPED','DONE'].includes(x.status)).length+'건',fmt(sales.reduce((s,x)=>s+x.weight,0))+' kg 계획')}${kpi('오늘 작업',todayAudits().length+'건',currentUserName())}</div><div class="panel"><div style="padding:18px"><h2 style="margin:0 0 15px">공정별 중량</h2><div class="kpis">${kpi('입고대기',fmt(prod.reduce((s,x)=>s+x.remain,0))+' kg','원재고')}${kpi('작업대기',fmt(prod.reduce((s,x)=>s+x.wait,0))+' kg','쇼트·산처리·절단')}${kpi('완료포장',fmt(inv.reduce((s,x)=>s+x.nw,0))+' kg','출하 가능')}${kpi('출하완료',fmt(shipmentRows().reduce((s,x)=>s+x.shippedWeight,0))+' kg','누적')}${kpi('로스',fmt(prod.reduce((s,x)=>s+x.loss,0))+' kg','누적 처리')}</div></div></div>`}
 function kpi(label,value,note){return`<div class="kpi"><small>${esc(label)}</small><strong>${esc(value)}</strong><span>${esc(note)}</span></div>`}
 const schemas={
-purchase:{title:'구매계획',rows:poRows,cols:[['구분',r=>r.purchaseOrigin==='DOMESTIC'?'국내':'해외'],['구매번호',r=>r.poNo,'link'],['입항예정일',r=>r.purchaseOrigin==='DOMESTIC'?'':date(r.expected)],['공급사',r=>r.company,'left'],['대표강종',r=>r.grade,'left'],['패키지',r=>r.packages],['GW(kg)',r=>fmt(r.gw)],['NW(kg)',r=>fmt(r.nw)],['통화',r=>r.currency],['환율',r=>fmt(r.rate)],['구매상태',r=>status(r.status)]],edit:'purchase'},
+purchase:{title:'구매계획',rows:poRows,cols:[['구분',r=>r.purchaseOrigin==='DOMESTIC'?'국내':'해외'],['구매번호',r=>r.poNo,'link'],['입항예정일',r=>date(r.expected)],['공급사',r=>r.company,'left'],['대표강종',r=>r.grade,'left'],['패키지',r=>r.packages],['GW(kg)',r=>fmt(r.gw)],['NW(kg)',r=>fmt(r.nw)],['통화',r=>r.currency],['환율',r=>fmt(r.rate)],['구매상태',r=>status(r.status)]],edit:'purchase'},
  sales:{title:'판매계획',rows:salesRows,cols:[['판매구분',r=>r.type],['판매번호',r=>r.soNo,'link'],['출하예정일',r=>date(r.shipDate)],['고객사',r=>r.customer,'left'],['대표강종',r=>r.grade,'left'],['NW(kg)',r=>fmt(r.weight)],['통화',r=>r.currency],['판매금액',r=>fmt(r.amount)],['상태',r=>status(r.status)]],edit:'sales'},
  inbound:{title:'입고현황',rows:inboundRows,cols:[['구매번호',r=>r.poNo],['사내입고번호',r=>r.packageNo,'link'],['공급사',r=>r.company,'left'],['강종',r=>r.grade,'left'],['계획NW(kg)',r=>fmt(r.planWeight)],['입고NW(kg)',r=>fmt(r.receivedWeight)],['입고일',r=>date(r.receivedAt)],['입고상태',r=>status(r.status)],['검수상태',r=>status(r.inspection)]],edit:'inbound'},
  production:{title:'생산현황',rows:productionRows,cols:[['구매번호',r=>r.poNo],['사내입고번호',r=>r.packageNo,'link'],['공급사',r=>r.company,'left'],['거래처강종',r=>r.grade,'left'],['최종강종',r=>r.finalGrade||'-','left'],['입고NW',r=>fmt(r.planWeight)],['검수확정',r=>fmt(r.confirmed)],['작업대기',r=>fmt(r.wait)],['로스',r=>fmt(r.loss)],['미처리',r=>fmt(r.remain)],['진행',r=>status(r.remain<=.001?'완료':'진행중')]],edit:null},
@@ -117,9 +117,6 @@ const saveEditBase=saveEdit;saveEdit=async function(id,type,form){if(type!=='dai
 function exportView(){const schema=schemas[currentView];if(!schema)return;const rows=filtered(schema.rows()),headers=schema.cols.map(x=>x[0]),plain=html=>{const d=document.createElement('div');d.innerHTML=html;return d.textContent};const body=[headers,...rows.map(r=>schema.cols.map(c=>plain(String(c[1](r)))))];const html=`<html><head><meta charset="utf-8"></head><body><table border="1"><tr>${headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>${body.slice(1).map(row=>`<tr>${row.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>
 
 
-
-<script src="settlement-pdf-shared-v1.js?v=20260818-settlement-template-1"></script>
-<script src="mes-manager-language-v1.js?v=20260818-manager-language-1"></script>
 </body></html>`,blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`신성금속_MES_${schema.title}_${nowDate()}.xls`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 buildNav();currentView=location.hash.slice(1)||'dashboard';openView(currentView);setTimeout(initAuth,0);setInterval(realtimePoll,2500);addEventListener('focus',realtimePoll);addEventListener('online',realtimePoll);
 </script>
@@ -317,7 +314,6 @@ window.filterControls=function(){
   var inventorySummary=currentView==="inventory";
   return "<div class='mes-search-note'>검색어 입력 중에는 화면이 바뀌지 않습니다. 조건 입력 후 반드시 <b>조회</b>를 눌러 주세요. 기본 목록은 최근 저장 순입니다.</div>"
     +"<div class='control'><label>통합 검색</label><input value='"+esc(draft.q||"")+"' placeholder='번호·회사·강종' oninput=\"mesDraftSet('q',this.value)\" onkeydown='mesDraftKey(event)'></div>"
-    +(currentView==="purchase"?"<div class='control'><label>국내·해외</label><select onchange=\"mesDraftSet('purchaseOrigin',this.value)\"><option value=''>전체</option><option value='DOMESTIC' "+(draft.purchaseOrigin==="DOMESTIC"?"selected":"")+">국내</option><option value='OVERSEAS' "+(draft.purchaseOrigin==="OVERSEAS"?"selected":"")+">해외</option></select></div>":"")
     +(inventoryView?"<div class='control'><label>장소 검색</label><input value='"+esc(draft.location||"")+"' placeholder='창고·구역·미지정' oninput=\"mesDraftSet('location',this.value)\" onkeydown='mesDraftKey(event)'></div>":"")
     +(inventorySummary?"<div class='control'><label>상태별 선택</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="입항예정"?"selected":"")+">입항예정</option><option "+(draft.status==="미검수"?"selected":"")+">미검수</option><option "+(draft.status==="작업대기"?"selected":"")+">작업대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option><option "+(draft.status==="유사강종"?"selected":"")+">유사강종</option></select></div>":(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":""))
     +(inventorySummary?"<div class='control'><label>재고 표기방식</label><select onchange=\"mesDraftSet('inventoryMode',this.value)\"><option value='original' "+(!draft.inventoryMode||draft.inventoryMode==="original"?"selected":"")+">원문유지</option><option value='grouped' "+(draft.inventoryMode==="grouped"?"selected":"")+">묶음표기</option></select></div>":"")
@@ -362,7 +358,6 @@ window.filtered=function(rows){
   });
   var q=String(filters.q||"").trim().toLowerCase();
   if(q) out=out.filter(function(row){return mesSearchText(row).includes(q);});
-  if(currentView==="purchase"&&filters.purchaseOrigin) out=out.filter(function(row){return row.purchaseOrigin===filters.purchaseOrigin;});
   var location=String(filters.location||"").trim().toLowerCase();
   if(location) out=out.filter(function(row){return String(row.location||row.locations||"").toLowerCase().includes(location);});
   if(currentView==="inventory"){
@@ -1176,17 +1171,17 @@ document.documentElement.dataset.mesShippingRequestV2="loaded";
 <script src="mes-inbound-request-fix-v1.js?v=20260814-1"></script>
 <script src="party-name-list-shortener-v1.js?v=20260813-1"></script>
 <script src="mes-list-grade-shortener-v1.js?v=20260813-3"></script>
-<script src="mes-schedule-inbound-persistence-v1.js?v=20260817-domestic-arrival-exclusion-1"></script>
-<script src="mes-plan-stage-flow-v1.js?v=20260817-domestic-arrival-exclusion-1"></script>
+<script src="mes-schedule-inbound-persistence-v1.js?v=20260815-schedule-order-1"></script>
+<script src="mes-plan-stage-flow-v1.js?v=20260814-7"></script>
 <script src="mes-ops-upgrade-v1.js?v=20260815-pc-share-4"></script>
 <script src="mes-shipping-voyage-dates-v1.js?v=20260814-3"></script>
 <script src="mes-sales-detail-fix-v1.js?v=20260816-shipments-payment-1"></script>
 <script src="mes-plan-cascade-delete-v1.js?v=20260814-1"></script>
 <script src="mes-ui-scale-schedule-pref-v1.js?v=20260815-schedule-order-1"></script>
-<script src="mes-workflow-suite-v1.js?v=20260817-order-amount-1"></script>
+<script src="mes-workflow-suite-v1.js?v=20260815-pc-share-5"></script>
 <script src="mes-departure-label-fix-v1.js?v=20260815-1"></script>
 <script src="mes-sales-balance-v1.js?v=20260815-1"></script>
-<script src="mes-so-grade-picker-v1.js?v=20260817-order-amount-1"></script>
+<script src="mes-so-grade-picker-v1.js?v=20260814-2"></script>
 <script src="mes-access-recovery-v1.js?v=20260816-access-2"></script>
 <script>
 window.__mesRuntime={
@@ -1198,11 +1193,13 @@ window.__mesRuntime={
 </script>
 <script src="mes-carr260401-source-fix-v1.js?v=20260816-silent-5"></script>
 <script src="mes-inventory-family-stock-v2.js?v=20260816-pipeline-inventory-14"></script>
-<script src=""></script>
+<script src="mes-executive-dashboard-v1.js?v=20260816-fx-history-1"></script>
 <script src="mes-kakao-stage-alert-v1.js?v=20260816-9"></script>
 <script src="mes-order-pdf-templates-v1.js?v=20260816-order-download-2"></script>
 <script src="pdf-lib.min.js?v=20260816-order-download-2"></script>
 <script src="mes-order-pdf-download-v1.js?v=20260816-order-download-2"></script>
-<script src="mes-executive-dashboard-v1.js?v=20260817-kpi-stage-1"></script>
+<script src="settlement-pdf-shared-v1.js?v=20260818-settlement-template-1"></script>
+<script src="mes-manager-language-v1.js?v=20260818-manager-language-1"></script>
 </body>
 </html>
+
