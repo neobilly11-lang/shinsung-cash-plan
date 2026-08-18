@@ -141,7 +141,7 @@ function mesShippedWeight(bagId){return safe(state.shipmentAllocations).filter(x
 function mesReturnedWeight(bagId){return safe(state.returnReceipts).filter(x=>x.bagId===bagId&&x.status!=='CANCELLED').reduce((s,x)=>s+num(x.weight),0)}
 function mesBagStock(bag){const hasLedger=safe(state.inputs).some(x=>(x.bagId===bag.id||x.sourceBagId===bag.id)&&x.status!=='CANCELLED')||safe(state.shipmentAllocations).some(x=>x.bagId===bag.id&&x.status!=='CANCELLED')||safe(state.returnReceipts).some(x=>x.bagId===bag.id&&x.status!=='CANCELLED');const ledger=Math.max(0,mesInputWeight(bag.id)-mesMovedWeight(bag.id)-mesShippedWeight(bag.id)+mesReturnedWeight(bag.id));return hasLedger?ledger:num(bag.netWeight||bag.nw||bag.weight||bag.target)}
 activeBags=function activeMesBags(){return safe(state.bags).filter(b=>!['DEPLETED','SHIPPED','CANCELLED'].includes(String(b.status||'').toUpperCase())&&mesBagStock(b)>.0001)};
-inventoryRows=function mesInventoryRows(){return activeBags().map(b=>({id:b.id,code:bagCode(b),productType:b.productType||'',mainGrade:b.mainGrade||b.grade||'',subGrade:b.subGrade||'',detailGrade:b.detailGrade||'',nw:mesBagStock(b),packing:num(b.packagingWeight||b.tareWeight),gw:mesBagStock(b)+num(b.packagingWeight||b.tareWeight),location:b.location||'미지정',status:b.status||'ACTIVE',packageNo:b.packageNo||b.sourcePackageNo||'',bag:b}))};
+inventoryRows=function mesInventoryRows(){return activeBags().map(b=>({...b,id:b.id,code:bagCode(b),productType:b.productType||'',mainGrade:b.mainGrade||b.grade||'',subGrade:b.subGrade||'',detailGrade:b.detailGrade||'',nw:mesBagStock(b),packing:num(b.packagingWeight||b.tareWeight),gw:mesBagStock(b)+num(b.packagingWeight||b.tareWeight),location:b.location||'미지정',status:b.status||'ACTIVE',packageNo:b.packageNo||b.sourcePackageNo||'',bag:b}))};
 function mesSalesRows(){const groups=groupBy(safe(state.salesOrders).filter(x=>x.status!=='CANCELLED'),x=>x.soNo||x.id);return[...groups].map(([soNo,items])=>({id:soNo,soNo,items,customer:items[0]?.customer||'',grade:[...new Set(items.map(x=>x.grade||[x.productType,x.mainGrade,x.subGrade,x.detailGrade].filter(Boolean).join(' · ')).filter(Boolean))].join(' / '),weight:items.reduce((s,x)=>s+num(x.weight),0),shipDate:items[0]?.shipDate,status:items.every(x=>['FINAL','SHIPPED','DONE'].includes(x.status))?items[0]?.status||'FINAL':items[0]?.status||'WAITING',type:items[0]?.packingListType==='OVERSEAS'?'수출':'국내',currency:items[0]?.currency||(items[0]?.packingListType==='OVERSEAS'?'USD':'KRW'),amount:items.reduce((s,x)=>s+num(x.amount||x.salesAmount||num(x.weight)*num(x.unitPrice)),0)}))}
 salesRows=mesSalesRows;
 shipmentRows=function mesShipmentRows(){return salesRows().map(order=>{const related=safe(state.shipments).filter(x=>x.soNo===order.soNo||order.items.some(item=>x.salesOrderId===item.id)),alloc=safe(state.shipmentAllocations).filter(a=>related.some(x=>x.id===a.shipmentId)),lists=safe(state.packingLists).filter(p=>p.soNo===order.soNo||order.items.some(item=>p.salesOrderId===item.id)),last=related.slice().sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)))[0]||{};return{...order,shipmentId:last.id||'',shipments:related,allocations:alloc,packingLists:lists,shippedWeight:alloc.length?alloc.reduce((s,x)=>s+num(x.weight),0):related.reduce((s,x)=>s+num(x.weight||x.shippedWeight),0),shippedAt:last.shippedAt||last.shippingCompletedAt,status:last.status||order.status,packingList:lists.map(x=>x.packingListNo).filter(Boolean).join(' / ')}})};
@@ -316,6 +316,7 @@ window.filterControls=function(){
     +"<div class='control'><label>통합 검색</label><input value='"+esc(draft.q||"")+"' placeholder='번호·회사·강종' oninput=\"mesDraftSet('q',this.value)\" onkeydown='mesDraftKey(event)'></div>"
     +(inventoryView?"<div class='control'><label>장소 검색</label><input value='"+esc(draft.location||"")+"' placeholder='창고·구역·미지정' oninput=\"mesDraftSet('location',this.value)\" onkeydown='mesDraftKey(event)'></div>":"")
     +(inventorySummary?"<div class='control'><label>상태별 선택</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="입항예정"?"selected":"")+">입항예정</option><option "+(draft.status==="미검수"?"selected":"")+">미검수</option><option "+(draft.status==="작업대기"?"selected":"")+">작업대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option><option "+(draft.status==="유사강종"?"selected":"")+">유사강종</option></select></div>":(!inventoryView?"<div class='control'><label>상태</label><select onchange=\"mesDraftSet('status',this.value)\"><option value=''>전체</option><option "+(draft.status==="대기"?"selected":"")+">대기</option><option "+(draft.status==="완료"?"selected":"")+">완료</option></select></div>":""))
+    +(inventorySummary?"<div class='control'><label>국내·해외</label><select onchange=\"mesDraftSet('tradeType',this.value)\"><option value='' "+(!draft.tradeType?"selected":"")+">전체</option><option value='DOMESTIC' "+(draft.tradeType==="DOMESTIC"?"selected":"")+">국내</option><option value='OVERSEAS' "+(draft.tradeType==="OVERSEAS"?"selected":"")+">해외</option></select></div>":"")
     +(inventorySummary?"<div class='control'><label>재고 표기방식</label><select onchange=\"mesDraftSet('inventoryMode',this.value)\"><option value='original' "+(!draft.inventoryMode||draft.inventoryMode==="original"?"selected":"")+">원문유지</option><option value='grouped' "+(draft.inventoryMode==="grouped"?"selected":"")+">묶음표기</option></select></div>":"")
     +"<div class='control'><label>표시건수</label><select onchange=\"mesDraftSet('limit',this.value)\"><option "+(!draft.limit||draft.limit==="50"?"selected":"")+">50</option><option "+(draft.limit==="100"?"selected":"")+">100</option><option "+(draft.limit==="500"?"selected":"")+">500</option></select></div>";
 };
@@ -328,7 +329,7 @@ function mesSearchText(row){
     poNo:1,soNo:1,packageNo:1,sourcePackageNo:1,internalPackageNo:1,
     completionNo:1,bagNo:1,code:1,requestNo:1,receiptRequestNo:1,shippingRequestNo:1,
     company:1,supplier:1,customer:1,partner:1,vendor:1,
-    grade:1,originalGrade:1,sourceGrade:1,finalGrade:1,gradeLabel:1,
+    grade:1,originalGrade:1,sourceGrade:1,finalGrade:1,gradeLabel:1,customerGrade:1,finalGradeLabel:1,tradeType:1,tradeTypes:1,
     productType:1,mainGrade:1,subGrade:1,detailGrade:1,itemName:1,description:1,
     location:1,locations:1,from:1,to:1,containerNo:1,sealNo:1,
     status:1,receiptStatus:1,inspectionStatus:1,workStatus:1,workType:1,type:1,
@@ -352,6 +353,9 @@ function mesSearchText(row){
   return values.join(' ').toLowerCase();
 }
 window.mesSearchText=mesSearchText;
+window.mesInventoryTradeType=function(){
+  return currentView==="inventory"?String(filters.tradeType||""):"";
+};
 window.filtered=function(rows){
   var out=(rows||[]).slice().sort(function(a,b){
     return String(window.mesSavedAt(b)||"").localeCompare(String(window.mesSavedAt(a)||""));
@@ -1192,7 +1196,7 @@ window.__mesRuntime={
 };
 </script>
 <script src="mes-carr260401-source-fix-v1.js?v=20260816-silent-5"></script>
-<script src="mes-inventory-family-stock-v2.js?v=20260816-pipeline-inventory-14"></script>
+<script src="mes-inventory-family-stock-v2.js?v=20260818-inventory-grade-origin-1"></script>
 <script src="mes-executive-dashboard-v1.js?v=20260816-fx-history-1"></script>
 <script src="mes-kakao-stage-alert-v1.js?v=20260816-9"></script>
 <script src="mes-order-pdf-templates-v1.js?v=20260816-order-download-2"></script>
@@ -1202,3 +1206,4 @@ window.__mesRuntime={
 <script src="mes-manager-language-v1.js?v=20260818-production-assignment-13"></script>
 </body>
 </html>
+
