@@ -17,7 +17,8 @@
 
   var LANG_KEY='shinsung-mes-language-v1';
   var language='ko';
-  try{language=localStorage.getItem(LANG_KEY+':'+userKey())||localStorage.getItem(LANG_KEY)||'ko'}catch(_){ }
+  var languageLocalChoice=false;
+  try{var savedLanguage=localStorage.getItem(LANG_KEY+':'+userKey())||localStorage.getItem(LANG_KEY);if(savedLanguage){language=savedLanguage;languageLocalChoice=true}}catch(_){ }
   if(language!=='en')language='ko';
   var translations={
     /* main navigation */
@@ -167,23 +168,31 @@
   }
   root.toggleMesLanguage=function(){
     language=language==='ko'?'en':'ko';
+    languageLocalChoice=true;
     translateDOM();
-    try{var render=runtime().getRender&&runtime().getRender();if(typeof render==='function')render()}catch(_){ }
-    translateDOM();setTimeout(translateDOM,0);setTimeout(translateDOM,120);
+    setTimeout(translateDOM,0);setTimeout(translateDOM,120);
     Promise.resolve(saveLanguage()).catch(function(){});
   };
+  function bindLanguageButton(button){
+    if(!button||button.__mesLanguageBound)return;
+    button.__mesLanguageBound=true;
+    button.addEventListener('click',function(event){
+      event.preventDefault();event.stopPropagation();
+      root.toggleMesLanguage();
+    },true);
+  }
   function injectLanguageButton(){
     var existing=doc.getElementById('mesLanguageToggle');
     if(existing){
       existing.type='button';
-      existing.onclick=null;
       existing.textContent=language==='en'?'한국어':'English';
+      bindLanguageButton(existing);
       return;
     }
     var target=doc.querySelector('.top-actions,.topbar .actions,.topbar')||doc.body;
-    var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='btn mes-language-toggle';button.type='button';button.textContent=language==='en'?'한국어':'English';target.insertBefore(button,target.firstChild||null);
+    var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='btn mes-language-toggle';button.type='button';button.textContent=language==='en'?'한국어':'English';bindLanguageButton(button);target.insertBefore(button,target.firstChild||null);
   }
-  function hydrateLanguage(){if(!languageHydrated){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}languageHydrated=true}injectLanguageButton();translateDOM()}
+  function hydrateLanguage(){if(!languageHydrated){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(!languageLocalChoice&&prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}languageHydrated=true}injectLanguageButton();translateDOM()}
 
   var taskDefs=[
     {id:'INBOUND',ko:'입고요청',en:'Inbound',defaults:1200},
@@ -258,15 +267,15 @@
   doc.addEventListener('click',function(event){
     var target=event.target;
     while(target&&target!==doc){
-      if(target.id==='mesLanguageToggle'){
-        event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+      if(target.id==='mesLanguageToggle'&&!target.__mesLanguageBound){
+        event.preventDefault();event.stopPropagation();
         root.toggleMesLanguage();return false;
       }
       target=target.parentNode;
     }
-  },true);
+  },false);
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-4'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-5'};
   injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
