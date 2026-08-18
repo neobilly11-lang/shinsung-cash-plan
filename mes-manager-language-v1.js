@@ -34,6 +34,8 @@
     '선택':'Select','확인':'Confirm','새로 입력':'New Entry','다시 불러오기':'Reload','최신자료 조회':'Load Latest Data','지금 동기화':'Sync Now',
     '공용서버에 수정 저장':'Save to Shared Server','공용 서버 연결됨':'Shared Server Connected','실시간 연결':'Live Connection',
     '로그인':'Log In','로그아웃':'Log Out','사용자 로그인':'User Login','로그인 후 공용자료를 불러옵니다.':'Log in to load shared data.',
+    '현장관리와 같은 계정으로 로그인하세요.':'Use the same account as the Field App.','이름 또는 이메일':'Name or Email','등록한 이름 또는 이메일':'Registered name or email',
+    '비밀번호':'Password','자동접속 유지':'Keep me signed in','로그인·접속':'Log In','사용자 등록·비밀번호 찾기':'Register / Reset Password',
     '접속 지연 · 여기를 눌러 다시 연결':'Connection delayed · Tap to reconnect','저장 완료 · 현장관리 동시 반영':'Saved · Field app updated',
     '검색어 입력 중에는 화면이 바뀌지 않습니다.':'The screen will not change while you type.','조건 입력 후 반드시 조회를 눌러 주세요.':'Enter filters, then press Search.',
     '검색 조건에 맞는 자료가 없습니다.':'No records match the search criteria.','등록된 자료가 없습니다.':'No records found.','자료가 없습니다.':'No data available.',
@@ -68,6 +70,10 @@
     '전체 흔적 삭제':'Delete All Related Records','전체흔적 삭제하기':'Delete All Related Records','강제 입고등록':'Force Inbound Registration',
     /* dashboard and operations */
     '신성금속 통합 생산현황':'Shinsung Metal Integrated Production Status','현장관리와 동일한 공용자료를 실시간으로 집계합니다.':'Live summary from the same shared field-management data.',
+    '일정':'Schedule','계획관리':'Planning','화면 크기 조절':'Adjust Display Size','화면 10% 줄이기':'Zoom Out 10%','화면 10% 크게 하기':'Zoom In 10%',
+    '오늘 작업일지':'Today’s Work Log','단독 관리자 설정':'Single Administrator Settings','계획':'Plan','포장':'Packs','완료포장':'Completed Packs',
+    '쇼트·산처리·절단':'Shot · Acid · Cutting','누적 처리':'Cumulative Processing','등록된 작업자가 없습니다.':'No registered workers.',
+    '저장된 작업분배가 없습니다.':'No saved work assignments.','작업자 ID':'Worker ID','기준값':'Baseline',
     '입고대기':'Inbound Queue','검수대기':'Inspection Queue','생산대기':'Production Queue','작업대기':'Work Queue','포장대기':'Packing Queue',
     '미검수':'Uninspected','미검수재고':'Uninspected Inventory','미포장':'Unpacked','미포장재고':'Unpacked Inventory','완료재고':'Completed Inventory',
     '출하대기':'Shipping Queue','출하예정':'Scheduled to Ship','출하확정':'Shipping Confirmed','출하완료':'Shipped','오늘 작업':'Today’s Work','누적':'Cumulative',
@@ -120,6 +126,7 @@
   };
   var reverse={};Object.keys(translations).forEach(function(k){if(!reverse[translations[k]])reverse[translations[k]]=k});
   var originalText=new WeakMap(),originalAttrs=new WeakMap();
+  var languageHydrated=false;
   var phraseKeys=Object.keys(translations).filter(function(k){return k.length>=3}).sort(function(a,b){return b.length-a.length});
   function translatedString(raw){
     var trim=String(raw==null?'':raw).trim();if(!trim)return raw;
@@ -148,22 +155,29 @@
   }
   function translateDOM(){
     doc.documentElement.lang=language==='en'?'en':'ko';
-    var walker=doc.createTreeWalker(doc.body||doc.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentElement;if(!p||/^(SCRIPT|STYLE|TEXTAREA|INPUT)$/i.test(p.tagName)||p.closest('#mesLanguageToggle'))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}}),nodes=[];
-    while(walker.nextNode())nodes.push(walker.currentNode);nodes.forEach(translateTextNode);
-    Array.from(doc.querySelectorAll('[placeholder],[title],[aria-label]')).forEach(translateElementAttributes);
+    var toggleNode=doc.getElementById('mesLanguageToggle');
+    var walker=doc.createTreeWalker(doc.body||doc.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentElement;if(!p||/^(SCRIPT|STYLE|TEXTAREA|INPUT)$/i.test(p.tagName)||(toggleNode&&(p===toggleNode||toggleNode.contains(p))))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}}),nodes=[];
+    while(walker.nextNode())nodes.push(walker.currentNode);nodes.forEach(function(node){try{translateTextNode(node)}catch(_){ }});
+    Array.from(doc.querySelectorAll('[placeholder],[title],[aria-label]')).forEach(function(el){try{translateElementAttributes(el)}catch(_){ }});
     var toggle=doc.getElementById('mesLanguageToggle');if(toggle)toggle.textContent=language==='en'?'한국어':'English';
   }
   async function saveLanguage(){
     try{localStorage.setItem(LANG_KEY,language);localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }
-    await commit('MES 표시언어 저장',['systemSettings'],function(s){s.systemSettings=s.systemSettings&&typeof s.systemSettings==='object'&&!Array.isArray(s.systemSettings)?s.systemSettings:{};s.systemSettings.mesLanguageByUser=s.systemSettings.mesLanguageByUser||{};s.systemSettings.mesLanguageByUser[userKey()]=language});
+    try{await commit('MES 표시언어 저장',['systemSettings'],function(s){s.systemSettings=s.systemSettings&&typeof s.systemSettings==='object'&&!Array.isArray(s.systemSettings)?s.systemSettings:{};s.systemSettings.mesLanguageByUser=s.systemSettings.mesLanguageByUser||{};s.systemSettings.mesLanguageByUser[userKey()]=language})}catch(_){ }
   }
-  root.toggleMesLanguage=async function(){language=language==='ko'?'en':'ko';await saveLanguage();var render=runtime().getRender&&runtime().getRender();if(typeof render==='function')render();setTimeout(translateDOM,0)};
+  root.toggleMesLanguage=function(){
+    language=language==='ko'?'en':'ko';
+    translateDOM();
+    try{var render=runtime().getRender&&runtime().getRender();if(typeof render==='function')render()}catch(_){ }
+    translateDOM();setTimeout(translateDOM,0);setTimeout(translateDOM,120);
+    Promise.resolve(saveLanguage()).catch(function(){});
+  };
   function injectLanguageButton(){
     if(doc.getElementById('mesLanguageToggle'))return;
     var target=doc.querySelector('.top-actions,.topbar .actions,.topbar')||doc.body;
     var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='btn mes-language-toggle';button.type='button';button.onclick=root.toggleMesLanguage;button.textContent=language==='en'?'한국어':'English';target.insertBefore(button,target.firstChild||null);
   }
-  function hydrateLanguage(){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}injectLanguageButton();translateDOM()}
+  function hydrateLanguage(){if(!languageHydrated){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}languageHydrated=true}injectLanguageButton();translateDOM()}
 
   var taskDefs=[
     {id:'INBOUND',ko:'입고요청',en:'Inbound',defaults:1200},
@@ -236,7 +250,7 @@
 .manager-assignment-list{display:grid;gap:10px}.manager-assignment-list article{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 16px;border:1px solid #dce6e9;border-radius:14px;background:#fff}.manager-assignment-list article>div:first-child{min-width:0}.manager-assignment-list .actions{margin:0;flex-wrap:nowrap}\
 @media(max-width:760px){.manager-banner{align-items:flex-start;flex-direction:column}.manager-head{align-items:stretch}.manager-capacity-table{max-height:55vh}.manager-estimate{grid-template-columns:repeat(2,minmax(0,1fr))}.manager-assignment-list article{align-items:stretch;flex-direction:column}.mes-language-toggle{min-height:44px}}';doc.head.appendChild(style)}
   var observer=new MutationObserver(function(){clearTimeout(observer._timer);observer._timer=setTimeout(decorate,20)});observer.observe(doc.documentElement,{childList:true,subtree:true});
-  injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else decorate();
-  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,version:'20260818-2'};
+  root.__mesManagerLanguageV1={get language(){return language},capacities:capacities,events:events,translate:translateDOM,version:'20260818-3'};
+  injectStyles();if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',decorate);else{try{decorate()}catch(_){injectLanguageButton()}}
 })();
 
