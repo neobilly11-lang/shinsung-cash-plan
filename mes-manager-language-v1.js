@@ -173,9 +173,15 @@
     Promise.resolve(saveLanguage()).catch(function(){});
   };
   function injectLanguageButton(){
-    if(doc.getElementById('mesLanguageToggle'))return;
+    var existing=doc.getElementById('mesLanguageToggle');
+    if(existing){
+      existing.type='button';
+      existing.onclick=function(event){if(event)event.preventDefault();root.toggleMesLanguage();return false};
+      existing.textContent=language==='en'?'한국어':'English';
+      return;
+    }
     var target=doc.querySelector('.top-actions,.topbar .actions,.topbar')||doc.body;
-    var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='btn mes-language-toggle';button.type='button';button.onclick=root.toggleMesLanguage;button.textContent=language==='en'?'한국어':'English';target.insertBefore(button,target.firstChild||null);
+    var button=doc.createElement('button');button.id='mesLanguageToggle';button.className='btn mes-language-toggle';button.type='button';button.onclick=function(event){if(event)event.preventDefault();root.toggleMesLanguage();return false};button.textContent=language==='en'?'한국어':'English';target.insertBefore(button,target.firstChild||null);
   }
   function hydrateLanguage(){if(!languageHydrated){var prefs=state().systemSettings&&state().systemSettings.mesLanguageByUser;if(prefs&&prefs[userKey()]&&prefs[userKey()]!==language){language=prefs[userKey()]==='en'?'en':'ko';try{localStorage.setItem(LANG_KEY+':'+userKey(),language)}catch(_){ }}languageHydrated=true}injectLanguageButton();translateDOM()}
 
