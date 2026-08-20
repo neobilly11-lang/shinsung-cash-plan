@@ -21,7 +21,7 @@
   function unique(values){return Array.from(new Set(values.map(text).filter(Boolean)));}
   function itemGrade(item){return text(item.customerGrade||item.sourceGrade||item.grade||[item.productType,item.mainGrade,item.subGrade,item.detailGrade].filter(Boolean).join(' · '));}
   function fullGrade(items,fallback){return unique(list(items).map(itemGrade).concat([fallback])).join(' / ');}
-  function short(value){value=text(value);return value.length>15?value.slice(0,15)+' 외':value;}
+  function short(value){value=text(value);return value.length>20?value.slice(0,20)+' 외':value;}
   function hasStatus(row,statuses){return statuses.includes(text(row&&row.status).toUpperCase());}
   function isDomesticForcedRow(row){return !!row&&(row.domesticReceipt===true||!!row.domesticReceiptId);}
   function isDomesticForcedPo(po){return !!po&&(po.purchaseOrigin==='DOMESTIC'||list(po.rows).some(isDomesticForcedRow));}

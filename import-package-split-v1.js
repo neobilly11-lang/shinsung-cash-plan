@@ -25,7 +25,7 @@
   };
   function activeSource(no){return state.pos.find(function(row){return row.packageNo===no&&row.status!=='CANCELLED'&&!row.receivedAt&&row.receiptStatus!=='RECEIVED';});}
   function round2(value){return Math.round(num(value)*100)/100;}
-  function visibleGrade(value){var text=String(value||'').trim(),chars=Array.from(text);return chars.length>=15?chars.slice(0,15).join('')+' 그 외':text||'미지정';}
+  function visibleGrade(value){var text=String(value||'').trim(),chars=Array.from(text);return chars.length>=20?chars.slice(0,20).join('')+' 그 외':text||'미지정';}
   function ensureUi(){
     if(E('importReceiptSplit'))return;
     var anchor=E('importReceiptDirect')||E('importReceiptMethod');

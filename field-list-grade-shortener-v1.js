@@ -3,7 +3,7 @@
   if(window.__fieldListGradeShortenerV1)return;
   window.__fieldListGradeShortenerV1=true;
 
-  var LIMIT=15;
+  var LIMIT=20;
   var LIST_SCOPES='table tbody,[id$="List"],[id$="Rows"],[id$="Grid"],.result-list';
   var scheduled=false;
 
