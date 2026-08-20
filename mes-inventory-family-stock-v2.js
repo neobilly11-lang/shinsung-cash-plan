@@ -402,13 +402,36 @@
   }
   function stageName(stage){return({arrival:'입항예정재고',uninspected:'미검수재고',workWaiting:'작업대기재고',unpacked:'미포장재고',completed:'완료재고',shippingPlanned:'유사강종 출하예정'})[stage]||stage;}
 
+  function sourceField(source,names){
+    var record=source&&source.record||{};
+    for(var i=0;i<names.length;i++){
+      var value=text(record[names[i]]||(source&&source[names[i]]));
+      if(value)return value;
+    }
+    return '';
+  }
+  function sourceRelatedNo(source){
+    return sourceField(source,['completionNo','completionNumber','packageNo','internalNo','internalInboundNo','waitingNo','poNo','soNo','requestNo','id'])||'-';
+  }
+  function sourceLocation(source){
+    return sourceField(source,['location','to','storageLocation','waitingLocation','warehouse','place','destination'])||'-';
+  }
+  function sourceSubGrade(source){
+    var value=sourceField(source,['subGrade','smallGrade','gradeType']);
+    if(value)return value;
+    var record=source&&source.record||{},parts=gradeParts(record);
+    return text(parts.subGrade)||'-';
+  }
+
   function inventoryDetail(row){
     var parts=['arrival','uninspected','workWaiting','unpacked','completed','shippingPlanned'];
     var summary='<section class="detail-section"><h3>'+encode(row.gradeLabel)+' · 강종별 재고 총량</h3><div class="kpis">'+parts.map(function(key){return '<div class="kpi"><small>'+stageName(key)+'</small><strong>'+root.fmt(row[key])+' kg</strong></div>';}).join('')+'<div class="kpi"><small>예상남은재고</small><strong style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+' kg</strong></div></div></section>';
     var allowed=new Set(row.isFamilySummary?list(row.memberIds):[row.id]);
     var rows=list(row.sources).filter(function(source){return allowed.has(source.groupId);});
+    var workRows=rows.filter(function(source){return ['workWaiting','unpacked','completed'].indexOf(source.stage)>=0;});
     var members=row.isFamilySummary?root.mesSection('유사강종 구성', [['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGradeLabel||x.gradeLabel||displayGrade(x);}],['입항예정',function(x){return root.fmt(x.arrival);}],['미검수',function(x){return root.fmt(x.uninspected);}],['작업대기',function(x){return root.fmt(x.workWaiting);}],['미포장',function(x){return root.fmt(x.unpacked);}],['완료재고',function(x){return root.fmt(x.completed);}],['출하예정',function(x){return root.fmt(x.shippingPlanned);}],['예상남은재고',function(x){return root.fmt(x.forecastRemaining);}]],list(row.members)):'';
-    return summary+members+root.mesSection('단계별 원본 내역', [['국내·해외',function(x){return x.tradeType==='DOMESTIC'?'국내':x.tradeType==='OVERSEAS'?'해외':'-';}],['재고단계',function(x){return stageName(x.stage);}],['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGrade||'미확정';}],['표기방식',function(x){return x.mapping;}],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',function(x){return x.record&& (x.record.poNo||x.record.soNo||x.record.packageNo||x.record.completionNo)||'-';}]],rows);
+    var workDetails=root.mesSection('작업상세 · 작업대기·미포장·완료재고', [['재고상태',function(x){return stageName(x.stage);}],['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGrade||'미확정';}],['소강종',sourceSubGrade],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',sourceRelatedNo],['현재 장소',sourceLocation]],workRows);
+    return summary+members+workDetails+root.mesSection('단계별 원본 내역', [['국내·해외',function(x){return x.tradeType==='DOMESTIC'?'국내':x.tradeType==='OVERSEAS'?'해외':'-';}],['재고단계',function(x){return stageName(x.stage);}],['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGrade||'미확정';}],['표기방식',function(x){return x.mapping;}],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',sourceRelatedNo]],rows);
   }
 
   function mappingSourceOptions(){
