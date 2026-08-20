@@ -1,0 +1,16 @@
+.zebra-print-tools{display:flex;gap:9px;align-items:end;flex-wrap:wrap;margin:12px 0;padding:12px;border:2px solid var(--green);border-radius:15px;background:#eff8f4}
+.zebra-print-tools label{min-width:180px;flex:1}.zebra-print-tools select{min-height:50px}.zebra-print-tools .btn{min-height:50px}
+.zebra-print-note{width:100%;margin:0;color:var(--muted);font-size:13px;font-weight:800}
+.zebra-workwait-select{display:flex;align-items:center;gap:8px;min-height:46px;padding:7px 11px;border:2px solid var(--green);border-radius:12px;background:#fff;color:var(--green);font-weight:900;cursor:pointer}
+.zebra-workwait-select input{width:25px;height:25px;margin:0;accent-color:var(--green)}
+.zebra-workwait-select.selected{background:#e0f5eb;box-shadow:0 0 0 3px #0d725d22}
+.zebra-detail-print{width:100%;margin-top:9px}
+.labels.zebra-mode{--zebra-width:100mm;--zebra-height:50mm;--zebra-qr:34mm}
+.zebra-label{box-sizing:border-box;width:var(--zebra-width);height:var(--zebra-height);display:grid;grid-template-columns:var(--zebra-qr) minmax(0,1fr);gap:3mm;align-items:center;padding:3mm;overflow:hidden;background:#fff;color:#000;break-after:page;page-break-after:always;font-family:Arial,"Noto Sans KR",sans-serif}
+.zebra-label:last-child{break-after:auto;page-break-after:auto}.zebra-label img{width:var(--zebra-qr);height:var(--zebra-qr);object-fit:contain}.zebra-label-data{min-width:0;line-height:1.15}.zebra-label-kind,.zebra-label-code,.zebra-label-grade,.zebra-label-meta{display:block;overflow:hidden;text-overflow:ellipsis}.zebra-label-kind{font-size:9pt;font-weight:900}.zebra-label-code{font-size:15pt;font-weight:950;white-space:nowrap;margin:1.3mm 0}.zebra-label-grade{font-size:11pt;font-weight:900;max-height:10mm}.zebra-label-meta{font-size:8.5pt;font-weight:800;margin-top:1.2mm;max-height:9mm}.zebra-label-hint{display:none}
+@media(max-width:600px){.zebra-print-tools>*{width:100%}.zebra-print-tools label{min-width:0}.zebra-workwait-select{width:100%;justify-content:center}}
+@media print{
+  .labels.zebra-mode{display:block!important;width:var(--zebra-width)!important;margin:0!important;padding:0!important}
+  .labels.zebra-mode .zebra-label{border:0!important;margin:0!important}
+  .labels.zebra-mode .label{display:none!important}
+}
