@@ -769,7 +769,7 @@
   function table(report) {
     var rows=drillRows(report,drillKind),q=upper(drillQuery);if(q)rows=rows.filter(function(r){return upper([r.partner,r.poNo,r.soNo,r.packageNo,r.key,r.grade].join(" ")).indexOf(q)>=0;});
     var head='<tr><th>거래처</th><th>P.O / S.O</th><th>사내입고 / 출고번호</th><th>강종</th><th>중량</th><th>금액·원가</th><th>세부비용·보유일</th><th>상세</th></tr>';
-    var body=rows.map(function(r,i){var ref=r.poNo||r.soNo||"-",sub=r.packageNo||r.key||"-",amount=r.kind==="purchase"?r.totalCost:r.kind==="outbound"?r.salesAmount:r.value,details=r.kind==="purchase"?(r.isImport?"통관 "+fmt(r.customs)+"원 · kg당 "+fmt(r.costPerKg):"국내입고 · 통관비 해당 없음"):r.kind==="outbound"?"원가 "+fmt(r.purchaseCost)+" · 작업 "+fmt(r.workCost)+" · 이자 "+fmt(r.interestCost)+" · 수출 "+fmt(r.exportCost):"보유 "+fmt(r.days)+"일";return '<tr><td>'+esc(r.partner||"-")+'</td><td>'+esc(ref)+'</td><td>'+esc(sub)+'</td><td>'+esc(r.grade||"-")+'</td><td>'+kg(r.weight)+'</td><td>'+fmt(amount)+'원</td><td>'+esc(details)+'</td><td><button class="btn" onclick="openExecutiveFinanceDetail(\''+drillKind+'\','+i+')">보기</button></td></tr>';}).join("");
+    var body=rows.map(function(r,i){var ref=r.poNo||r.soNo||"-",sub=r.packageNo||r.key||"-",amount=r.kind==="purchase"?r.totalCost:r.kind==="outbound"?r.salesAmount:r.value,details=r.kind==="purchase"?(r.isImport?"통관 "+fmt(r.customs)+"원 · kg당 "+fmt(r.costPerKg):"국내입고"):r.kind==="outbound"?"원가 "+fmt(r.purchaseCost)+" · 작업 "+fmt(r.workCost)+" · 이자 "+fmt(r.interestCost)+" · 수출 "+fmt(r.exportCost):"보유 "+fmt(r.days)+"일";return '<tr><td>'+esc(r.partner||"-")+'</td><td>'+esc(ref)+'</td><td>'+esc(sub)+'</td><td>'+esc(r.grade||"-")+'</td><td>'+kg(r.weight)+'</td><td>'+fmt(amount)+'원</td><td>'+esc(details)+'</td><td><button class="btn" onclick="openExecutiveFinanceDetail(\''+drillKind+'\','+i+')">보기</button></td></tr>';}).join("");
     return '<div class="mes-fin-drill"><div class="mes-fin-drill-head"><div><h2>'+drillTitle(drillKind)+'</h2><p>거래처 → P.O/S.O → 사내입고번호/출고번호까지 확인합니다.</p></div><form onsubmit="event.preventDefault();setExecutiveFinanceQuery(this.q.value)"><input name="q" value="'+esc(drillQuery)+'" placeholder="거래처·P.O·S.O·사내입고·출고 검색"><button class="btn primary">검색</button></form></div><div class="mes-fin-table"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';
   }
   function renderDashboard() {
@@ -812,7 +812,7 @@
         costToken=registerCostTarget("import",r.poNo);
         detail='<p><b>매입금액</b> '+fmt(r.purchaseAmount)+'원</p><p><b>수입통관비</b> '+fmt(r.customs)+'원 ('+fmt(r.weight?r.customs/r.weight:0)+'원/kg)</p><p><b>매입총액</b> '+fmt(r.totalCost)+'원</p><button type="button" class="btn primary" onclick="openExecutiveCostTarget('+costToken+')">통관비 입력·수정</button>';
       }else{
-        detail='<p><b>국내입고 매입금액</b> '+fmt(r.purchaseAmount)+'원</p><p><b>수입통관비</b> 해당 없음</p><p><b>매입총액</b> '+fmt(r.totalCost)+'원</p>';
+        detail='<p><b>국내입고 매입금액</b> '+fmt(r.purchaseAmount)+'원</p><p><b>매입총액</b> '+fmt(r.totalCost)+'원</p>';
       }
     }else if(r.kind==="outbound"){
       costToken=registerCostTarget("export",r.key||r.soNo);
@@ -890,7 +890,7 @@
   };
   function financeCostButton(type,row){
     var isImport=type==="import", report=build(financeMonth), found=isImport?report.pos.find(function(p){return txt(p.poNo)===txt(row.poNo);}):report.outbound.find(function(o){return txt(o.key)===txt(row.shipmentId)||txt(o.soNo)===txt(row.soNo);});
-    if(isImport&&found&&!found.isImport)return '<span class="mes-fin-list-na">해당 없음</span>';
+    if(isImport&&found&&!found.isImport)return '';
     var key=isImport?row.poNo:(found?found.key:(row.shipmentId||row.soNo)), entry=found?(isImport?found.customEntry:found.costEntry):{}, value=found?(isImport?found.customs:found.exportCost):0, has=!!(entry&&entry.updatedAt), missing=isImport?(found&&found.isImport&&!has):!has;
     var label=isImport?(missing?"통관비 기입요망":has?"통관비 "+fmt(value)+"원":"통관비 입력(선택)"):(missing?"수출비용 기입요망":"수출비용 "+fmt(value)+"원");
     var token=registerCostTarget(type,key);

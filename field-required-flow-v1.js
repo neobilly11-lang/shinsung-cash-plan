@@ -14,7 +14,7 @@
   const schemas={
     addPackage:['poNo','company','grade','weight'],
     createSalesOrder:['soNo','soCustomer','soGrade','soWeight','soDate'],
-    saveInspection:['finalType','finalMain','finalSub','finalWeight'],
+    saveInspection:['finalMain','finalSub','shapeLabel','finalWeight','analyzerLabel'],
     addDomesticPackage:['domesticPackageGrade','domesticPackageNo','domesticPackageGW'],
     confirmDomesticReceipt:['domesticSupplier','domesticVehicleNo','domesticFirstWeight','domesticFinalWeight'],
     saveInspectionHandover:['handoverWorker1','handoverWorker2','handoverEstimatedRemain','handoverPhoto'],
@@ -37,7 +37,7 @@
     {name:'2작업자',test:/2작업자/,select:['#handoverWorker2'],words:['2작업자']},
     {name:'작업자·검수자',test:/(?:^|[^12])작업자|검수자/,select:['#inspector','[id*="Worker"]','[id*="worker"]','[id*="Inspector"]'],words:['작업자','검수자']},
     {name:'품종',test:/품종/,select:['#finalType','[id^="inspectionType-"]','#editFinalType','#bagType','[id*="ProductType"]'],words:['품종']},
-    {name:'최종강종·강종',test:/(최종\s*강종|검수\s*강종|강종명|(?:^|[^소])강종)/,select:['#finalMain','[id^="inspectionMain-"]','#editFinalMain','#grade','#soGrade','#bagMain','[id*="Grade"]'],words:['최종 강종','최종강종','검수 강종','강종명','강종']},
+    {name:'최종강종·강종',test:/(최종\s*강종|검수\s*강종|강종명|(?:^|[^소])강종)/,select:['#finalMain','[id^="inspectionMain-"]','#editFinalMain','#grade','#soGrade','#bagMain'],words:['최종 강종','최종강종','검수 강종','강종명','강종']},
     {name:'소강종',test:/소강종/,select:['#finalSub','[id^="inspectionSub-"]','#editFinalSub','#bagSub','[id*="SubGrade"]'],words:['소강종']},
     {name:'중량',test:/(중량|수량|G\/W|N\/W|GW|NW)/i,select:['#finalWeight','[id^="inspectionWeight-"]','#editFinalWeight','#weight','#soWeight','[id*="Weight"]','[id*="weight"]','[id*="Quantity"]'],words:['확정 중량','이동 중량','작업대기 중량','남은 예상수량','중량','수량','g/w','n/w','gw','nw']},
     {name:'날짜',test:/(날짜|일자|출하예정일|입고확정일|입항예정일)/,select:['#soDate','input[type="date"]'],words:['출하예정일','입고확정일','입항예정일','날짜','일자']},
@@ -132,9 +132,8 @@
   }
   function inspectionRequiredControls(root){
     const result=[];
-    const addRow=(typeId,mainId,subId,weightId)=>{
+    const addRow=(mainId,subId,weightId)=>{
       [
-        [typeId,'품종'],
         [mainId,'최종 강종'],
         [subId,'소강종'],
         [weightId,'확정 중량']
@@ -143,11 +142,15 @@
         if(el&&(root===doc.body||root.contains(el)))addUnique(result,el,name);
       });
     };
-    addRow('finalType','finalMain','finalSub','finalWeight');
+    addRow('finalMain','finalSub','finalWeight');
     const indexes=[...doc.querySelectorAll('[id^="inspectionMain-"]')]
       .map(el=>String(el.id).replace('inspectionMain-',''))
       .filter(Boolean);
-    indexes.forEach(index=>addRow('inspectionType-'+index,'inspectionMain-'+index,'inspectionSub-'+index,'inspectionWeight-'+index));
+    indexes.forEach(index=>addRow('inspectionMain-'+index,'inspectionSub-'+index,'inspectionWeight-'+index));
+    [['shapeLabel','형상 사진'],['analyzerLabel','분석기 사진']].forEach(([id,name])=>{
+      const el=doc.getElementById(id);
+      if(el&&(root===doc.body||root.contains(el)))addUnique(result,el,name);
+    });
     return result;
   }
   function handlerRequiredControls(button,root=activeView()){
