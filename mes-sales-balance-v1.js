@@ -118,7 +118,7 @@
   function splitRoot(item){var stored=String(item.balanceRootSoNo||item.parentSoNo||'');if(stored)return stored;var soNo=String(item.soNo||'SO'),match=soNo.match(/^(.*)-(\d+)$/);return match?match[1]:soNo;}
   function nextSequence(all,root){var max=1,escaped=root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),pattern=new RegExp('^'+escaped+'-(\\d+)$');all.forEach(function(item){var stored=String(item.balanceRootSoNo||item.parentSoNo||''),match=String(item.soNo||'').match(pattern);if(stored!==root&&!match)return;max=Math.max(max,number(item.splitSequence)||number(match&&match[1])||1);});return max+1;}
   function resetShipmentFields(item){
-    ['shipmentId','shippedAt','shippingCompletedAt','completedAt','packingListId','shippingRequestDate','shippingRequestedAt','shippingConfirmedDate','shippingConfirmedTime','shippingVehicleNo','driverPhone','shippingContainerNo','shippingSealNo','shippingConfirmOperatorName','shippingRequestOperatorName','salesBalanceStatus','salesBalanceResolvedWeight','salesBalanceChildSoNo','salesBalanceResolvedAt','salesBalanceResolvedBy'].forEach(function(key){delete item[key];});
+    ['shipmentId','shippedAt','shippingCompletedAt','completedAt','packingListId','shippingRequestDate','shippingRequestedAt','shippingConfirmedDate','shippingConfirmedTime','shippingVehicleNo','driverPhone','shippingContainerNo','shippingSealNo','shippingConfirmOperatorName','shippingRequestOperatorName','salesBalanceStatus','salesBalanceResolvedWeight','salesBalanceChildSoNo','salesBalanceResolvedAt','salesBalanceResolvedBy','shippingPlanExcluded','shippingPlanExcludeReason','shippingPlanExcludedAt'].forEach(function(key){delete item[key];});
     item.shippingPlanStatus='PLANNED';item.shippingRequestStatus='';item.status='WAITING';
   }
   window.splitSelectedMesSalesBalances=async function(){
@@ -132,7 +132,7 @@
         items.forEach(function(item,index){
           var liveMetric=metric(item,draft),remaining=liveMetric.remaining;if(remaining<=.001)return;
           var child=structuredClone(item);resetShipmentFields(child);Object.assign(child,{id:crypto.randomUUID(),groupId:groupId,soNo:childSoNo,weight:remaining,itemIndex:index+1,itemCount:items.length,parentSoNo:item.soNo,balanceRootSoNo:root,balanceSourceItemId:item.id,splitSequence:seq,createdAt:now,updatedAt:now,createdByName:operator,updatedByName:operator});
-          draft.salesOrders.push(child);Object.assign(item,{salesBalanceStatus:'SPLIT',salesBalanceResolvedWeight:remaining,salesBalanceChildSoNo:childSoNo,salesBalanceResolvedAt:now,salesBalanceResolvedBy:operator,updatedAt:now,updatedByName:operator});
+          draft.salesOrders.push(child);Object.assign(item,{salesBalanceStatus:'SPLIT',salesBalanceResolvedWeight:remaining,salesBalanceChildSoNo:childSoNo,salesBalanceResolvedAt:now,salesBalanceResolvedBy:operator,shippingPlanExcluded:true,shippingPlanExcludeReason:'SALES_BALANCE_SPLIT',shippingPlanExcludedAt:now,updatedAt:now,updatedByName:operator});
         });
       });
     });
@@ -144,7 +144,7 @@
     var ids=rows.map(function(row){return String(row.id);}),now=new Date().toISOString(),operator=currentUserName();
     var saved=await commit('판매 잔량 즉시 판매종료',['salesOrders'],function(draft){
       list(draft.salesOrders).filter(function(item){return ids.includes(String(item.id));}).forEach(function(item){
-        var liveMetric=metric(item,draft);Object.assign(item,{salesBalanceStatus:'SALE_CLOSED',salesBalanceResolvedWeight:liveMetric.remaining,salesBalanceResolvedAt:now,salesBalanceResolvedBy:operator,salesBalanceClosedAt:now,salesBalanceClosedBy:operator,updatedAt:now,updatedByName:operator});
+          var liveMetric=metric(item,draft);Object.assign(item,{salesBalanceStatus:'SALE_CLOSED',salesBalanceResolvedWeight:liveMetric.remaining,salesBalanceResolvedAt:now,salesBalanceResolvedBy:operator,salesBalanceClosedAt:now,salesBalanceClosedBy:operator,shippingPlanExcluded:true,shippingPlanExcludeReason:'SALES_BALANCE_CLOSED',shippingPlanExcludedAt:now,updatedAt:now,updatedByName:operator});
       });
     });
     if(saved===false)return;selected.clear();renderModal();toast('선택한 남은 잔량을 판매종료했습니다.');
