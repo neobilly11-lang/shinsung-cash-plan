@@ -1,10 +1,12 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260818-inventory-grade-origin-1';
+  var VERSION='20260821-customer-stock-groups-1';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
+  var inventoryDisplayModeValue='GRADE';
   try{sharedExpectedSoId=text(new URLSearchParams(location.search).get('expectedSo'));}catch(_){sharedExpectedSoId='';}
+  try{inventoryDisplayModeValue=upper(localStorage.getItem('mesInventoryDisplayMode'))==='CUSTOMER'?'CUSTOMER':'GRADE';}catch(_){inventoryDisplayModeValue='GRADE';}
   var runtime=root.__mesRuntime||{};
   if(runtime.getState&&!Object.prototype.hasOwnProperty.call(root,'state'))Object.defineProperty(root,'state',{configurable:true,get:runtime.getState,set:runtime.setState});
   if(runtime.getView&&!Object.prototype.hasOwnProperty.call(root,'currentView'))Object.defineProperty(root,'currentView',{configurable:true,get:runtime.getView});
@@ -53,6 +55,8 @@
     return copied;
   }
   function normalize(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').replace(/[^A-Z0-9가-힣]/g,'');}
+  function broadAlloyGrade(value){var normalized=upper(value).replace(/[._-]+/g,' ').replace(/\s+/g,' ');return /^(?:(?:NICKEL|COPPER|TITANIUM|COBALT|MOLYBDENUM|STAINLESS(?: STEEL)?|NI|CU|TI|CO|MO) ALLOY(?: SCRAP)?|(?:NICKEL|COPPER|TITANIUM|COBALT|MOLYBDENUM) SCRAP|ALLOY)$/.test(normalized);}
+  function sourceCustomerGrade(row){row=row||{};var explicit=text(row.purchaseContractGrade||row.contractGrade||row.customerGrade||row.supplierGrade||row.sourceGrade);if(explicit)return explicit;var raw=text(row.originalGrade||row.grade||row.itemName||row.description),specific=text(row.mainGrade||row.finalGrade||row.detailGrade);return broadAlloyGrade(raw)&&specific&&!broadAlloyGrade(specific)?specific:(raw||specific);}
   function tokens(value){return upper(value).replace(/TURNINGS?/g,'TURNING').replace(/SOLIDS?/g,'SOLID').split(/[^A-Z0-9가-힣]+/).filter(Boolean);}
   function bigrams(value){var source=normalize(value),out=[];if(source.length<2)return source?[source]:[];for(var i=0;i<source.length-1;i++)out.push(source.slice(i,i+2));return out;}
   function similarity(a,b){
@@ -74,7 +78,7 @@
     return text(row.grade||row.originalGrade||row.itemName);
   }
   function incomingGradeSource(row){
-    var label=text(row&&(row.grade||row.originalGrade||row.itemName||row.description))||gradeLabel(row);
+    var label=sourceCustomerGrade(row)||gradeLabel(row);
     return{grade:label,originalGrade:label};
   }
   function gradeParts(row){
@@ -98,11 +102,13 @@
     if(!Array.isArray(root.state.expectedSalesOrders))root.state.expectedSalesOrders=[];
     if(!Array.isArray(root.state.inventoryGradeMappings))root.state.inventoryGradeMappings=[];
   }
-  function mappingRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&!/^FAMILY/.test(upper(row.kind));});}
+  function mappingRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&!/^(?:FAMILY|CUSTOMER_GROUP)/.test(upper(row.kind));});}
   function familyConfigRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY';});}
   function familyExclusionRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY_EXCLUSION';});}
   function familyMemberExclusionRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY_MEMBER_EXCLUSION';});}
   function familyMemberAssignmentRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='FAMILY_MEMBER_ASSIGNMENT';});}
+  function customerGroupConfigRows(){ensureState();return list(root.state&&root.state.inventoryGradeMappings).filter(function(row){return active(row)&&upper(row.kind)==='CUSTOMER_GROUP';});}
+  function inventoryDisplayMode(){return inventoryDisplayModeValue==='CUSTOMER'?'CUSTOMER':'GRADE';}
   function familyMemberAssignment(row){return familyMemberAssignmentRows().find(function(item){return text(item.memberId)===text(row.id)||normalize(item.memberLabel)===normalize(row.gradeLabel);});}
   function familyMemberExcluded(key,row){return familyMemberExclusionRows().some(function(item){return text(item.familyKey)===text(key)&&(text(item.memberId)===text(row.id)||normalize(item.memberLabel)===normalize(row.gradeLabel));});}
   function finalCandidates(){
@@ -219,7 +225,7 @@
   }
   function rawCustomerGrade(row){
     row=row&&row.bag?Object.assign({},row.bag,row):row||{};
-    return text(row.purchaseContractGrade||row.contractGrade||row.customerGrade||row.supplierGrade||row.sourceGrade||row.originalGrade||row.itemName||row.description||row.grade);
+    return sourceCustomerGrade(row);
   }
   function customerGradeFor(record,source){
     var pos=relatedPos(record);
@@ -394,6 +400,22 @@
     });
     return output;
   }
+  function customerGroupMembers(config,details){
+    var ids=new Set(list(config&&config.memberIds).map(text)),labels=new Set(list(config&&config.memberLabels).map(normalize));
+    return details.filter(function(row){return ids.has(text(row.id))||labels.has(normalize(row.gradeLabel));});
+  }
+  function customerInventoryRows(applyTradeFilter){
+    var details=forecastRows(applyTradeFilter).filter(function(row){return !row.isFamilySummary;}),assigned=new Set(),output=[];
+    customerGroupConfigRows().forEach(function(config){
+      var members=customerGroupMembers(config,details).filter(function(row){return !assigned.has(text(row.id));}),customerName=text(config.customerName||config.groupName||config.familyLabel);
+      if(!members.length||!customerName)return;
+      var summary={id:'customer:'+text(config.id),customerGroupId:text(config.id),isCustomerGroupSummary:true,customerName:customerName,customerGrade:customerName,productType:uniqueText(members.map(function(row){return row.productType;})).join('/'),mainGrade:customerName,subGrade:members.length+'개 강종',arrival:0,uninspected:0,workWaiting:0,unpacked:0,completed:0,shippingPlanned:0,sources:[],members:members,memberIds:members.map(function(row){return row.id;}),memberLabels:members.map(function(row){return row.gradeLabel;}),mapping:'판매처별 직접 묶음'};
+      members.forEach(function(row){assigned.add(text(row.id));['arrival','uninspected','workWaiting','unpacked','completed','shippingPlanned'].forEach(function(stage){summary[stage]=round(summary[stage]+number(row[stage]));});summary.sources=summary.sources.concat(row.sources||[]);});
+      summary.finalGradeLabel=uniqueText(summary.memberLabels).join(' / ')||'미확정';summary.tradeTypes=uniqueText(summary.sources.map(function(source){return source.tradeType;}));summary.tradeType=summary.tradeTypes.join(' / ');summary.expectedStock=round(summary.arrival+summary.uninspected+summary.workWaiting+summary.unpacked+summary.completed);summary.familyStock=summary.expectedStock;summary.forecastRemaining=round(summary.expectedStock-summary.shippingPlanned);summary.stock=summary.forecastRemaining;summary.gradeLabel=customerName+' · '+members.length+'개 강종';output.push(summary);
+    });
+    details.filter(function(row){return !assigned.has(text(row.id));}).forEach(function(row){output.push(Object.assign({},row,{customerName:'미지정 판매처',isCustomerUnassigned:true}));});
+    return output.sort(function(a,b){return text(a.customerName).localeCompare(text(b.customerName),'ko')||text(a.gradeLabel).localeCompare(text(b.gradeLabel),'ko',{numeric:true});});
+  }
   function forecastFor(source){
     var probe=detailGrade(source),identity=effectiveFamilyIdentity(Object.assign({id:groupKey(probe)||normalize(displayGrade(probe)),gradeLabel:displayGrade(probe)},probe)),rows=forecastRows(),family=rows.find(function(row){return row.isFamilySummary&&row.familyKey===identity.key;});
     if(family)return family;
@@ -425,11 +447,12 @@
 
   function inventoryDetail(row){
     var parts=['arrival','uninspected','workWaiting','unpacked','completed','shippingPlanned'];
-    var summary='<section class="detail-section"><h3>'+encode(row.gradeLabel)+' · 강종별 재고 총량</h3><div class="kpis">'+parts.map(function(key){return '<div class="kpi"><small>'+stageName(key)+'</small><strong>'+root.fmt(row[key])+' kg</strong></div>';}).join('')+'<div class="kpi"><small>예상남은재고</small><strong style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+' kg</strong></div></div></section>';
-    var allowed=new Set(row.isFamilySummary?list(row.memberIds):[row.id]);
+    var customerGrouped=!!row.isCustomerGroupSummary,grouped=!!row.isFamilySummary||customerGrouped;
+    var summary='<section class="detail-section"><h3>'+encode(row.gradeLabel)+' · '+(customerGrouped?'판매처별':'강종별')+' 재고 총량</h3><div class="kpis">'+parts.map(function(key){return '<div class="kpi"><small>'+stageName(key)+'</small><strong>'+root.fmt(row[key])+' kg</strong></div>';}).join('')+'<div class="kpi"><small>예상남은재고</small><strong style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+' kg</strong></div></div></section>';
+    var allowed=new Set(grouped?list(row.memberIds):[row.id]);
     var rows=list(row.sources).filter(function(source){return allowed.has(source.groupId);});
     var workRows=rows.filter(function(source){return ['workWaiting','unpacked','completed'].indexOf(source.stage)>=0;});
-    var members=row.isFamilySummary?root.mesSection('유사강종 구성', [['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGradeLabel||x.gradeLabel||displayGrade(x);}],['입항예정',function(x){return root.fmt(x.arrival);}],['미검수',function(x){return root.fmt(x.uninspected);}],['작업대기',function(x){return root.fmt(x.workWaiting);}],['미포장',function(x){return root.fmt(x.unpacked);}],['완료재고',function(x){return root.fmt(x.completed);}],['출하예정',function(x){return root.fmt(x.shippingPlanned);}],['예상남은재고',function(x){return root.fmt(x.forecastRemaining);}]],list(row.members)):'';
+    var members=grouped?root.mesSection(customerGrouped?'판매처별 묶음 구성':'유사강종 구성', [['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGradeLabel||x.gradeLabel||displayGrade(x);}],['입항예정',function(x){return root.fmt(x.arrival);}],['미검수',function(x){return root.fmt(x.uninspected);}],['작업대기',function(x){return root.fmt(x.workWaiting);}],['미포장',function(x){return root.fmt(x.unpacked);}],['완료재고',function(x){return root.fmt(x.completed);}],['출하예정',function(x){return root.fmt(x.shippingPlanned);}],['예상남은재고',function(x){return root.fmt(x.forecastRemaining);}]],list(row.members)):'';
     var workDetails=root.mesSection('작업상세 · 작업대기·미포장·완료재고', [['재고상태',function(x){return stageName(x.stage);}],['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGrade||'미확정';}],['소강종',sourceSubGrade],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',sourceRelatedNo],['현재 장소',sourceLocation]],workRows);
     return summary+members+workDetails+root.mesSection('단계별 원본 내역', [['국내·해외',function(x){return x.tradeType==='DOMESTIC'?'국내':x.tradeType==='OVERSEAS'?'해외':'-';}],['재고단계',function(x){return stageName(x.stage);}],['거래처 강종',function(x){return x.customerGrade||'-';}],['최종강종',function(x){return x.finalGrade||'미확정';}],['표기방식',function(x){return x.mapping;}],['중량(kg)',function(x){return root.fmt(x.weight);}],['관련번호',sourceRelatedNo]],rows);
   }
@@ -540,6 +563,34 @@
     if(ok)root.openInventoryGradeMapping();
   };
 
+  function customerGroupCandidateRows(){return forecastRows().filter(function(row){return !row.isFamilySummary;}).sort(function(a,b){return text(a.gradeLabel).localeCompare(text(b.gradeLabel),'ko',{numeric:true});});}
+  function customerGroupListHtml(){
+    var details=customerGroupCandidateRows(),rows=customerGroupConfigRows();
+    if(!rows.length)return'<div class="empty" style="padding:22px">저장된 판매처별 강종 묶음이 없습니다.</div>';
+    return'<div class="detail-scroll"><table class="detail-table"><thead><tr><th>판매처 이름</th><th>구성 강종</th><th>현재 예상재고</th><th>작업</th></tr></thead><tbody>'+rows.map(function(config){var members=customerGroupMembers(config,details),stock=members.reduce(function(sum,row){return sum+number(row.expectedStock);},0);return'<tr><td><b>'+encode(config.customerName||config.groupName||'미지정')+'</b></td><td>'+(members.length?members.map(function(row){return encode(row.gradeLabel);}).join('<br>'):'현재 자료에서 일치 강종 없음')+'</td><td>'+root.fmt(stock)+' kg</td><td><button class="btn" data-customer-group-id="'+encode(config.id)+'" onclick="editInventoryCustomerGroup(this.dataset.customerGroupId)">구성 수정</button> <button class="btn danger" data-customer-group-id="'+encode(config.id)+'" onclick="deleteInventoryCustomerGroup(this.dataset.customerGroupId)">묶음 삭제</button></td></tr>';}).join('')+'</tbody></table></div>';
+  }
+  function customerGroupMemberChoices(selectedIds){
+    var selected=new Set(list(selectedIds).map(text));
+    return customerGroupCandidateRows().map(function(row){return'<label data-customer-grade="'+encode(normalize(row.gradeLabel))+'" style="display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;padding:11px;border:1px solid #d8e3df;border-radius:12px;background:#fff"><input type="checkbox" name="customerGroupMember" value="'+encode(row.id)+'" '+(selected.has(text(row.id))?'checked':'')+' style="width:24px;height:24px"><span><b>'+encode(row.gradeLabel)+'</b><br><small>예상재고 '+root.fmt(row.expectedStock)+' kg · 출하예정 '+root.fmt(row.shippingPlanned)+' kg</small></span></label>';}).join('');
+  }
+  root.openInventoryCustomerGrouping=function(){
+    ensureState();root.$('modalTitle').textContent='판매처별 강종 묶기';
+    root.$('modalBody').innerHTML='<section class="detail-section"><h3>판매처별 재고표기 구성</h3><p>판매처 이름을 입력하고 해당 판매처로 묶어 볼 강종을 선택하세요. 같은 강종은 한 판매처 묶음에만 포함됩니다.</p>'+customerGroupListHtml()+'</section><form id="inventoryCustomerGroupForm" class="form-grid" style="margin-top:18px" onsubmit="saveInventoryCustomerGroup(event)"><input type="hidden" name="id"><label class="wide">판매처(거래처) 이름<input name="customerName" placeholder="예: ABC METAL" required></label><label class="wide">구성 강종 검색<input type="search" placeholder="강종 검색" oninput="filterInventoryCustomerGroupCandidates(this.value)"></label><div id="inventoryCustomerGroupMembers" class="wide" style="display:grid;gap:8px;max-height:420px;overflow:auto">'+customerGroupMemberChoices([])+'</div><div class="wide actions"><button class="btn primary" type="submit">판매처 묶음 저장</button><button class="btn" type="button" onclick="resetInventoryCustomerGroupForm()">새 묶음 입력</button><button class="btn" type="button" onclick="setInventoryDisplayMode(\'CUSTOMER\')">판매처별 재고 보기</button></div></form>';
+    root.$('modal').classList.add('on');
+  };
+  root.filterInventoryCustomerGroupCandidates=function(value){var query=normalize(value);Array.from(document.querySelectorAll('#inventoryCustomerGroupMembers [data-customer-grade]')).forEach(function(label){label.style.display=!query||text(label.dataset.customerGrade).indexOf(query)>=0?'grid':'none';});};
+  root.resetInventoryCustomerGroupForm=function(){var form=root.$('inventoryCustomerGroupForm');if(!form)return;form.reset();form.elements.id.value='';Array.from(form.querySelectorAll('[name="customerGroupMember"]')).forEach(function(input){input.checked=false;});form.elements.customerName.focus();};
+  root.editInventoryCustomerGroup=function(id){var row=customerGroupConfigRows().find(function(item){return text(item.id)===text(id);}),form=root.$('inventoryCustomerGroupForm');if(!row||!form)return;form.elements.id.value=row.id;form.elements.customerName.value=row.customerName||row.groupName||'';var selected=new Set(list(row.memberIds).map(text));Array.from(form.querySelectorAll('[name="customerGroupMember"]')).forEach(function(input){input.checked=selected.has(text(input.value));});form.scrollIntoView({behavior:'smooth',block:'start'});};
+  root.saveInventoryCustomerGroup=async function(event){
+    event.preventDefault();var form=event.currentTarget,data=new FormData(form),id=text(data.get('id'))||('customer-group-'+crypto.randomUUID()),customerName=text(data.get('customerName')),selected=Array.from(form.querySelectorAll('[name="customerGroupMember"]:checked')).map(function(input){return text(input.value);}),candidateMap=new Map(customerGroupCandidateRows().map(function(row){return[text(row.id),row];}));
+    if(!customerName)return root.toast('판매처 이름을 입력하세요.',true);if(!selected.length)return root.toast('판매처로 묶을 강종을 한 개 이상 선택하세요.',true);
+    var row={id:id,kind:'CUSTOMER_GROUP',customerName:customerName,memberIds:selected,memberLabels:selected.map(function(memberId){var member=candidateMap.get(memberId);return member&&member.gradeLabel||memberId;}),updatedAt:new Date().toISOString(),updatedByName:root.currentUserName()};
+    var ok=await root.commit('판매처별 강종 묶음 저장',['inventoryGradeMappings'],function(next){var selectedSet=new Set(selected);next.inventoryGradeMappings=list(next.inventoryGradeMappings).reduce(function(rows,item){if(text(item.id)===id)return rows;if(upper(item.kind)!=='CUSTOMER_GROUP'){rows.push(item);return rows;}var memberIds=list(item.memberIds),memberLabels=list(item.memberLabels),kept=[];memberIds.forEach(function(memberId,index){if(!selectedSet.has(text(memberId)))kept.push({id:memberId,label:memberLabels[index]||memberId});});if(kept.length){item.memberIds=kept.map(function(member){return member.id;});item.memberLabels=kept.map(function(member){return member.label;});rows.push(item);}return rows;},[]);next.inventoryGradeMappings.push(row);});
+    if(ok){root.openInventoryCustomerGrouping();root.toast(customerName+' 판매처 묶음 저장완료');}
+  };
+  root.deleteInventoryCustomerGroup=async function(id){var row=customerGroupConfigRows().find(function(item){return text(item.id)===text(id);});if(!row||!confirm((row.customerName||'선택한 판매처')+' 묶음을 삭제할까요? 구성 강종 재고는 미지정 판매처로 표시됩니다.'))return;var ok=await root.commit('판매처별 강종 묶음 삭제',['inventoryGradeMappings'],function(next){next.inventoryGradeMappings=list(next.inventoryGradeMappings).filter(function(item){return text(item.id)!==text(id);});});if(ok)root.openInventoryCustomerGrouping();};
+  root.setInventoryDisplayMode=function(mode){inventoryDisplayModeValue=upper(mode)==='CUSTOMER'?'CUSTOMER':'GRADE';try{localStorage.setItem('mesInventoryDisplayMode',inventoryDisplayModeValue);}catch(_){}applyInventorySchema();if(typeof root.render==='function')root.render();if(root.$('modal')&&root.$('modal').classList.contains('on')&&/재고|판매처/.test(text(root.$('modalTitle')&&root.$('modalTitle').textContent)))root.$('modal').classList.remove('on');};
+
   function nextExpectedNo(){
     var day=new Date().toLocaleDateString('sv-SE').replace(/-/g,''),prefix='E-SO-'+day+'-';
     var max=list(root.state.expectedSalesOrders).reduce(function(value,row){var match=text(row.expectedSoNo).match(new RegExp('^'+prefix+'(\\d+)$'));return Math.max(value,match?number(match[1]):0);},0);
@@ -602,10 +653,21 @@
     if(!target){target=document.createElement('div');target.id='mesActualSalesForecastPreview';target.className='wide mes-actual-forecast';var form=body.querySelector('form');if(form)form.appendChild(target);else body.appendChild(target);}
     target.innerHTML='<b>예상재고 자동연결</b><span>'+encode(forecast.gradeLabel||displayGrade(forecast))+' · 현재 예상남은 '+root.fmt(forecast.forecastRemaining)+' kg · 입력 후 '+root.fmt(forecast.forecastRemaining-amount)+' kg</span>';
   }
+  function gradeInventoryColumns(){return[
+    ['국내·해외',function(row){return row.tradeTypes&&row.tradeTypes.length===1?(row.tradeTypes[0]==='DOMESTIC'?'국내':'해외'):(row.tradeType||'-');}],['품종',function(row){return row.productType||'-';}],['거래처 강종',function(row){return row.customerGrade||'-';},'left'],['최종강종',function(row){return row.finalGradeLabel||'미확정';},'left'],['소강종',function(row){return row.subGrade||'-';}],
+    ['입항예정재고(kg)',function(row){return root.fmt(row.arrival);}],['미검수재고(kg)',function(row){return root.fmt(row.uninspected);}],['작업대기재고(kg)',function(row){return root.fmt(row.workWaiting);} ],['미포장재고(kg)',function(row){return root.fmt(row.unpacked);}],
+    ['완료재고(kg)',function(row){return root.fmt(row.completed);}],['유사강종 재고(kg)',function(row){return row.isFamilySummary?'<b>'+root.fmt(row.familyStock)+'</b>':root.fmt(row.expectedStock);}],['유사강종 출하예정(kg)',function(row){return root.fmt(row.shippingPlanned);}],
+    ['유사강종 예상재고(kg)',function(row){return '<b style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+'</b>';}],['표기방식',function(row){return row.isFamilySummary?'묶음표기':'원문유지';}]
+  ];}
+  function customerInventoryColumns(){return[
+    ['판매처',function(row){return '<b>' + encode(row.customerName||'미지정 판매처') + '</b>';},'left'],['구성 강종',function(row){return row.isCustomerGroupSummary?list(row.memberLabels).map(encode).join('<br>'):encode(row.gradeLabel||'-');},'left'],['국내·해외',function(row){return row.tradeTypes&&row.tradeTypes.length===1?(row.tradeTypes[0]==='DOMESTIC'?'국내':'해외'):(row.tradeType||'-');}],
+    ['입항예정재고(kg)',function(row){return root.fmt(row.arrival);}],['미검수재고(kg)',function(row){return root.fmt(row.uninspected);}],['작업대기재고(kg)',function(row){return root.fmt(row.workWaiting);}],['미포장재고(kg)',function(row){return root.fmt(row.unpacked);}],['완료재고(kg)',function(row){return root.fmt(row.completed);}],['출하예정(kg)',function(row){return root.fmt(row.shippingPlanned);}],['예상재고(kg)',function(row){return '<b style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+'</b>';}],['표기방식',function(row){return row.isCustomerGroupSummary?'판매처별 묶음':'미지정 판매처';}]
+  ];}
+  function applyInventorySchema(){if(!root.schemas||!root.schemas.inventory)return;var customer=inventoryDisplayMode()==='CUSTOMER';root.schemas.inventory.rows=function(){return customer?customerInventoryRows(true):forecastRows(true);};root.schemas.inventory.cols=customer?customerInventoryColumns():gradeInventoryColumns();}
   function decorate(){
     ensureState();
     var actions=document.querySelector('#content .dashboard-head .actions');
-    if(root.currentView==='inventory'&&actions&&!actions.querySelector('.mes-inventory-mapping'))actions.insertAdjacentHTML('afterbegin','<button class="btn mes-inventory-mapping" onclick="openInventoryGradeMapping()">재고표기 방식</button>');
+    if(root.currentView==='inventory'&&actions&&!actions.querySelector('.mes-inventory-mapping'))actions.insertAdjacentHTML('afterbegin','<button class="btn '+(inventoryDisplayMode()==='GRADE'?'primary ':'')+'mes-inventory-grade-mode" onclick="setInventoryDisplayMode(\'GRADE\')">강종별 표기</button><button class="btn '+(inventoryDisplayMode()==='CUSTOMER'?'primary ':'')+'mes-inventory-customer-mode" onclick="setInventoryDisplayMode(\'CUSTOMER\')">판매처별 표기</button><button class="btn mes-inventory-customer-group" onclick="openInventoryCustomerGrouping()">판매처별 강종 묶기</button><button class="btn mes-inventory-mapping" onclick="openInventoryGradeMapping()">재고표기 방식</button>');
     if(root.currentView==='sales'&&actions&&!actions.querySelector('.mes-expected-so'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-expected-so" onclick="openExpectedSoComposer()">+ 예상 S.O 작성하기</button><button class="btn mes-expected-so-list" onclick="openExpectedSoList()">예상 S.O 목록 '+list(root.state.expectedSalesOrders).filter(active).length+'건</button>');
     actualSalesForecastPreview();
     if(sharedExpectedSoId&&sharedExpectedSoOpened!==sharedExpectedSoId&&expectedOrder(sharedExpectedSoId)){sharedExpectedSoOpened=sharedExpectedSoId;requestAnimationFrame(function(){root.openExpectedSoPreview(sharedExpectedSoId);});}
@@ -614,18 +676,12 @@
     if(!root.schemas||!root.schemas.inventory||document.documentElement.dataset.mesInventoryForecastSoV1==='ready')return;
     ensureState();
     var baseDefaults=root.defaults;root.defaults=function(value){var next=baseDefaults(value);if(!Array.isArray(next.expectedSalesOrders))next.expectedSalesOrders=[];if(!Array.isArray(next.inventoryGradeMappings))next.inventoryGradeMappings=[];return next;};
-    root.schemas.inventory.rows=function(){return forecastRows(true);};
-    root.schemas.inventory.cols=[
-      ['국내·해외',function(row){return row.tradeTypes&&row.tradeTypes.length===1?(row.tradeTypes[0]==='DOMESTIC'?'국내':'해외'):(row.tradeType||'-');}],['품종',function(row){return row.productType||'-';}],['거래처 강종',function(row){return row.customerGrade||'-';},'left'],['최종강종',function(row){return row.finalGradeLabel||'미확정';},'left'],['소강종',function(row){return row.subGrade||'-';}],
-      ['입항예정재고(kg)',function(row){return root.fmt(row.arrival);}],['미검수재고(kg)',function(row){return root.fmt(row.uninspected);}],['작업대기재고(kg)',function(row){return root.fmt(row.workWaiting);} ],['미포장재고(kg)',function(row){return root.fmt(row.unpacked);}],
-      ['완료재고(kg)',function(row){return root.fmt(row.completed);}],['유사강종 재고(kg)',function(row){return row.isFamilySummary?'<b>'+root.fmt(row.familyStock)+'</b>':root.fmt(row.expectedStock);}],['유사강종 출하예정(kg)',function(row){return root.fmt(row.shippingPlanned);}],
-      ['유사강종 예상재고(kg)',function(row){return '<b style="color:'+(row.forecastRemaining<0?'#b4232d':'#087566')+'">'+root.fmt(row.forecastRemaining)+'</b>';}],['표기방식',function(row){return row.isFamilySummary?'묶음표기':'원문유지';}]
-    ];
+    applyInventorySchema();
     var baseDetail=root.mesDetailMarkup;root.mesDetailMarkup=function(view,row){if(view==='inventory')return inventoryDetail(row);return baseDetail(view,row);};
     var baseRender=root.render;root.render=function(){var result=baseRender.apply(this,arguments);requestAnimationFrame(decorate);return result;};
     document.addEventListener('input',function(event){if(event.target&&/^(?:mainGrade|subGrade|productType|weight)$/.test(event.target.name||''))requestAnimationFrame(actualSalesForecastPreview);},true);
     document.documentElement.dataset.mesInventoryForecastSoV1='ready';
-    root.mesForecastRows=forecastRows;root.mesResolveForecastGrade=resolveGrade;root.mesForecastForGrade=forecastFor;root.mesForecastSimilarity=similarity;root.mesForecastFamilyIdentity=familyIdentity;root.mesInventoryForecastVersion=VERSION;
+    root.mesForecastRows=forecastRows;root.mesCustomerInventoryRows=customerInventoryRows;root.mesResolveForecastGrade=resolveGrade;root.mesForecastForGrade=forecastFor;root.mesForecastSimilarity=similarity;root.mesForecastFamilyIdentity=familyIdentity;root.mesInventoryForecastVersion=VERSION;
     try{root.state=root.defaults(root.state);root.render();}catch(error){console.error('MES inventory forecast install failed',error);}
   }
   install();

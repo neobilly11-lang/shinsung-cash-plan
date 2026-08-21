@@ -14,7 +14,8 @@ const emptyState = {
   pos: [], splits: [], inputs: [], bags: [], gradeMasters: [],
   gradeTypes: {}, mainGrades: [], subGrades: [], locations: [], movements: [],
   waitingLocations: [], waitingMoves: [], workWaitLocations: [], inspectors: [],
-  samples: [], analysisRecords: [], preSettlements: [], expectedSalesOrders: [],
+  samples: [], analysisRecords: [], preSettlements: [], purchaseRequests: [],
+  shippingRequests: [], expectedSalesOrders: [],
   inventoryGradeMappings: [], systemSettings: {}
 };
 const allowedKeys = [
@@ -26,7 +27,7 @@ const allowedKeys = [
   'claims', 'domesticReceipts', 'packagingMaterials', 'selectionGuides',
   'receiptWorks', 'shippingWorks', 'orderPhotos', 'workflowDrafts',
   'workflowDraftDeletions', 'inspectors', 'auditLogs', 'samples',
-  'analysisRecords', 'preSettlements', 'expectedSalesOrders',
+  'analysisRecords', 'preSettlements', 'purchaseRequests', 'shippingRequests', 'expectedSalesOrders',
   'inventoryGradeMappings', 'systemSettings'
 ];
 

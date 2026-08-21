@@ -642,6 +642,11 @@
   function weightOf(row) { return num(pick(row,["purchaseContractWeight","contractWeight","purchaseQuantity","contractQuantity","plannedPurchaseWeight","netWeight","nw","weight","grossWeight","gw"])); }
   function priceOf(row) { return num(pick(row,["unitPrice","purchaseUnitPrice","purchasePrice","price","usdPrice","pricePerKg"])); }
   function gradeOf(row) { return [pick(row,["productType","category"]),pick(row,["mainGrade","finalGrade","grade","gradeName","contractGrade"]),pick(row,["subGrade","shape"]),pick(row,["detailGrade","description"])].filter(Boolean).join(" · "); }
+  function domesticPurchase(row) {
+    row=row||{};
+    if(row.domesticReceipt===true||row.isDomestic===true||txt(row.domesticReceiptId))return true;
+    return ["purchaseOrigin","origin","type","importType","purchaseType","originType","tradeType","inboundType","receiptType"].some(function(key){var value=upper(row[key]);return value==="DOMESTIC"||value==="LOCAL"||value.indexOf("국내")>=0;});
+  }
   function normGrade(v) { return upper(v).replace(/[^A-Z0-9가-힣]/g,""); }
   function similar(a,b) {
     a=normGrade(a); b=normGrade(b); if(!a||!b)return 0; if(a===b)return 1; if(a.indexOf(b)>=0||b.indexOf(a)>=0)return Math.min(a.length,b.length)/Math.max(a.length,b.length)+0.2;
@@ -668,8 +673,8 @@
         var ed=dateValue(r,["arrivalExpectedAt","expectedArrivalDate","expectedAt","expectedDate","eta"]);if(ed)expectedDates.push(ed);
         var pd=dateValue(r,["purchaseDate","contractDate","orderDate","poDate","savedAt","createdAt","updatedAt"]);if(pd)purchaseDates.push(pd);
       });
-      var custom=costs[poNo]||{}, origin=upper(pick(first,["purchaseOrigin","origin","type"]));
-      var isImport=!(origin.indexOf("국내")>=0||origin==="DOMESTIC");
+      var custom=costs[poNo]||{};
+      var isImport=!rows.some(domesticPurchase);
       var customs=isImport?num(custom.total):0, total=purchase+customs;
       var receivedAt=receivedDates.sort().slice(-1)[0]||"";
       return {kind:"purchase",key:poNo,poNo:poNo,partner:pick(first,["company","supplier","vendor","partner"]),grade:rows.map(gradeOf).filter(Boolean).join(" / "),weight:weight,purchaseAmount:purchase,customs:customs,totalCost:total,costPerKg:weight?total/weight:0,purchaseDate:purchaseDates.sort()[0]||"",receivedAt:receivedAt,isReceived:rows.length>0&&receivedCount===rows.length,receivedCount:receivedCount,expectedAt:expectedDates.sort()[0]||"",isImport:isImport,currency:currency(pick(first,["currency","purchaseCurrency"])),rows:rows,customEntry:custom};
@@ -959,7 +964,7 @@
   }
   function installFinanceColumns(){
     var p=runtime.schemas&&runtime.schemas.purchase&&runtime.schemas.purchase.cols, s=runtime.schemas&&runtime.schemas.shipping&&runtime.schemas.shipping.cols;
-    if(p&&!p.some(function(c){return c[0]==="통관비";}))p.splice(5,0,["통관비",function(r){return financeCostButton("import",r);},"left"]);
+    if(p)for(var index=p.length-1;index>=0;index--)if(p[index]&&p[index][0]==="통관비")p.splice(index,1);
     if(s&&!s.some(function(c){return c[0]==="수출비용";}))s.splice(5,0,["수출비용",function(r){return financeCostButton("export",r);},"left"]);
   }
   installFinanceColumns();
