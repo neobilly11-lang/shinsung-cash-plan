@@ -178,4 +178,11 @@ const apiSource = read('api/scrap-state.js');
 assert.match(apiSource, /'purchaseRequests'/, '입고요청 자료가 서버 저장 허용 목록에 포함');
 assert.match(apiSource, /'shippingRequests'/, '출하요청 자료가 서버 저장 허용 목록에 포함');
 
+const inboundStageSource = read('mes-plan-stage-flow-v1.js');
+assert.match(inboundStageSource, /통관비 총액\(원\).*해외입고만 입력/, '해외입고 입력창에 통관비 총액 필드 표시');
+assert.match(inboundStageSource, /\['통관비',[\s\S]*customsTotal/, '입고요청현황 표에 통관비 열 표시');
+assert.match(inboundStageSource, /importType==='OVERSEAS'&&row\.customsUpdatedAt/, '국내입고에는 통관비를 표시하지 않음');
+assert.match(inboundStageSource, /\['purchaseRequests','pos','systemSettings'\]/, '통관비를 입고요청과 공용 비용설정에 함께 저장');
+assert.match(inboundStageSource, /importCustomsByPo/, 'P.O별 통관비를 임원용 매입원가와 공유');
+
 console.log('PASS 2026-08-21 MES grade, settlement, customer inventory, location QR regressions');
