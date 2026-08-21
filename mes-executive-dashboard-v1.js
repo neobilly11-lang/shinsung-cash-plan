@@ -303,7 +303,7 @@
     }
     function navButton() {
       if (!allowed()) return "";
-      return '<div class="nav-group mes-executive-nav"><div class="nav-title">임원 전용</div><button class="nav-btn" data-id="executive" onclick="openExecutiveDashboard()"><b>14</b> 임원용 현황판</button></div>';
+      return '<div class="nav-group mes-executive-nav"><div class="nav-title">임원 전용</div><button class="nav-btn" data-id="executive" onclick="openExecutiveDashboard()"><b>15</b> 임원용 현황판</button></div>';
     }
     root.buildNav = function () {
       var result = baseBuildNav.apply(this, arguments);
