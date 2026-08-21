@@ -43,7 +43,7 @@ const inventoryDocument = {
 };
 const inventoryRoot = {
   state: inventoryState,
-  schemas: { inventory: {} },
+  schemas: { inventory: {}, stockDetail: {} },
   defaults: value => value,
   fmt: value => String(value),
   $: () => null,
@@ -102,14 +102,16 @@ assert.match(inventoryFeatureSource, /mes-stock-detail-offer-excel.*Materials to
 
 inventoryState.splits.push({ id: 'S-WAIT', packageNo: 'PK-1', grade: 'IN 718', mainGrade: 'IN 718', weight: 80, status: 'CONFIRMED' });
 inventoryState.waitingMoves.push({ id: 'PACK-WAIT', packageNo: 'PK-1', grade: 'IN 718', weight: 30, to: '포장대기 A', status: 'CONFIRMED' });
-inventoryState.workWaits.push({ id: 'WORK-WAIT', packageNo: 'PK-2', grade: '70/30 CuNi', weight: 40, location: '선별 작업장', status: 'WAITING' });
-inventoryRoot.inventoryRows = () => [{ id: 'BAG-1', code: 'A-1', mainGrade: 'IN 625', subGrade: 'SOLID', nw: 50, packing: 3, gw: 53, location: '완료창고', status: 'ACTIVE' }];
+inventoryState.workWaits.push({ id: 'WORK-WAIT', packageNo: 'PK-2', grade: 'IN 718', weight: 40, location: '선별 작업장', status: 'WAITING' });
+inventoryRoot.inventoryRows = () => [{ id: 'BAG-1', code: 'A-1', mainGrade: 'IN 718', nw: 50, packing: 3, gw: 53, location: '완료창고', status: 'ACTIVE' }];
 const stockStages = inventoryRoot.mesStockDetailRows();
-assert.deepEqual(
-  [...new Set(stockStages.map(row => row.stageLabel))],
-  ['포장대기', '작업대기', '완료포장'],
-  '재고상세는 포장대기·작업대기·완료포장 순서로 구분',
-);
+const in718Stock = stockStages.find(row => row.mainGrade === 'IN 718');
+assert.equal(stockStages.length, 1, '재고상세는 같은 강종을 상태별 목록으로 나누지 않고 한 행으로 통합');
+assert.equal(in718Stock.packingWait, 30, '한 행에 포장대기 재고량 표시');
+assert.equal(in718Stock.workWait, 40, '한 행에 작업대기 재고량 표시');
+assert.equal(in718Stock.completed, 50, '한 행에 완료포장 재고량 표시');
+assert.equal(in718Stock.nw, 120, '한 행에 전체 재고량 합계 표시');
+assert.equal(JSON.stringify(inventoryRoot.schemas.stockDetail.cols.map(column => column[0])), JSON.stringify(['품종','강종','소강종','포장대기(kg)','작업대기(kg)','완료포장(kg)','총재고(kg)','상세강종','보관위치']), '재고상세 열 순서');
 const selectableOfferRows = inventoryRoot.mesInventoryOfferRows();
 assert.ok(selectableOfferRows.some(row => row.statusLabel === '포장대기'), 'Offer 검색에 포장대기 재고 포함');
 assert.ok(selectableOfferRows.some(row => row.statusLabel === '작업대기'), 'Offer 검색에 작업대기 재고 포함');
