@@ -7,6 +7,8 @@
   function text(value){return String(value==null?'':value).trim();}
   function key(value){return text(value).toUpperCase().replace(/[\s._-]+/g,'');}
   function number(value){var parsed=Number(String(value==null?'':value).replace(/,/g,''));return Number.isFinite(parsed)?parsed:0;}
+  function broadAlloyGrade(value){var normalized=text(value).toUpperCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ');return /^(?:(?:NICKEL|COPPER|TITANIUM|COBALT|MOLYBDENUM|STAINLESS(?: STEEL)?|NI|CU|TI|CO|MO) ALLOY(?: SCRAP)?|(?:NICKEL|COPPER|TITANIUM|COBALT|MOLYBDENUM) SCRAP|ALLOY)$/.test(normalized);}
+  function customerGrade(row){row=row||{};var explicit=text(row.purchaseContractGrade||row.contractGrade||row.customerGrade||row.supplierGrade||row.sourceGrade);if(explicit)return explicit;var raw=text(row.originalGrade||row.grade||row.itemName||row.description),specific=text(row.mainGrade||row.finalGrade||row.detailGrade);return broadAlloyGrade(raw)&&specific&&!broadAlloyGrade(specific)?specific:(raw||specific);}
   function timeValue(row){return text(row&&(
     row.updatedAt||row.inboundRequestedAt||row.requestedAt||row.createdAt||row.requestDate
   ));}
@@ -27,7 +29,7 @@
   function packageItem(row){
     return {
       packageNo:text(row.packageNo||row.internalNo||row.id),
-      grade:text(row.grade||row.originalGrade||row.detailGrade||row.mainGrade),
+      grade:customerGrade(row),
       gw:number(row.grossWeight||row.gw||row.weight),
       nw:number(row.netWeight||row.nw||row.weight),
       packingType:text(row.packingType||row.packageType),
@@ -40,7 +42,8 @@
     var items=list(request.items);
     request.company=text(request.company||po.company);
     request.items=items;
-    request.gradeSummary=text(request.gradeSummary)||Array.from(new Set(items.map(function(item){return text(item.grade);}))).filter(Boolean).join(' / ');
+    var itemGradeSummary=Array.from(new Set(items.map(function(item){return customerGrade(item);}))).filter(Boolean).join(' / ');
+    request.gradeSummary=itemGradeSummary||text(request.gradeSummary);
     request.packageCount=items.length;
     request.totalGw=items.reduce(function(sum,item){return sum+number(item.gw||item.grossWeight);},0);
     request.totalNw=items.reduce(function(sum,item){return sum+number(item.nw||item.netWeight||item.weight);},0);

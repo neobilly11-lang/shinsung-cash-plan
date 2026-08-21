@@ -101,6 +101,15 @@ assert.equal(po.customs, 1000, '수입통관비');
 assert.equal(po.totalCost, 2000, '매입총액 = 매입금액 + 수입통관비');
 assert.equal(po.costPerKg, 20, '통관비를 포함한 kg당 수입원가');
 
+const domesticState = JSON.parse(JSON.stringify(state));
+domesticState.pos[0].type = 'OVERSEAS';
+domesticState.pos[0].domesticReceipt = true;
+domesticState.pos[0].domesticReceiptId = 'DOMESTIC-1';
+const domesticPo = finance.poSummaries(domesticState)[0];
+assert.equal(domesticPo.isImport, false, '국내입고 플래그가 있으면 수입 통관 대상이 아님');
+assert.equal(domesticPo.customs, 0, '국내입고는 저장된 통관비가 있어도 계산에서 제외');
+assert.equal(domesticPo.totalCost, domesticPo.purchaseAmount, '국내입고 총원가는 매입금액만 반영');
+
 const packages = finance.packageCostIndex(state, [po]);
 assert.equal(packages.P001.workHours, 48, '작업시간 = 입고완료부터 완료포장 이동까지');
 assert.equal(packages.P001.workCost, 800000, '작업비 = 48시간 × 400,000원 / 24시간');

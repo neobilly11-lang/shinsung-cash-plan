@@ -7,6 +7,8 @@
   function text(value){return String(value==null?'':value).trim();}
   function number(value){var parsed=Number(String(value==null?'':value).replace(/,/g,''));return Number.isFinite(parsed)?parsed:0;}
   function upper(value){return text(value).toUpperCase();}
+  function broadAlloyGrade(value){var normalized=upper(value).replace(/[._-]+/g,' ').replace(/\s+/g,' ');return /^(?:(?:NICKEL|COPPER|TITANIUM|COBALT|MOLYBDENUM|STAINLESS(?: STEEL)?|NI|CU|TI|CO|MO) ALLOY(?: SCRAP)?|(?:NICKEL|COPPER|TITANIUM|COBALT|MOLYBDENUM) SCRAP|ALLOY)$/.test(normalized);}
+  function customerGrade(row){row=row||{};var explicit=text(row.purchaseContractGrade||row.contractGrade||row.customerGrade||row.supplierGrade||row.sourceGrade);if(explicit)return explicit;var raw=text(row.originalGrade||row.grade||row.itemName||row.description),specific=text(row.mainGrade||row.finalGrade||row.detailGrade);return broadAlloyGrade(raw)&&specific&&!broadAlloyGrade(specific)?specific:(raw||specific);}
   function encoded(value){return encodeURIComponent(text(value));}
   function missing(value){return text(value)||'<span class="stage-missing">기입요망</span>';}
   function stageLabel(status,type){
@@ -62,7 +64,7 @@
     row=row||{};
     return "<div class='line-editor packing-request-line'><div class='line-editor-head'><b>패키지 "+(index+1)+"</b><button type='button' class='btn danger' onclick='this.closest(\".packing-request-line\").remove();updatePackingRequestTotals()'>삭제</button></div><div class='form-grid'><label>Package No.<input name='packageNo' value='"+esc(row.packageNo||'')+"'></label><label>강종<input name='grade' value='"+esc(row.grade||'')+"' required></label><label>G/W(kg)<input name='gw' type='number' step='0.01' value='"+esc(row.gw||row.weight||'')+"' oninput='updatePackingRequestTotals()'></label><label>N/W(kg)<input name='nw' type='number' step='0.01' value='"+esc(row.nw||row.weight||'')+"' oninput='updatePackingRequestTotals()'></label><label>포장 종류<input name='packingType' value='"+esc(row.packingType||'')+"'></label><label>비고<input name='memo' value='"+esc(row.memo||'')+"'></label></div></div>";
   }
-  function stageRequestDefaultItems(po){return list(po&&po.rows).map(function(row){return{packageNo:row.packingPackageNo||'',grade:row.grade||'',gw:number(row.grossWeight||row.weight),nw:number(row.netWeight||row.weight),packingType:row.packingType||'',memo:row.packingMemo||''};});}
+  function stageRequestDefaultItems(po){return list(po&&po.rows).map(function(row){return{packageNo:row.packingPackageNo||'',grade:customerGrade(row),gw:number(row.grossWeight||row.weight),nw:number(row.netWeight||row.weight),packingType:row.packingType||'',memo:row.packingMemo||''};});}
   function stageNextRequestNo(){var day=nowDate().replace(/-/g,''),max=0;list(state.purchaseRequests).forEach(function(row){var match=text(row.requestNo).match(new RegExp('^IR-'+day+'-(\\d+)$'));if(match)max=Math.max(max,number(match[1]));});return 'IR-'+day+'-'+String(max+1).padStart(3,'0');}
 
   window.renderPackingRequestForm=function(po,items){
