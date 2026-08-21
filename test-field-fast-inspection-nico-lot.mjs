@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
 
 const require=createRequire(import.meta.url);
 const api=require('./field-fast-inspection-nico-lot-v1.js');
+const source=readFileSync(new URL('./field-fast-inspection-nico-lot-v1.js',import.meta.url),'utf8');
+
+assert.match(source,/<select id="inventoryWorkLocation">/);
+assert.doesNotMatch(source,/id="inventoryWorkLocation" list=/);
+assert.doesNotMatch(source,/type===NICO_MELT&&[^\n]*inventoryWorkInstruction/);
 
 const metrics=api.inboundMetrics({netWeight:4218,grossWeight:4242,packageCount:4,weight:9999});
 assert.deepEqual(metrics,{net:4218,gross:4242,tare:24,packing:4});
