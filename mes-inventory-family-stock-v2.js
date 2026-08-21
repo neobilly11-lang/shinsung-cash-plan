@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260821-inventory-offer-stages-1';
+  var VERSION='20260821-inventory-offer-stages-2';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
   var inventoryDisplayModeValue='GRADE';
@@ -678,6 +678,8 @@
     root.$('modal').classList.add('on');
   };
   root.openInventoryOfferPreview=function(){var info=updateOfferDraftFromForm();if(!info.customerCompany)return root.toast('미리보기에 표시할 판매처 회사명을 입력하세요.',true);root.$('modalTitle').textContent='Materials to offer · 미리보기';root.$('modalBody').innerHTML=inventoryOfferPreviewMarkup(info)+'<div class="actions" style="margin-top:16px"><button class="btn" onclick="openInventoryOfferComposer()">← 입력화면</button><button class="btn primary" onclick="downloadInventoryOfferExcel()">Excel 내려받기</button></div>';};
+  root.openInventoryOfferPreviewFromStockDetail=function(){if(!offerDraftItems.length){root.openInventoryOfferPicker(false);return root.toast('미리보기할 재고를 먼저 선택해 주세요.');}root.openInventoryOfferComposer();};
+  root.downloadInventoryOfferExcelFromStockDetail=function(){if(!offerDraftItems.length){root.openInventoryOfferPicker(false);return root.toast('Excel로 내려받을 재고를 먼저 선택해 주세요.');}return root.downloadInventoryOfferExcel();};
   async function ensureOfferXlsx(){if(root.XLSX)return;if(typeof root.mesEnsureXlsx==='function')return root.mesEnsureXlsx();await new Promise(function(resolve,reject){var script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';script.onload=resolve;script.onerror=function(){reject(Error('Excel 모듈을 불러오지 못했습니다.'));};document.head.appendChild(script);});}
   function offerSafeFile(value){return text(value||'Customer').replace(/[\\/:*?"<>|]/g,'_').slice(0,60)||'Customer';}
   root.downloadInventoryOfferExcel=async function(){
@@ -762,6 +764,7 @@
     ensureState();
     var actions=document.querySelector('#content .dashboard-head .actions');
     if(root.currentView==='inventory'&&actions&&!actions.querySelector('.mes-inventory-mapping'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-inventory-offer" onclick="openInventoryOfferPicker(true)">판매처 재고 OFFER</button><button class="btn '+(inventoryDisplayMode()==='GRADE'?'primary ':'')+'mes-inventory-grade-mode" onclick="setInventoryDisplayMode(\'GRADE\')">강종별 표기</button><button class="btn '+(inventoryDisplayMode()==='CUSTOMER'?'primary ':'')+'mes-inventory-customer-mode" onclick="setInventoryDisplayMode(\'CUSTOMER\')">판매처별 표기</button><button class="btn mes-inventory-customer-group" onclick="openInventoryCustomerGrouping()">판매처별 강종 묶기</button><button class="btn mes-inventory-mapping" onclick="openInventoryGradeMapping()">재고표기 방식</button>');
+    if(root.currentView==='stockDetail'&&actions&&!actions.querySelector('.mes-stock-detail-offer'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-stock-detail-offer" onclick="openInventoryOfferPicker(true)">판매처 재고 OFFER</button><button class="btn mes-stock-detail-offer-preview" onclick="openInventoryOfferPreviewFromStockDetail()">Materials to offer 미리보기</button><button class="btn mes-stock-detail-offer-excel" onclick="downloadInventoryOfferExcelFromStockDetail()">Materials to offer Excel</button>');
     if(root.currentView==='sales'&&actions&&!actions.querySelector('.mes-expected-so'))actions.insertAdjacentHTML('afterbegin','<button class="btn primary mes-expected-so" onclick="openExpectedSoComposer()">+ 예상 S.O 작성하기</button><button class="btn mes-expected-so-list" onclick="openExpectedSoList()">예상 S.O 목록 '+list(root.state.expectedSalesOrders).filter(active).length+'건</button>');
     actualSalesForecastPreview();
     if(sharedExpectedSoId&&sharedExpectedSoOpened!==sharedExpectedSoId&&expectedOrder(sharedExpectedSoId)){sharedExpectedSoOpened=sharedExpectedSoId;requestAnimationFrame(function(){root.openExpectedSoPreview(sharedExpectedSoId);});}

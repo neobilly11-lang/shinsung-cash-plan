@@ -95,6 +95,10 @@ const offerGroups = inventoryRoot.mesAggregateInventoryOfferRows([
 ]);
 assert.equal(offerGroups.length, 2, 'Offer List는 같은 강종을 한 행으로 자동 합산');
 assert.equal(offerGroups.find(row => row.grade === 'IN 718').netWeight, 2000, 'Offer 강종별 Total Net Weight 합계');
+const inventoryFeatureSource = read('mes-inventory-family-stock-v2.js');
+assert.match(inventoryFeatureSource, /currentView==='stockDetail'.*mes-stock-detail-offer/, '재고상세 화면에 판매처 재고 OFFER 버튼 표시');
+assert.match(inventoryFeatureSource, /mes-stock-detail-offer-preview.*Materials to offer 미리보기/, '재고상세 화면에 Materials to offer 미리보기 버튼 표시');
+assert.match(inventoryFeatureSource, /mes-stock-detail-offer-excel.*Materials to offer Excel/, '재고상세 화면에 Materials to offer Excel 버튼 표시');
 
 inventoryState.splits.push({ id: 'S-WAIT', packageNo: 'PK-1', grade: 'IN 718', mainGrade: 'IN 718', weight: 80, status: 'CONFIRMED' });
 inventoryState.waitingMoves.push({ id: 'PACK-WAIT', packageNo: 'PK-1', grade: 'IN 718', weight: 30, to: '포장대기 A', status: 'CONFIRMED' });
