@@ -9,6 +9,10 @@ const source=readFileSync(new URL('./field-fast-inspection-nico-lot-v1.js',impor
 assert.match(source,/<select id="inventoryWorkLocation">/);
 assert.doesNotMatch(source,/id="inventoryWorkLocation" list=/);
 assert.doesNotMatch(source,/type===NICO_MELT&&[^\n]*inventoryWorkInstruction/);
+assert.match(source,/function focusInventoryWorkChoice\(delay=180\)/);
+assert.match(source,/choices\.scrollIntoView\(\{behavior:'smooth',block:'center'\}\)/);
+assert.match(source,/first\?\.focus\(\{preventScroll:true\}\)/);
+assert.match(source,/show\('inventoryWorkMove'\);focusInventoryWorkChoice\(\)/);
 
 const metrics=api.inboundMetrics({netWeight:4218,grossWeight:4242,packageCount:4,weight:9999});
 assert.deepEqual(metrics,{net:4218,gross:4242,tare:24,packing:4});
