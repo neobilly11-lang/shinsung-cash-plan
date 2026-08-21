@@ -162,6 +162,9 @@ assert.match(qrSource, /printInventoryLocationQr/, '재고 장소 QR 출력 기�
 assert.match(qrSource, /④ 재고이동에 선택되었습니다/, '7번 QR 이동에서 4번 재고이동 안내');
 assert.match(qrSource, /renderMoveLocationChoices/, '이동 후 장소 선택창 자동 열기');
 assert.match(qrSource, /6 · QR 업무 바로가기/, '현장관리 QR 업무 바로가기를 6번으로 이동');
+assert.doesNotMatch(qrSource, /\.qr-fast-home\{grid-column:1\/-1/, '6번 QR 카드는 5번과 같은 절반 너비');
+assert.match(qrSource, /\.home-manual-wide\{grid-column:1\/-1\}/, '7번 그림 메뉴얼은 기존 6번처럼 전체 너비');
+assert.match(qrSource, /tutorial\.classList\.add\('home-manual-wide'\)/, '그림 메뉴얼 카드에 전체 너비 클래스 적용');
 assert.match(zebraSource, /printZebraLocationQr/, '장소 QR을 Zebra ZD421 출력기로 연결');
 
 const fieldHtml = read('stable-inspection-mobile-v4.html');
