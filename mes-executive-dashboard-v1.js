@@ -17,7 +17,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260817-kpi-stage-1";
+  var VERSION = "20260821-kpi-cost-accuracy-2";
   var PHYSICAL_STAGES = ["arrival", "uninspected", "workWaiting", "unpacked", "completed"];
   var STAGE_LABELS = {
     arrival: "입항예정",
@@ -589,7 +589,7 @@
   root.document.documentElement.dataset.mesExecutiveFinanceV2 = "loaded";
   var DAY = 86400000;
   var HOUR = 3600000;
-  var financeMonth = new Date().toISOString().slice(0, 7);
+  var financeMonth = localMonth(new Date());
   var drillKind = "purchase";
   var drillQuery = "";
   var costTargetSeq = 0;
@@ -619,8 +619,10 @@
   function active(v) { return v && v.active !== false && v.deleted !== true && v.isDeleted !== true && !v.deletedAt && upper(v.status) !== "CANCELLED"; }
   function pick(row, keys) { for (var i=0;i<keys.length;i+=1) { var value=row && row[keys[i]]; if (value !== undefined && value !== null && txt(value) !== "") return value; } return ""; }
   function dateValue(row, keys) { var raw=pick(row,keys); if (!raw) return ""; var d=new Date(raw); return isNaN(d.getTime()) ? "" : d.toISOString(); }
-  function monthOf(value) { var d=new Date(value); return isNaN(d.getTime()) ? "" : d.toISOString().slice(0,7); }
+  function localMonth(value) { var d=value instanceof Date?value:new Date(value); return isNaN(d.getTime())?"":d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+  function monthOf(value) { return localMonth(value); }
   function endOfMonth(month) { var p=month.split("-").map(Number); return new Date(p[0],p[1],0,23,59,59,999); }
+  function inventoryAsOf(month) { var now=new Date(); return month===localMonth(now)?now:endOfMonth(month); }
   function prevMonth(month) { var p=month.split("-").map(Number), d=new Date(p[0],p[1]-2,1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
   function daysBetween(a,b) { var x=new Date(a), y=new Date(b); if (isNaN(x)||isNaN(y)) return 0; return Math.max(0,Math.ceil((y-x)/DAY)); }
   function hoursBetween(a,b) { var x=new Date(a), y=new Date(b); if (isNaN(x)||isNaN(y)) return 0; return Math.max(0,(y-x)/HOUR); }
@@ -684,29 +686,76 @@
     else if(weight>0&&unit)amount=weight*unit;
     return toKrw(amount,curr,rate,rates);
   }
-  function gradeCostIndex(pos) {
+  function packageCostIndex(state,pos) {
+    var completionByPackage={}, out={};
+    list(state.inputs).filter(active).forEach(function(input){
+      var packageNo=sourcePackageId(input), completedAt=dateValue(input,["packingCompletedAt","completedAt","movedAt","createdAt"]);
+      if(packageNo&&completedAt&&(!completionByPackage[packageNo]||completedAt>completionByPackage[packageNo]))completionByPackage[packageNo]=completedAt;
+    });
+    pos.forEach(function(p){p.rows.forEach(function(r){
+      var packageNo=sourcePackageId(r),weight=weightOf(r);if(!packageNo||!weight)return;
+      var receivedAt=dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"])||p.receivedAt||"";
+      var completedAt=completionByPackage[packageNo]||"";
+      var x=out[packageNo]||(out[packageNo]={packageNo:packageNo,weight:0,cost:0,workCost:0,workHours:0,receivedAt:receivedAt,completedAt:completedAt,source:p});
+      x.weight+=weight;
+      x.cost+=weight*p.costPerKg;
+      x.workHours=Math.max(x.workHours,hoursBetween(receivedAt,completedAt));
+      if(receivedAt&&(!x.receivedAt||receivedAt<x.receivedAt))x.receivedAt=receivedAt;
+      if(completedAt&&(!x.completedAt||completedAt>x.completedAt))x.completedAt=completedAt;
+    });});
+    Object.keys(out).forEach(function(packageNo){out[packageNo].workCost=out[packageNo].workHours*(400000/24);});
+    return out;
+  }
+  function gradeCostIndex(pos,packageCosts) {
     var idx={};
-    pos.forEach(function(p){p.rows.forEach(function(r){var g=normGrade(gradeOf(r)||p.grade),w=weightOf(r),cost=w*p.costPerKg;if(!g||!w)return;var x=idx[g]||(idx[g]={weight:0,cost:0,dateWeights:[],source:p});x.weight+=w;x.cost+=cost;x.dateWeights.push({date:p.receivedAt||p.expectedAt,weight:w});});});
+    pos.forEach(function(p){p.rows.forEach(function(r){var g=normGrade(gradeOf(r)||p.grade),w=weightOf(r),packageNo=sourcePackageId(r),pc=packageCosts&&packageCosts[packageNo],cost=pc&&pc.weight?w*(pc.cost/pc.weight):w*p.costPerKg,date=pc&&pc.receivedAt||dateValue(r,["receivedAt","receiptConfirmedAt","inboundCompletedAt","arrivalConfirmedAt"])||p.receivedAt||p.expectedAt;if(!g||!w)return;var x=idx[g]||(idx[g]={weight:0,cost:0,dateWeights:[],source:p});x.weight+=w;x.cost+=cost;x.dateWeights.push({date:date,weight:w});});});
     return idx;
   }
   function closestGrade(index,grade) { var key=normGrade(grade); if(index[key])return index[key]; var best=null,score=0;Object.keys(index).forEach(function(k){var s=similar(k,key);if(s>score){score=s;best=index[k];}});return score>=0.7?best:null; }
   function sourcePackageId(row) { return txt(pick(row,["packageNo","internalInboundNo","sourcePackageNo","sourceNo","inboundNo","code","bagNo"])); }
-  function workCostIndex(state,pos) {
-    var byPackage={}, out={};
-    list(state.inputs).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var d=dateValue(r,["inspectionStartedAt","inspectionStartAt","startedAt","createdAt"]);if(d&&(!byPackage[k]||d<byPackage[k].start)) (byPackage[k]=byPackage[k]||{}).start=d;});
-    list(state.bags).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var d=dateValue(r,["packingCompletedAt","completedAt","movedAt","createdAt"]);if(d)(byPackage[k]=byPackage[k]||{}).end=d;});
-    list(state.movements).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var st=upper(pick(r,["toStatus","status","type"]));if(/COMPLETE|완료|PACK/.test(st)){var d=dateValue(r,["completedAt","movedAt","createdAt"]);if(d)(byPackage[k]=byPackage[k]||{}).end=d;}});
-    var waits={};
-    list(state.workWaits).filter(active).forEach(function(r){var k=sourcePackageId(r);if(!k)return;var h=num(pick(r,["processingHours","workHours","hours"]));if(!h)h=hoursBetween(dateValue(r,["workStartedAt","startedAt","createdAt"]),dateValue(r,["workCompletedAt","completedAt","finishedAt"]));waits[k]=(waits[k]||0)+h*20000;});
-    pos.forEach(function(p){p.rows.forEach(function(r){var k=sourcePackageId(r),w=weightOf(r),g=normGrade(gradeOf(r)||p.grade),t=byPackage[k]||{};var continuous=hoursBetween(t.start,t.end)*(400000/24);var total=continuous+(waits[k]||0);if(!g||!w)return;var x=out[g]||(out[g]={weight:0,cost:0});x.weight+=w;x.cost+=total;});});
+  function workCostIndex(state,pos,packageCosts) {
+    var out={}, packages=packageCosts||packageCostIndex(state,pos);
+    pos.forEach(function(p){p.rows.forEach(function(r){var k=sourcePackageId(r),pc=packages[k],w=weightOf(r),g=normGrade(gradeOf(r)||p.grade);if(!g||!w)return;var x=out[g]||(out[g]={weight:0,cost:0});x.weight+=w;x.cost+=pc&&pc.weight?w*(pc.workCost/pc.weight):0;});});
     return out;
+  }
+  function bagPackageWeights(state,bagId,seen) {
+    bagId=txt(bagId);seen=seen||{};if(!bagId||seen[bagId])return{};
+    var branch=Object.assign({},seen);branch[bagId]=true;var out={};
+    list(state.inputs).filter(active).filter(function(input){return txt(input.bagId)===bagId;}).forEach(function(input){
+      var weight=num(input.weight),packageNo=sourcePackageId(input),sourceBagId=txt(input.sourceBagId||input.fromBagId);
+      if(packageNo){out[packageNo]=(out[packageNo]||0)+weight;return;}
+      if(!sourceBagId)return;
+      var nested=bagPackageWeights(state,sourceBagId,branch),nestedWeight=Object.keys(nested).reduce(function(total,key){return total+nested[key];},0);
+      if(!nestedWeight)return;
+      var scale=weight>0?weight/nestedWeight:1;
+      Object.keys(nested).forEach(function(key){out[key]=(out[key]||0)+nested[key]*scale;});
+    });
+    return out;
+  }
+  function allocatedCostTotals(state,allocations,packageCosts,shipmentDate) {
+    var totals={weight:0,cost:0,work:0,interest:0,dayWeight:0};
+    allocations.forEach(function(allocation){
+      var allocationWeight=num(allocation.weight),parts=bagPackageWeights(state,allocation.bagId,{}),partWeight=Object.keys(parts).reduce(function(total,key){return total+parts[key];},0);
+      if(!partWeight){var direct=sourcePackageId(allocation);if(direct){parts[direct]=allocationWeight;partWeight=allocationWeight;}}
+      if(!allocationWeight||!partWeight)return;
+      Object.keys(parts).forEach(function(packageNo){
+        var pc=packageCosts[packageNo];if(!pc||!pc.weight)return;
+        var used=allocationWeight*(parts[packageNo]/partWeight),cost=used*(pc.cost/pc.weight),work=used*(pc.workCost/pc.weight),days=daysBetween(pc.receivedAt,shipmentDate);
+        totals.weight+=used;totals.cost+=cost;totals.work+=work;totals.interest+=cost*days*0.0001;totals.dayWeight+=days*used;
+      });
+    });
+    return totals;
   }
   function allocationWeight(state,shipment,sale) {
     var sid=txt(shipment.id), soid=txt(sale&&sale.id), sono=txt(pick(sale||shipment,["soNo","salesNo"]));
-    return list(state.shipmentAllocations).filter(active).filter(function(a){return (sid&&txt(a.shipmentId)===sid)||(soid&&txt(a.salesOrderId)===soid)||(sono&&txt(pick(a,["soNo","salesNo"]))===sono);});
+    var rows=list(state.shipmentAllocations).filter(active), exact=sid?rows.filter(function(a){return txt(a.shipmentId)===sid;}):[];
+    if(exact.length)return exact;
+    var byOrder=soid?rows.filter(function(a){return txt(a.salesOrderId)===soid;}):[];
+    if(byOrder.length)return byOrder;
+    return sono?rows.filter(function(a){return txt(pick(a,["soNo","salesNo"]))===sono;}):[];
   }
   function outboundSummaries(state,pos) {
-    var rates=rateMap(state), sales=list(state.salesOrders).filter(active), saleById={}, saleByNo={}, costs=settings(state).exportCostByOutbound, gradeCosts=gradeCostIndex(pos), workCosts=workCostIndex(state,pos);
+    var rates=rateMap(state), sales=list(state.salesOrders).filter(active), saleById={}, saleByNo={}, costs=settings(state).exportCostByOutbound, packageCosts=packageCostIndex(state,pos), gradeCosts=gradeCostIndex(pos,packageCosts), workCosts=workCostIndex(state,pos,packageCosts);
     sales.forEach(function(s){saleById[txt(s.id)]=s;var no=txt(pick(s,["soNo","salesNo","orderNo"]));if(no)(saleByNo[no]=saleByNo[no]||[]).push(s);});
     var shipments=list(state.shipments).filter(active).filter(finalShipment), out=[];
     shipments.forEach(function(sh){
@@ -714,12 +763,12 @@
       var totalContract=rows.reduce(function(a,r){return a+(weightOf(r)||num(pick(r,["salesWeight","quantity"])));},0);
       var shipped=num(pick(sh,["shippedWeight","weight","netWeight","nw"]))||totalContract;
       var date=dateValue(sh,["shippedAt","shippingCompletedAt","completedAt","confirmedAt","updatedAt"]);
-      var remaining=shipped, salesAmount=0, gradeParts=[], weightedCost=0, work=0, inboundWeighted=0, inboundWeight=0;
-      rows.forEach(function(r){var rw=weightOf(r)||num(pick(r,["salesWeight","quantity"]));var use=totalContract?shipped*(rw/totalContract):shipped/rows.length;var g=gradeOf(r)||gradeOf(sh);gradeParts.push(g);salesAmount+=saleRowAmount(r,use,rates);var ci=closestGrade(gradeCosts,g);var wi=closestGrade(workCosts,g);if(ci){weightedCost+=use*(ci.cost/ci.weight);ci.dateWeights.forEach(function(dw){if(dw.date){inboundWeighted+=new Date(dw.date).getTime()*dw.weight;inboundWeight+=dw.weight;}});}if(wi)work+=use*(wi.cost/wi.weight);remaining-=use;});
-      var allocations=allocationWeight(state,sh,rows[0]), allocInbound=[];
-      allocations.forEach(function(a){var pid=sourcePackageId(a), pdate="";pos.some(function(p){return p.rows.some(function(r){if(sourcePackageId(r)===pid){pdate=p.receivedAt||p.expectedAt;return true;}return false;});});if(pdate)allocInbound.push(pdate);});
-      var inboundDate=allocInbound.sort()[0]||(inboundWeight?new Date(inboundWeighted/inboundWeight).toISOString():"");
-      var inventoryDays=daysBetween(inboundDate,date), interest=weightedCost*inventoryDays*0.0001;
+      var salesAmount=0, gradeParts=[], fallbackCost=0, fallbackWork=0, fallbackInboundWeighted=0, fallbackInboundWeight=0;
+      rows.forEach(function(r){var rw=weightOf(r)||num(pick(r,["salesWeight","quantity"]));var use=totalContract?shipped*(rw/totalContract):shipped/rows.length;var g=gradeOf(r)||gradeOf(sh);gradeParts.push(g);salesAmount+=saleRowAmount(r,use,rates);var ci=closestGrade(gradeCosts,g),wi=closestGrade(workCosts,g);if(ci){fallbackCost+=use*(ci.cost/ci.weight);ci.dateWeights.forEach(function(dw){if(dw.date){fallbackInboundWeighted+=new Date(dw.date).getTime()*dw.weight;fallbackInboundWeight+=dw.weight;}});}if(wi)fallbackWork+=use*(wi.cost/wi.weight);});
+      var allocations=allocationWeight(state,sh,rows[0]), allocated=allocatedCostTotals(state,allocations,packageCosts,date), missingWeight=Math.max(0,shipped-allocated.weight), fallbackRatio=shipped?missingWeight/shipped:0;
+      var weightedCost=allocated.cost+fallbackCost*fallbackRatio, work=allocated.work+fallbackWork*fallbackRatio;
+      var fallbackInboundDate=fallbackInboundWeight?new Date(fallbackInboundWeighted/fallbackInboundWeight).toISOString():"", fallbackDays=daysBetween(fallbackInboundDate,date);
+      var interest=allocated.interest+(fallbackCost*fallbackRatio*fallbackDays*0.0001), inventoryDays=shipped?(allocated.dayWeight+fallbackDays*missingWeight)/shipped:0;
       var key=txt(sh.id)||soNo||txt(sh.salesOrderId), exp=costs[key]||costs[soNo]||{}, exportCost=num(exp.total), profit=salesAmount-weightedCost-work-interest-exportCost;
       out.push({kind:"outbound",key:key,soNo:soNo||txt(sh.salesOrderId)||key,partner:pick(rows[0],["customer","company","buyer","partner"]),grade:gradeParts.filter(Boolean).join(" / "),weight:shipped,date:date,salesAmount:salesAmount,purchaseCost:weightedCost,workCost:work,interestCost:interest,exportCost:exportCost,profit:profit,margin:salesAmount?profit/salesAmount*100:0,inventoryDays:inventoryDays,shipment:sh,salesRows:rows,costEntry:exp});
     });
@@ -731,6 +780,10 @@
     return rows;
   }
   function selected(rows,month,dateKey) { return rows.filter(function(r){return monthOf(r[dateKey||"date"])===month;}); }
+  function customerSalesSummaries(rows) {
+    var grouped=groupBy(rows,function(row){return row.partner||"미지정";});
+    return Object.keys(grouped).map(function(partner){var items=grouped[partner],weight=items.reduce(function(total,row){return total+row.weight;},0),salesAmount=items.reduce(function(total,row){return total+row.salesAmount;},0),profit=items.reduce(function(total,row){return total+row.profit;},0);return {partner:partner,count:items.length,weight:weight,salesAmount:salesAmount,profit:profit,margin:salesAmount?profit/salesAmount*100:0,rows:items};}).sort(function(a,b){return b.salesAmount-a.salesAmount;});
+  }
   function build(month) {
     var state=runtime.getState(), pos=poSummaries(state), outbound=outboundSummaries(state,pos);
     var year=String(month||"").slice(0,4);
@@ -741,7 +794,7 @@
     var uninspectedRows=allPhysical.filter(function(r){return r.stage==="uninspected";});
     var workWaitingRows=allPhysical.filter(function(r){return r.stage==="workWaiting";});
     var physical=allPhysical.filter(function(r){return ["workWaiting","unpacked","completed"].indexOf(r.stage)>=0;});
-    var asOf=endOfMonth(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
+    var asOf=inventoryAsOf(month), age=[{label:"30일 이하",min:0,max:30},{label:"31~60일",min:31,max:60},{label:"61~90일",min:61,max:90},{label:"91~180일",min:91,max:180},{label:"180일 초과",min:181,max:99999}];
     allPhysical.forEach(function(r){r.days=daysBetween(r.date,asOf);});
     var buckets=age.map(function(b){var rs=physical.filter(function(r){return r.days>=b.min&&r.days<=b.max;}),weight=rs.reduce(function(a,r){return a+r.weight;},0),value=rs.reduce(function(a,r){return a+r.value;},0);return {label:b.label,weight:weight,value:value,rows:rs};});
     var annualPurchase=annualPurchases.reduce(function(a,r){return a+r.totalCost;},0), annualPurchaseWeight=annualPurchases.reduce(function(a,r){return a+r.weight;},0);
@@ -752,7 +805,8 @@
     var prev=pos.filter(function(p){return monthOf(p.purchaseDate)===prevMonth(month);}).reduce(function(a,r){return a+r.totalCost;},0);
     var salesAmount=sales.reduce(function(a,r){return a+r.salesAmount;},0), cogs=sales.reduce(function(a,r){return a+r.purchaseCost;},0),work=sales.reduce(function(a,r){return a+r.workCost;},0),interest=sales.reduce(function(a,r){return a+r.interestCost;},0),exports=sales.reduce(function(a,r){return a+r.exportCost;},0),profit=sales.reduce(function(a,r){return a+r.profit;},0);
     var stockValue=physical.reduce(function(a,r){return a+r.value;},0), stockWeight=physical.reduce(function(a,r){return a+r.weight;},0), longRows=physical.filter(function(r){return r.days>=90;}), longValue=longRows.reduce(function(a,r){return a+r.value;},0), longWeight=longRows.reduce(function(a,r){return a+r.weight;},0);
-    return {month:month,year:year,state:state,pos:pos,outbound:outbound,annualPurchases:annualPurchases,inbound:inbound,received:uninspectedRows,sales:sales,allPhysical:allPhysical,arrivalRows:arrivalRows,uninspectedRows:uninspectedRows,workWaitingRows:workWaitingRows,physical:physical,buckets:buckets,annualPurchase:annualPurchase,annualPurchaseWeight:annualPurchaseWeight,purchase:purchase,purchaseBase:purchaseBase,customs:customs,inboundWeight:inboundWeight,arrivalTotal:arrivalTotal,arrivalWeight:arrivalWeight,receivedTotal:receivedTotal,receivedWeight:receivedWeight,workWaitingTotal:workWaitingTotal,workWaitingWeight:workWaitingWeight,prevPurchase:prev,mom:prev?(purchase-prev)/prev*100:0,salesAmount:salesAmount,cogs:cogs,work:work,interest:interest,exports:exports,profit:profit,margin:salesAmount?profit/salesAmount*100:0,stockValue:stockValue,stockWeight:stockWeight,longRows:longRows,longValue:longValue,longWeight:longWeight,turnover:sales.length?sales.reduce(function(a,r){return a+r.inventoryDays;},0)/sales.length:0,missingCustoms:inbound.filter(function(p){return p.isImport&&!p.customEntry.updatedAt;}),missingExports:sales.filter(function(r){return !r.costEntry.updatedAt;})};
+    var turnoverWeight=sales.reduce(function(a,r){return a+r.weight;},0),turnover=turnoverWeight?sales.reduce(function(a,r){return a+r.inventoryDays*r.weight;},0)/turnoverWeight:0,customerSales=customerSalesSummaries(sales);
+    return {month:month,year:year,state:state,pos:pos,outbound:outbound,annualPurchases:annualPurchases,inbound:inbound,received:uninspectedRows,sales:sales,customerSales:customerSales,allPhysical:allPhysical,arrivalRows:arrivalRows,uninspectedRows:uninspectedRows,workWaitingRows:workWaitingRows,physical:physical,buckets:buckets,annualPurchase:annualPurchase,annualPurchaseWeight:annualPurchaseWeight,purchase:purchase,purchaseBase:purchaseBase,customs:customs,inboundWeight:inboundWeight,arrivalTotal:arrivalTotal,arrivalWeight:arrivalWeight,receivedTotal:receivedTotal,receivedWeight:receivedWeight,workWaitingTotal:workWaitingTotal,workWaitingWeight:workWaitingWeight,prevPurchase:prev,mom:prev?(purchase-prev)/prev*100:0,salesAmount:salesAmount,cogs:cogs,work:work,interest:interest,exports:exports,profit:profit,margin:salesAmount?profit/salesAmount*100:0,stockValue:stockValue,stockWeight:stockWeight,longRows:longRows,longValue:longValue,longWeight:longWeight,turnover:turnover,missingCustoms:inbound.filter(function(p){return p.isImport&&!p.customEntry.updatedAt;}),missingExports:sales.filter(function(r){return !r.costEntry.updatedAt;})};
   }
   function drillRows(report,kind) {
     if(kind==="annualPurchase")return report.annualPurchases;
@@ -771,6 +825,12 @@
     var head='<tr><th>거래처</th><th>P.O / S.O</th><th>사내입고 / 출고번호</th><th>강종</th><th>중량</th><th>금액·원가</th><th>세부비용·보유일</th><th>상세</th></tr>';
     var body=rows.map(function(r,i){var ref=r.poNo||r.soNo||"-",sub=r.packageNo||r.key||"-",amount=r.kind==="purchase"?r.totalCost:r.kind==="outbound"?r.salesAmount:r.value,details=r.kind==="purchase"?(r.isImport?"통관 "+fmt(r.customs)+"원 · kg당 "+fmt(r.costPerKg):"국내입고"):r.kind==="outbound"?"원가 "+fmt(r.purchaseCost)+" · 작업 "+fmt(r.workCost)+" · 이자 "+fmt(r.interestCost)+" · 수출 "+fmt(r.exportCost):"보유 "+fmt(r.days)+"일";return '<tr><td>'+esc(r.partner||"-")+'</td><td>'+esc(ref)+'</td><td>'+esc(sub)+'</td><td>'+esc(r.grade||"-")+'</td><td>'+kg(r.weight)+'</td><td>'+fmt(amount)+'원</td><td>'+esc(details)+'</td><td><button class="btn" onclick="openExecutiveFinanceDetail(\''+drillKind+'\','+i+')">보기</button></td></tr>';}).join("");
     return '<div class="mes-fin-drill"><div class="mes-fin-drill-head"><div><h2>'+drillTitle(drillKind)+'</h2><p>거래처 → P.O/S.O → 사내입고번호/출고번호까지 확인합니다.</p></div><form onsubmit="event.preventDefault();setExecutiveFinanceQuery(this.q.value)"><input name="q" value="'+esc(drillQuery)+'" placeholder="거래처·P.O·S.O·사내입고·출고 검색"><button class="btn primary">검색</button></form></div><div class="mes-fin-table"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';
+  }
+  function customerSalesTable(report) {
+    var rows=report.customerSales||[];
+    if(!rows.length)return '<section class="mes-fin-partners"><div class="mes-fin-drill-head"><div><h2>거래처별 매출액</h2><p>선택한 달의 출고확정 자료를 판매처별로 합산합니다.</p></div></div><div class="empty">해당 월의 출고확정 매출이 없습니다.</div></section>';
+    var body=rows.map(function(row){return '<tr><td>'+esc(row.partner)+'</td><td>'+fmt(row.count)+'건</td><td>'+kg(row.weight)+'</td><td><b>'+fmt(row.salesAmount)+'원</b></td><td>'+fmt(row.profit)+'원</td><td>'+pct(row.margin)+'</td><td><button type="button" class="btn" data-partner="'+esc(row.partner)+'" onclick="openExecutiveCustomerSales(this.dataset.partner)">상세</button></td></tr>';}).join("");
+    return '<section class="mes-fin-partners"><div class="mes-fin-drill-head"><div><h2>거래처별 매출액</h2><p>매출액·실현이익·이익률을 판매처별로 비교합니다.</p></div></div><div class="mes-fin-table"><table><thead><tr><th>거래처</th><th>출고</th><th>중량</th><th>매출액</th><th>실현이익</th><th>이익률</th><th>상세</th></tr></thead><tbody>'+body+'</tbody></table></div></section>';
   }
   function renderDashboard() {
     var report=build(financeMonth), content=root.document.getElementById("content"), pageTitle=root.document.getElementById("pageTitle");
@@ -796,13 +856,14 @@
     content.innerHTML='<div class="dashboard-head"><div><h1>임원용 MES 대시보드</h1><p>연간·월간 매입과 재고 단계별 금액을 공용 원가 기준으로 집계합니다.</p></div><div class="actions"><label class="mes-fin-month">기준월<input type="month" value="'+financeMonth+'" onchange="setExecutiveFinanceMonth(this.value)"></label><button class="btn" onclick="openExecutiveExchangeDashboard()">환율·환차손익 화면</button><button class="btn" onclick="openExecutiveUserManager()">임원 지정</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>'+
       '<div class="mes-fin-kpis">'+kpis.map(function(k){return '<button class="'+(drillKind===k.k?"on":"")+'" onclick="setExecutiveFinanceDrill(\''+k.k+'\')"><small>'+k.t+'</small><strong>'+k.v+'</strong><span>'+k.s+'</span></button>';}).join("")+'</div>'+
       '<section class="mes-fin-flow"><div class="mes-fin-current"><button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'stock\')"><small>현재재고</small><strong>'+money(report.stockValue)+' / '+(report.stockWeight/1000).toFixed(1)+'톤</strong><span>기존 검수완료 현재재고 기준</span></button><div class="mes-fin-buckets">'+buckets+'</div></div><div class="mes-fin-arrow">↓</div>'+
-      '<button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'sales\')"><small>출고 · '+financeMonth+'</small><strong>매출 '+money(report.salesAmount)+' / 원가 '+money(report.cogs)+'</strong><span>이익 '+money(report.profit)+' · '+pct(report.margin)+'</span></button></section>'+table(report)+alerts;
+      '<button class="mes-fin-flow-main" onclick="setExecutiveFinanceDrill(\'sales\')"><small>출고 · '+financeMonth+'</small><strong>매출 '+money(report.salesAmount)+' / 원가 '+money(report.cogs)+'</strong><span>이익 '+money(report.profit)+' · '+pct(report.margin)+'</span></button></section>'+customerSalesTable(report)+table(report)+alerts;
   }
   root.openExecutiveFinanceDashboard=function(){renderDashboard();};
-  root.mesExecutiveFinance={build:build,poSummaries:poSummaries,outboundSummaries:outboundSummaries,forecastPhysical:forecastPhysical};
+  root.mesExecutiveFinance={build:build,poSummaries:poSummaries,outboundSummaries:outboundSummaries,forecastPhysical:forecastPhysical,packageCostIndex:packageCostIndex,bagPackageWeights:bagPackageWeights};
   root.setExecutiveFinanceMonth=function(v){if(/^\d{4}-\d{2}$/.test(v))financeMonth=v;renderDashboard();};
   root.setExecutiveFinanceDrill=function(v){drillKind=v;drillQuery="";renderDashboard();root.setTimeout(function(){var x=root.document.querySelector(".mes-fin-drill");if(x)x.scrollIntoView({behavior:"smooth",block:"start"});},30);};
   root.setExecutiveFinanceQuery=function(v){drillQuery=txt(v);renderDashboard();};
+  root.openExecutiveCustomerSales=function(partner){drillKind="sales";drillQuery=txt(partner);renderDashboard();root.setTimeout(function(){var x=root.document.querySelector(".mes-fin-drill");if(x)x.scrollIntoView({behavior:"smooth",block:"start"});},30);};
   root.openExecutiveFinanceDetail=function(kind,index){
     var report=build(financeMonth),rows=drillRows(report,kind),r=rows[index];
     if(!r)return false;
@@ -909,6 +970,7 @@
   root.render=function(){installFinanceColumns();var out=baseRender.apply(this,arguments);if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);root.requestAnimationFrame(decorateFinanceForms);return out;};
   new MutationObserver(decorateFinanceForms).observe(root.document.body,{childList:true,subtree:true});
   var style=root.document.createElement("style");style.id="mesExecutiveFinanceV2Style";style.textContent='.mes-fin-month{display:flex;align-items:center;gap:8px;font-weight:800}.mes-fin-month input{padding:10px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.mes-fin-kpis button,.mes-fin-flow-main,.mes-fin-buckets button{border:1px solid #cbd8d5;border-radius:16px;background:#fff;text-align:left;padding:18px;color:#102d28}.mes-fin-kpis button.on{border-color:#0798a9;box-shadow:0 0 0 2px #0798a922}.mes-fin-kpis small,.mes-fin-flow small{display:block;color:#5f7470;font-weight:800}.mes-fin-kpis strong,.mes-fin-flow-main strong{display:block;font-size:26px;margin:8px 0}.mes-fin-kpis span,.mes-fin-flow span{display:block;color:#5f7470}.mes-fin-alert{background:#fff5dc;border:1px solid #efc34e;border-radius:16px;padding:16px;margin:16px 0}.mes-fin-alert-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mes-fin-alert button{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e7b640;border-radius:12px;background:#fff;text-align:left}.mes-fin-alert b{color:#b14920}.mes-fin-flow{display:grid;gap:10px;background:#edf7f5;border-radius:20px;padding:18px}.mes-fin-flow-main{width:100%;background:linear-gradient(135deg,#0b314b,#078b83);color:#fff}.mes-fin-flow-main small,.mes-fin-flow-main span{color:#d8f3ee}.mes-fin-arrow{text-align:center;font-size:28px;font-weight:900;color:#07887c}.mes-fin-current{display:grid;gap:10px}.mes-fin-buckets{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.mes-fin-buckets strong{display:block;margin:7px 0}.mes-fin-drill{background:#fff;border-radius:18px;padding:18px;margin-top:16px}.mes-fin-drill-head{display:flex;justify-content:space-between;gap:16px}.mes-fin-drill-head form{display:flex;gap:8px}.mes-fin-drill-head input{min-width:300px;padding:12px;border:1px solid #cbd8d5;border-radius:10px}.mes-fin-table{overflow:auto;max-height:55vh}.mes-fin-table table{width:100%;border-collapse:collapse;white-space:nowrap}.mes-fin-table th,.mes-fin-table td{padding:11px;border-bottom:1px solid #e1e9e7;text-align:left}.mes-fin-cost-info{display:grid;gap:5px;padding:14px;border-radius:12px;background:#edf7f5}.mes-fin-perkg{padding:14px;border:1px solid #cbd8d5;border-radius:12px}.mes-fin-perkg strong{display:block;font-size:22px}.mes-fin-detail{display:grid;gap:10px}.mes-fin-detail p{margin:0;padding:10px;background:#f4f8f7;border-radius:10px}.mes-fin-embedded{border:2px solid #0798a9;border-radius:12px;padding:12px;background:#effafa}.mes-fin-embedded small{display:block;margin-top:5px;color:#607672}.mes-fin-list-cost{display:inline-flex;align-items:center;justify-content:center;min-width:124px;padding:8px 10px;border-radius:9px;border:1px solid #8bcfc7;background:#eaf8f5;color:#087467;font-weight:900;cursor:pointer}.mes-fin-list-cost.missing{border-color:#efb33d;background:#fff3cf;color:#a34c16}.mes-fin-list-cost.saved{border-color:#70c2b8;background:#e7f7f3;color:#096e63}.mes-fin-list-na{display:inline-flex;padding:8px 10px;border-radius:9px;background:#eef2f1;color:#667773;font-weight:800}.mes-fin-alert-bottom{margin-top:18px}@media(max-width:900px){.mes-fin-kpis{grid-template-columns:repeat(2,1fr)}.mes-fin-buckets{grid-template-columns:repeat(2,1fr)}.mes-fin-alert-grid{grid-template-columns:1fr}.mes-fin-drill-head{display:block}.mes-fin-drill-head form{margin-top:10px}.mes-fin-drill-head input{min-width:0;flex:1}}@media(max-width:560px){.mes-fin-kpis{grid-template-columns:1fr}.mes-fin-kpis strong,.mes-fin-flow-main strong{font-size:22px}.dashboard-head .actions{display:grid;grid-template-columns:1fr 1fr}.mes-fin-month{grid-column:1/-1}.mes-fin-buckets{grid-template-columns:1fr}.mes-fin-flow{padding:12px}}';root.document.head.appendChild(style);
+  var detailStyle=root.document.createElement("style");detailStyle.id="mesExecutiveFinanceAccuracyV2Style";detailStyle.textContent='.mes-fin-partners{background:#fff;border-radius:18px;padding:18px;margin-top:16px}.mes-fin-partners .mes-fin-table{max-height:34vh}.mes-fin-partners tbody tr:hover{background:#f2faf8}';root.document.head.appendChild(detailStyle);
   if(runtime.getView&&runtime.getView()==="executive")root.requestAnimationFrame(renderDashboard);
   return true;
   }
