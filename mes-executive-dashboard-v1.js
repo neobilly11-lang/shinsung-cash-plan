@@ -918,6 +918,10 @@
       if(runtime.getToast())runtime.getToast()((isImport?"통관비":"수출비용")+" 입력 대상을 찾지 못했습니다. 최신자료 조회 후 다시 눌러 주세요.","error");
       return false;
     }
+    if(isImport&&!row.isImport){
+      if(runtime.getToast())runtime.getToast()("국내입고는 통관비 입력 대상이 아닙니다.","error");
+      return false;
+    }
     var old=isImport?row.customs:row.exportCost, title=isImport?"수입통관비":"수출비용", meta=isImport?row.poNo:row.soNo;
     var modal=root.document.getElementById("modal"), modalTitle=root.document.getElementById("modalTitle"), modalBody=root.document.getElementById("modalBody");
     if(!modal||!modalBody){
@@ -964,7 +968,11 @@
   }
   function installFinanceColumns(){
     var p=runtime.schemas&&runtime.schemas.purchase&&runtime.schemas.purchase.cols, s=runtime.schemas&&runtime.schemas.shipping&&runtime.schemas.shipping.cols;
-    if(p)for(var index=p.length-1;index>=0;index--)if(p[index]&&p[index][0]==="통관비")p.splice(index,1);
+    if(p){
+      for(var index=p.length-1;index>=0;index--)if(p[index]&&p[index][0]==="통관비")p.splice(index,1);
+      var statusIndex=p.findIndex(function(c){return c&&c[0]==="구매상태";});
+      p.splice(statusIndex>=0?statusIndex:p.length,0,["통관비",function(r){return financeCostButton("import",r);},"left"]);
+    }
     if(s&&!s.some(function(c){return c[0]==="수출비용";}))s.splice(5,0,["수출비용",function(r){return financeCostButton("export",r);},"left"]);
   }
   installFinanceColumns();

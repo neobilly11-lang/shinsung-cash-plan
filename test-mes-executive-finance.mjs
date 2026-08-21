@@ -75,7 +75,10 @@ const document = {
   querySelector() { return null; },
 };
 const runtime = {
-  schemas: {},
+  schemas: {
+    purchase: { cols: [['구분', () => ''], ['구매상태', () => '']] },
+    shipping: { cols: [] },
+  },
   getState: () => state,
   getView: () => 'dashboard',
   getToast: () => () => {},
@@ -109,6 +112,18 @@ const domesticPo = finance.poSummaries(domesticState)[0];
 assert.equal(domesticPo.isImport, false, '국내입고 플래그가 있으면 수입 통관 대상이 아님');
 assert.equal(domesticPo.customs, 0, '국내입고는 저장된 통관비가 있어도 계산에서 제외');
 assert.equal(domesticPo.totalCost, domesticPo.purchaseAmount, '국내입고 총원가는 매입금액만 반영');
+
+const customsColumn = runtime.schemas.purchase.cols.find((column) => column[0] === '통관비');
+assert.ok(customsColumn, '입고요청현황에 해외입고 통관비 열을 설치');
+assert.match(customsColumn[1]({ poNo: 'PO-1', purchaseOrigin: 'OVERSEAS' }), /통관비 1,000원/, '해외입고는 저장된 통관비 표기');
+state.pos.push({
+  id: 'PO-DOMESTIC', poNo: 'PO-DOMESTIC', company: '국내 공급사', packageNo: 'P-DOMESTIC',
+  weight: 50, unitPrice: 1000, currency: 'KRW', domesticReceipt: true,
+  domesticReceiptId: 'DOMESTIC-2', purchaseDate: '2026-08-01T00:00:00.000Z', status: 'CONFIRMED',
+});
+assert.equal(customsColumn[1]({ poNo: 'PO-DOMESTIC', purchaseOrigin: 'DOMESTIC' }), '', '국내입고 행은 통관비 입력과 금액 표기를 모두 숨김');
+assert.equal(root.openExecutiveCostEditor('import', 'PO-DOMESTIC'), false, '국내입고 통관비 입력창 직접 호출도 차단');
+state.pos.pop();
 
 const packages = finance.packageCostIndex(state, [po]);
 assert.equal(packages.P001.workHours, 48, '작업시간 = 입고완료부터 완료포장 이동까지');
