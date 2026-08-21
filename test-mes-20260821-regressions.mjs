@@ -83,14 +83,37 @@ const customerGroup = customerRows.find(row => row.isCustomerGroupSummary);
 assert.equal(customerGroup.customerName, '판매처 A', '판매처 이름으로 묶음 표시');
 assert.equal(customerGroup.members.length, 2, '선택한 두 강종을 판매처 묶음으로 구성');
 assert.equal(customerGroup.expectedStock, 300, '판매처별 예상재고 합산');
-assert.ok(customerRows.some(row => row.isCustomerUnassigned), '묶지 않은 재고는 미지정 판매처로 유지');
+assert.equal(customerRows.length, 1, '판매처별 표기에는 저장한 판매처 묶음만 표시');
+assert.ok(customerRows.every(row => row.isCustomerGroupSummary), '미지정 판매처 개별행은 판매처별 표기에서 제외');
 inventoryRoot.setInventoryDisplayMode('CUSTOMER');
 assert.equal(inventoryRoot.schemas.inventory.cols[0][0], '판매처', '재고표기 방식을 판매처별 열 구성으로 전환');
-assert.equal(inventoryRoot.schemas.inventory.rows()[0].customerName, '미지정 판매처', '판매처별 표기는 판매처 이름 순으로 조회');
+assert.equal(inventoryRoot.schemas.inventory.rows()[0].customerName, '판매처 A', '판매처별 표기는 저장된 판매처 묶음만 조회');
+const offerGroups = inventoryRoot.mesAggregateInventoryOfferRows([
+  { grade: 'IN 718', netWeight: 1250 },
+  { grade: 'IN 718', netWeight: 750 },
+  { grade: '70/30 CuNi', netWeight: 500 },
+]);
+assert.equal(offerGroups.length, 2, 'Offer List는 같은 강종을 한 행으로 자동 합산');
+assert.equal(offerGroups.find(row => row.grade === 'IN 718').netWeight, 2000, 'Offer 강종별 Total Net Weight 합계');
+
+inventoryState.splits.push({ id: 'S-WAIT', packageNo: 'PK-1', grade: 'IN 718', mainGrade: 'IN 718', weight: 80, status: 'CONFIRMED' });
+inventoryState.waitingMoves.push({ id: 'PACK-WAIT', packageNo: 'PK-1', grade: 'IN 718', weight: 30, to: '포장대기 A', status: 'CONFIRMED' });
+inventoryState.workWaits.push({ id: 'WORK-WAIT', packageNo: 'PK-2', grade: '70/30 CuNi', weight: 40, location: '선별 작업장', status: 'WAITING' });
+inventoryRoot.inventoryRows = () => [{ id: 'BAG-1', code: 'A-1', mainGrade: 'IN 625', subGrade: 'SOLID', nw: 50, packing: 3, gw: 53, location: '완료창고', status: 'ACTIVE' }];
+const stockStages = inventoryRoot.mesStockDetailRows();
+assert.deepEqual(
+  [...new Set(stockStages.map(row => row.stageLabel))],
+  ['포장대기', '작업대기', '완료포장'],
+  '재고상세는 포장대기·작업대기·완료포장 순서로 구분',
+);
+const selectableOfferRows = inventoryRoot.mesInventoryOfferRows();
+assert.ok(selectableOfferRows.some(row => row.statusLabel === '포장대기'), 'Offer 검색에 포장대기 재고 포함');
+assert.ok(selectableOfferRows.some(row => row.statusLabel === '작업대기'), 'Offer 검색에 작업대기 재고 포함');
+assert.ok(selectableOfferRows.some(row => row.statusLabel === '완료포장'), 'Offer 검색에 완료포장 재고 포함');
 
 const settlementState = {
-  pos: [{ id: 'P1', poNo: 'PO-1', packageNo: 'PK-1', company: '공급사', grade: 'IN 718', weight: 100, unitPrice: 10, receivedAt: '2026-08-01', status: 'CONFIRMED' }],
-  splits: [{ id: 'S1', packageNo: 'PK-1', mainGrade: 'IN 718', weight: 95, unitPrice: 10, memo: '정상', status: 'CONFIRMED' }],
+  pos: [{ id: 'P1', poNo: 'PO-1', packageNo: 'PK-1', company: '공급사', purchaseContractGrade: 'CUSTOMER 718', grade: '잘못된 원문', mainGrade: '잘못된 내부강종', weight: 100, unitPrice: 10, receivedAt: '2026-08-01', status: 'CONFIRMED' }],
+  splits: [{ id: 'S1', packageNo: 'PK-1', productType: 'NI', mainGrade: 'IN 718', grade: '잘못된 분할강종', weight: 95, unitPrice: 10, memo: '정상', status: 'CONFIRMED' }],
   losses: [], orderPhotos: [],
 };
 const settlementDocument = {
@@ -114,6 +137,11 @@ vm.runInNewContext(read('mes-settlement-exact-v1.js'), {
   URL,
 });
 const overseasPreview = settlementRoot.mesSettlementPreview(settlementRoot.mesSettlementData('PO-1'), 'OVERSEAS');
+const settlementDetail = settlementRoot.mesSettlementData('PO-1');
+assert.equal(settlementDetail.originalRows[0].description, 'CUSTOMER 718', '세틀 왼쪽은 거래처 계약 강종만 표시');
+assert.equal(settlementDetail.actualRows[0].description, 'NI · IN 718', '세틀 오른쪽은 검수확정 최종강종만 표시');
+assert.match(overseasPreview, /Customer Grade/);
+assert.match(overseasPreview, /Final Grade/);
 assert.doesNotMatch(overseasPreview, /<th>Photo<\/th>/, '세틀 미리보기에서 Photo 열 제거');
 assert.match(overseasPreview, /Actual Value After Inspection<\/th>/);
 assert.match(overseasPreview, /colspan="5"/, '사진 열 제거 후 실제 검수 영역은 5열');
@@ -127,7 +155,15 @@ assert.match(qrSource, /inventoryLocation=/, '재고 장소 전용 QR 주소 생
 assert.match(qrSource, /printInventoryLocationQr/, '재고 장소 QR 출력 기능');
 assert.match(qrSource, /④ 재고이동에 선택되었습니다/, '7번 QR 이동에서 4번 재고이동 안내');
 assert.match(qrSource, /renderMoveLocationChoices/, '이동 후 장소 선택창 자동 열기');
+assert.match(qrSource, /6 · QR 업무 바로가기/, '현장관리 QR 업무 바로가기를 6번으로 이동');
 assert.match(zebraSource, /printZebraLocationQr/, '장소 QR을 Zebra ZD421 출력기로 연결');
+
+const fieldHtml = read('stable-inspection-mobile-v4.html');
+const manualSource = read('mes-manual-v1.js');
+const executiveSource = read('mes-executive-dashboard-v1.js');
+assert.match(fieldHtml, /7 · 그림 메뉴얼/, '현장관리 그림 메뉴얼을 7번으로 이동');
+assert.match(manualSource, /id:'manual',icon:'14'/, 'MES 튜토리얼을 14번으로 변경');
+assert.match(executiveSource, /<b>15<\/b> 임원용 현황판/, 'MES 임원용 현황판을 15번으로 변경');
 
 const apiSource = read('api/scrap-state.js');
 assert.match(apiSource, /'purchaseRequests'/, '입고요청 자료가 서버 저장 허용 목록에 포함');
