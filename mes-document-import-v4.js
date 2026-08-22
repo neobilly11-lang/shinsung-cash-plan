@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260823-17-multi-item-history";
+  const VERSION = "20260823-18-amount-validation";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -66,8 +66,12 @@
     const rawPrice = numberValue(price, extra && extra.style);
     const rawAmount = numberValue(amount, extra && extra.style);
     const weight = round2(qty * qtyFactor);
-    const unitPrice = round4(rawAmount > 0 && weight > 0 ? rawAmount / weight : rawPrice / priceFactor);
-    const total = round2(rawAmount || weight * unitPrice);
+    const normalizedSourcePrice = round4(rawPrice / priceFactor);
+    const calculatedAmount = round2(weight * normalizedSourcePrice);
+    const amountTolerance = Math.max(0.05, Math.abs(calculatedAmount) * 0.005);
+    const amountMismatch = rawAmount > 0 && calculatedAmount > 0 && Math.abs(rawAmount - calculatedAmount) > amountTolerance;
+    const unitPrice = normalizedSourcePrice || round4(rawAmount > 0 && weight > 0 ? rawAmount / weight : 0);
+    const total = round2(amountMismatch ? calculatedAmount : (rawAmount || weight * unitPrice));
     const grossWeight = extra && extra.gross != null ? round2(numberValue(extra.gross, extra.style) * qtyFactor) : weight;
     const tareWeight = extra && extra.tare != null ? round2(numberValue(extra.tare, extra.style) * qtyFactor) : Math.max(0, round2(grossWeight - weight));
     return {
@@ -81,6 +85,9 @@
       unit: unitCode(quantityUnit),
       price: unitPrice,
       sourcePrice: round2(rawPrice),
+      sourceAmount: round2(rawAmount),
+      amountMismatch,
+      amountExpected: calculatedAmount,
       priceUnit: unitCode(priceUnit, unitCode(quantityUnit)),
       amount: total,
       packageNo: clean(extra && extra.packageNo),
@@ -1104,6 +1111,8 @@
       const consistent = financialRows.filter(item => Math.abs(Number(item.netWeight || item.weight) * Number(item.price) - Number(item.amount)) <= Math.max(5, Number(item.amount) * 0.08)).length;
       score += 10 * consistent / financialRows.length;
     } else if (data.documentType === "PACKING_LIST") score += 8;
+    const amountMismatchRows = items.filter(item => item.amountMismatch).length;
+    if (amountMismatchRows) score -= Math.min(25, amountMismatchRows * 8);
     const weightRows = items.filter(item => Number(item.grossWeight || item.netWeight || item.weight) >= Number(item.netWeight || item.weight) && Number(item.netWeight || item.weight) > 0).length;
     score += 5 * weightRows / items.length;
     const unique = new Set(items.map(item => `${compact(item.marking)}|${round2(item.netWeight || item.weight)}|${round2(item.amount)}`)).size;
@@ -1147,11 +1156,16 @@
     const declaredNetWeight = declaredWeights.length ? declaredWeights[Math.floor(declaredWeights.length / 2)] : 0;
     const selectedNetWeight = round2(result.items.reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0));
     const weightTotalMismatch = declaredNetWeight > 0 && selectedNetWeight > 0 && Math.abs(selectedNetWeight - declaredNetWeight) > Math.max(2, declaredNetWeight * 0.03);
+    const amountMismatchCount = result.items.filter(item => item.amountMismatch).length;
     result.diagnostics = {
       ...(result.diagnostics || {}), version: VERSION, extractionMethod: winner.method || "text", confidence: winner.quality,
       extractionCandidates: scored.map(candidate => ({ method: candidate.method || "text", confidence: candidate.quality, itemCount: (candidate.data.items || []).length, netWeight: candidate.weight, declaredNetWeight: candidate.declaredWeight || 0 })),
-      candidateDisagreement: signatures.size > 1, declaredNetWeight, selectedNetWeight, weightTotalMismatch
+      candidateDisagreement: signatures.size > 1, declaredNetWeight, selectedNetWeight, weightTotalMismatch, amountMismatchCount
     };
+    if (amountMismatchCount) {
+      result.diagnostics.reviewRequired = true;
+      result.diagnostics.warning = `금액 불일치 ${amountMismatchCount}건을 감지해 인식된 중량×단가로 자동 보정했습니다. 저장 전 해당 행을 확인하세요.`;
+    }
     result.sourceText = String(winner.text || "");
     Object.defineProperty(result, "__candidateDocuments", {
       value: scored.map(candidate => ({ method: candidate.method || "text", confidence: candidate.quality, text: String(candidate.text || ""), items: (candidate.data.items || []).map(item => ({ ...item })) })),
@@ -1833,15 +1847,20 @@
   function poDocumentDefaults(documentData) {
     const source = documentData || {};
     return {
-      poNo: source.poNo || "", company: source.company || "", contractDate: source.contractDate || "", address: source.address || "", tel: source.tel || "", fax: source.fax || "", email: source.email || "", soNo: source.soNo || "", a10No: source.a10No || "", shipment: source.shipment || "", loadingTerm: source.loadingTerm || "", paymentTerm: source.paymentTerm || "", packing: source.packing || "", note: source.note || "", currency: source.currency || "USD", sourceFile: source.sourceFile || "직접입력", items: source.items && source.items.length ? source.items : [{}]
+      poNo: source.poNo || "", company: source.company || "", contractDate: source.contractDate || "", address: source.address || "", tel: source.tel || "", fax: source.fax || "", email: source.email || "", soNo: source.soNo || "", a10No: source.a10No || "", shipment: source.shipment || "", loadingTerm: source.loadingTerm || "", paymentTerm: source.paymentTerm || "", packing: source.packing || "", note: source.note || "", currency: source.currency || "USD", sourceFile: source.sourceFile || "직접입력", diagnostics: source.diagnostics || {}, items: source.items && source.items.length ? source.items : [{}]
     };
   }
 
   function openDirectPo(documentData) {
     const source = poDocumentDefaults(documentData);
+    const amountMismatchCount = source.items.filter(item => item.amountMismatch).length;
+    const importWarning = amountMismatchCount
+      ? `<div class="wide mes-import-review warning">금액 불일치 ${amountMismatchCount}건을 감지해 중량×단가로 자동 보정했습니다. 표시된 중량·단가·TOTAL VALUE를 확인하세요.</div>`
+      : (source.diagnostics.reviewRequired ? `<div class="wide mes-import-review warning">${escHtml(source.diagnostics.warning || "자동 인식 결과를 저장 전에 확인하세요.")}</div>` : "");
     byId("modalTitle").textContent = "P.O 직접입력 · 업로드 양식과 동일 항목";
     byId("modalBody").innerHTML = `<form id="mesPoV4Form" class="form-grid mes-po-form" onsubmit="saveMesPoV4(event,this)">
       <div class="wide mes-po-form-title"><b>PURCHASE CONTRACT</b><span>CASH COW METAL CO.,LTD · 입력 후 현장관리 공용서버 동시 반영</span></div>
+      ${importWarning}
       <label>P.O NO<input name="orderNo" required value="${escHtml(source.poNo)}"></label>
       <label>입고 구분<select name="kind"><option value="OVERSEAS">해외입고</option><option value="DOMESTIC">국내입고</option></select></label>
       <label>DATE · 계약일<input name="contractDate" value="${escHtml(source.contractDate)}" placeholder="예: 2026-08-13"></label>
