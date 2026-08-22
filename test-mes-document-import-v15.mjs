@@ -107,6 +107,33 @@ assert.equal(koca.grossWeight, 8700);
 assert.equal(koca.tareWeight, 900);
 assert.equal(koca.packageCount, 36);
 
+const cireInvoiceText = `IRELAND ALLOYS
+INVOICE
+Buyer's Reference CIRE260302
+Total Gross wt (Kg) 21,646
+Total Net wt (Kg) 21,100
+Item/Packages Gross/Net/Cube Description Quantity Unit Price Amount
+P/N 13052-02 MP35N TURNINGS, REFINERY GRADE 21100.00 8.20 173,020.00`;
+const cireInvoice = parse("CIRE260302 INVOICE.pdf", cireInvoiceText);
+assert.equal(importer.declaredWeightTotal(cireInvoiceText), 21100, "Total Net wt (Kg) 형식의 문서 총중량 인식");
+assert.equal(cireInvoice.items.length, 1, "CIRE260302 인보이스는 품목 한 행만 선택");
+assert.equal(cireInvoice.items[0].marking, "MP35N TURNINGS, REFINERY GRADE", "CIRE260302 원문 MP35N 강종 유지");
+assert.equal(cireInvoice.items[0].sourceGradeLocked, true, "Ireland Alloys MP35N 원문 강종을 저장자료가 덮어쓰지 못하도록 잠금");
+
+const wrongCireCandidate = {
+  poNo: "CIRE260302", company: "IRELAND ALLOYS", documentType: "INVOICE",
+  items: [
+    importer.normalizeItem("IN 718 TURNINGS", "", 21100, "KG", 8.2, "KG", 173020, {}),
+    importer.normalizeItem("718 VQ TURNINGS", "", 21100, "KG", 8.2, "KG", 173020, {})
+  ]
+};
+const cireCandidateSelection = importer.mergeParsedCandidates([
+  { method: "원본문자-위치복원", text: cireInvoiceText, data: cireInvoice },
+  { method: "페이지사진-OCR", text: "718 TURNINGS 21100 KG\n718 VQ TURNINGS 21100 KG", data: wrongCireCandidate }
+]);
+assert.equal(cireCandidateSelection.items.length, 1, "총중량 21,100kg보다 큰 42,200kg 중복 후보 제외");
+assert.equal(cireCandidateSelection.items[0].marking, "MP35N TURNINGS, REFINERY GRADE", "저장 ITEM 점수보다 문서 원문 강종 우선");
+
 const browser = {
   state: {
     pos: [{ poNo: "CGZM260401", company: "저장된 GREEN ZONE", grade: "NICKEL ALLOY SCRAP A", mainGrade: "C-250 TURNINGS", productType: "NI", weight: 10245, status: "CONFIRMED" }],
@@ -128,5 +155,23 @@ await browser.MesDocumentImporterV4.mapItems(mapped);
 assert.equal(mapped.company, "저장된 GREEN ZONE");
 assert.equal(mapped.items[0].matchedMarking, "C-250 TURNINGS");
 assert.equal(mapped.items[0].productType, "NI");
+
+browser.state.pos.push(
+  { poNo: "OLD-718-1", item: "IN 718 TURNINGS", grade: "IN 718 TURNINGS", mainGrade: "IN 718 TURNINGS", weight: 21100, status: "CONFIRMED" },
+  { poNo: "OLD-718-2", item: "718 VQ TURNINGS", grade: "718 VQ TURNINGS", mainGrade: "718 VQ TURNINGS", weight: 21100, status: "CONFIRMED" }
+);
+const mappedCire = browser.MesDocumentImporterV4.parseText(cireInvoiceText, "CIRE260302 INVOICE.pdf");
+mappedCire.sourceText = cireInvoiceText;
+mappedCire.diagnostics.declaredNetWeight = 21100;
+Object.defineProperty(mappedCire, "__candidateDocuments", {
+  value: [
+    { method: "원본문자-위치복원", confidence: 95, text: cireInvoiceText, items: mappedCire.items.map(item => ({ ...item })) },
+    { method: "페이지사진-OCR", confidence: 90, text: "718 TURNINGS 21100 KG\n718 VQ TURNINGS 21100 KG", items: wrongCireCandidate.items.map(item => ({ ...item })) }
+  ], configurable: true
+});
+await browser.MesDocumentImporterV4.mapItems(mappedCire, { targetType: "PO" });
+assert.equal(mappedCire.items.length, 1, "저장 ITEM 명칭 비교 단계에서도 42,200kg 중복 후보 차단");
+assert.equal(mappedCire.items[0].matchedMarking, "MP35N TURNINGS, REFINERY GRADE", "저장된 718 대신 CIRE260302 원문 MP35N 유지");
+assert.equal(total(mappedCire), 21100, "CIRE260302 최종 선택 총중량 21,100kg");
 
 console.log(`MES document importer ${importer.VERSION}: ${fixtures.length} document patterns passed`);
