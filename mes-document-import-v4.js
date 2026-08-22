@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260822-16-learning-ensemble";
+  const VERSION = "20260823-17-multi-item-history";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -965,6 +965,28 @@
     return out;
   }
 
+  function selectBestRowGroup(groups, text) {
+    const declared = declaredWeightTotal(text);
+    return (Array.isArray(groups) ? groups : []).map((group, index) => {
+      const items = dedupeItems([Array.isArray(group) ? group : []]);
+      const weight = round2(items.reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0));
+      const error = declared > 0 && weight > 0 ? Math.abs(weight - declared) / declared : Number.POSITIVE_INFINITY;
+      const financial = items.filter(item => Number(item.price) > 0 && Number(item.amount) > 0
+        && Math.abs(Number(item.netWeight || item.weight) * Number(item.price) - Number(item.amount)) <= Math.max(5, Number(item.amount) * 0.08)).length;
+      return { items, index, weight, error, financial };
+    }).filter(candidate => candidate.items.length).sort((left, right) => {
+      if (declared > 0) {
+        const leftExact = left.error <= 0.03, rightExact = right.error <= 0.03;
+        if (leftExact !== rightExact) return rightExact - leftExact;
+        if (leftExact && rightExact && left.items.length !== right.items.length) return right.items.length - left.items.length;
+        if (left.error !== right.error) return left.error - right.error;
+      }
+      if (left.items.length !== right.items.length) return right.items.length - left.items.length;
+      if (left.financial !== right.financial) return right.financial - left.financial;
+      return left.index - right.index;
+    })[0]?.items || [];
+  }
+
   function fieldFromLines(lines, patterns) {
     for (const line of lines) for (const pattern of patterns) {
       const match = line.match(pattern);
@@ -1058,7 +1080,7 @@
     const priorityGroups = [parseQuantityDescriptionPriceRows(lines, text), parsePurchaseOrderWeightRows(lines, text), parseErpPurchaseOrderRows(lines, text), parseJapanesePurchaseOrderRows(lines, text), parseTosuiRows(lines, text), parseParentheticalMtsPackingRows(lines, text), parseMaterialAmountRows(lines, text), parseMaterialPackageRows(lines, text), parseParcelPackingRows(lines, text), parseEuropeanGrossPackagingNetRows(lines, text), parseCommodityQuantityRows(lines, text)];
     const fallbackGroups = [parseVmetInvoiceRows(lines, text), parseVmetContainerPackingRows(lines, text), parseContainerMaterialPackingRows(lines, text), tonJumboRows, parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseColumnarContractOcr(lines, text), parseGenericRows(lines, text)];
     const groups = [...priorityGroups, ...fallbackGroups];
-    const best = priorityGroups.find(group => group.length) || fallbackGroups.slice().sort((a, b) => b.length - a.length)[0] || [];
+    const best = selectBestRowGroup(groups, text);
     const items = dedupeItems([best]);
     if (/IRELAND\s+ALLOYS/i.test(text)) items.forEach(item => {
       const grade = item.marking.match(/\bMP35N\b.*$/i);
@@ -1109,9 +1131,10 @@
     const scored = usable.map((candidate, index) => {
       const weight = round2((candidate.data.items || []).reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0)), declaredWeight = declaredWeightTotal(candidate.text);
       const weightError = declaredWeight > 0 && weight > 0 ? Math.abs(weight - declaredWeight) / declaredWeight : 0;
-      const quality = Math.max(0, documentQuality(candidate.data) - (weightError > 0.03 ? Math.min(40, 10 + weightError * 35) : 0));
+      const rowBonus = Math.min(12, Math.max(0, (candidate.data.items || []).length - 1) * 1.5);
+      const quality = Math.max(0, Math.min(100, documentQuality(candidate.data) + rowBonus - (weightError > 0.03 ? Math.min(40, 10 + weightError * 35) : 0)));
       return { ...candidate, index, quality: round2(quality), weight, declaredWeight };
-    }).sort((left, right) => right.quality - left.quality || methodPriority(right.method) - methodPriority(left.method) || left.index - right.index);
+    }).sort((left, right) => right.quality - left.quality || (right.data.items || []).length - (left.data.items || []).length || methodPriority(right.method) - methodPriority(left.method) || left.index - right.index);
     const winner = scored[0], result = { ...winner.data, items: (winner.data.items || []).map(item => ({ ...item })) };
     const fields = ["poNo", "soNo", "company", "contractDate", "address", "tel", "fax", "email", "a10No", "shipment", "loadingTerm", "paymentTerm", "packing", "note", "currency", "documentType"];
     for (const field of fields) {
@@ -1131,7 +1154,7 @@
     };
     result.sourceText = String(winner.text || "");
     Object.defineProperty(result, "__candidateDocuments", {
-      value: scored.map(candidate => ({ method: candidate.method || "text", confidence: candidate.quality, items: (candidate.data.items || []).map(item => ({ ...item })) })),
+      value: scored.map(candidate => ({ method: candidate.method || "text", confidence: candidate.quality, text: String(candidate.text || ""), items: (candidate.data.items || []).map(item => ({ ...item })) })),
       enumerable: false, configurable: true, writable: true
     });
     return result;
@@ -1228,7 +1251,7 @@
     return meta;
   }
 
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, documentQuality, declaredWeightTotal, mergeParsedCandidates, parsePackingListRows, parseContainerMaterialPackingRows, parseVmetContainerPackingRows, parseVmetInvoiceRows, parseTonJumboPackingRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, parseQuantityDescriptionPriceRows, parsePurchaseOrderWeightRows, parseErpPurchaseOrderRows, parseJapanesePurchaseOrderRows, parseTosuiRows, parseParentheticalMtsPackingRows, parseMaterialAmountRows, parseMaterialPackageRows, parseParcelPackingRows, parseEuropeanGrossPackagingNetRows, parseCommodityQuantityRows, compact, headerKey };
+  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, selectBestRowGroup, documentQuality, declaredWeightTotal, mergeParsedCandidates, parsePackingListRows, parseContainerMaterialPackingRows, parseVmetContainerPackingRows, parseVmetInvoiceRows, parseTonJumboPackingRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, parseQuantityDescriptionPriceRows, parsePurchaseOrderWeightRows, parseErpPurchaseOrderRows, parseJapanesePurchaseOrderRows, parseTosuiRows, parseParentheticalMtsPackingRows, parseMaterialAmountRows, parseMaterialPackageRows, parseParcelPackingRows, parseEuropeanGrossPackagingNetRows, parseCommodityQuantityRows, compact, headerKey };
   root.MesDocumentImporterV4 = core;
   globalThis.MesDocumentImporterV4 = core;
   globalThis.__mesDocumentImporterV4 = core;
@@ -1344,9 +1367,92 @@
   function runtimeMappings(rows) {
     return rows.map(row => ({
       marking: rowMarking(row), description: clean(row.description || row.detailGrade), sources: rowSources(row),
+      itemName: clean(row.item || row.description || row.purchaseContractGrade || row.contractGrade || row.marking || row.grade || row.mainGrade),
       productType: clean(row.productType || row.type), mainGrade: clean(row.mainGrade || row.grade),
       subGrade: clean(row.subGrade), detailGrade: clean(row.detailGrade || row.description)
     })).filter(map => map.marking && map.sources.length);
+  }
+
+  function savedItemEntries(rows) {
+    const entries = [], seen = new Set();
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      const itemName = clean(row && (row.item || row.description || row.purchaseContractGrade || row.contractGrade || row.marking || row.grade || row.mainGrade));
+      const key = compact(itemName);
+      if (!itemName || key.length < 3 || seen.has(key)) return;
+      seen.add(key);
+      entries.push({ itemName, row, sources: rowSources(row) });
+    });
+    return entries;
+  }
+
+  function storedItemEvidence(items, entries) {
+    const used = new Set(), matches = [];
+    (Array.isArray(items) ? items : []).forEach((item, itemIndex) => {
+      let best = null;
+      (Array.isArray(entries) ? entries : []).forEach((entry, entryIndex) => {
+        if (used.has(entryIndex)) return;
+        const values = [item.marking, item.description, `${item.marking || ""} ${item.description || ""}`];
+        const score = Math.max(0, ...values.flatMap(value => entry.sources.map(source => similarity(value, source))));
+        if (!best || score > best.score) best = { entry, entryIndex, itemIndex, score };
+      });
+      if (best && best.score >= 0.68) { used.add(best.entryIndex); matches.push(best); }
+    });
+    return { matches, count: matches.length, coverage: items && items.length ? matches.length / items.length : 0 };
+  }
+
+  function storedItemRowRecovery(text, entries) {
+    const source = String(text || ""), lines = source.split(/\r?\n/).map(clean).filter(Boolean);
+    if (!lines.length || !entries.length) return [];
+    const style = numberStyle(source), units = sourceUnits(source), priceFirst = /PRICE[^\n]{0,50}(?:Q.?TY|QUANTITY|WEIGHT)/i.test(source);
+    const grossNet = /GROSS[^\n]{0,80}(?:TARE[^\n]{0,40})?NET/i.test(source), hasFinancial = /(?:UNIT\s+PRICE|PRICE)[^\n]{0,80}(?:AMOUNT|VALUE)|(?:AMOUNT|VALUE)[^\n]{0,80}(?:UNIT\s+PRICE|PRICE)/i.test(source);
+    const recovered = [], seen = new Set();
+    lines.forEach((line, lineIndex) => {
+      if (TOTAL_RE.test(line) || /(?:DESCRIPTION|ITEM|MATERIAL|COMMODITY).*(?:Q.?TY|QUANTITY|WEIGHT|PRICE|AMOUNT)/i.test(line)) return;
+      const lineKey = compact(line);
+      let matched = null;
+      entries.forEach(entry => {
+        const score = Math.max(0, ...entry.sources.map(sourceName => {
+          const key = compact(sourceName);
+          if (key.length >= 4 && lineKey.includes(key)) return 1;
+          return similarity(line, sourceName);
+        }));
+        if (!matched || score > matched.score) matched = { entry, score };
+      });
+      if (!matched || matched.score < 0.72) return;
+      const nameNumbers = new Set(matched.entry.sources.flatMap(sourceName => numericTokens(sourceName, style).map(token => token.value)));
+      let tokens = numericTokens(line, style).filter(token => !nameNumbers.has(token.value));
+      if (tokens.length > 1 && tokens[0].index <= 3 && tokens[0].value > 0 && tokens[0].value <= 100) tokens = tokens.slice(1);
+      if (!tokens.length) return;
+      let quantity = 0, price = 0, amount = 0, gross = 0;
+      for (let index = 0; index + 2 < tokens.length; index++) {
+        const first = tokens[index].value, second = tokens[index + 1].value, third = tokens[index + 2].value;
+        const q = priceFirst ? second : first, p = priceFirst ? first : second;
+        if (q > 0 && p > 0 && third > 0 && Math.abs(q * p - third) <= Math.max(5, third * 0.08)) {
+          quantity = q; price = p; amount = third; break;
+        }
+      }
+      if (!quantity && grossNet && tokens.length >= 2) {
+        gross = tokens[tokens.length - 2].value;
+        quantity = tokens[tokens.length - 1].value;
+      }
+      if (!quantity && hasFinancial && tokens.length >= 2) {
+        quantity = priceFirst ? tokens[tokens.length - 1].value : tokens[0].value;
+        price = priceFirst ? tokens[0].value : tokens[1].value;
+      }
+      if (!quantity) quantity = tokens[tokens.length - 1].value;
+      if (!(quantity > 0) || quantity > 1e8) return;
+      const item = normalizeItem(matched.entry.itemName, "", quantity, units.quantity, price, units.price, amount, {
+        gross: gross || quantity, sourceLineNo: lineIndex + 1
+      });
+      item.matchedItemName = matched.entry.itemName;
+      const key = `${compact(item.matchedItemName)}|${round2(item.netWeight)}|${round2(item.amount)}|${lineIndex}`;
+      if (!item.marking || item.netWeight <= 0 || seen.has(key)) return;
+      seen.add(key); recovered.push(item);
+    });
+    if (recovered.length < 2) return [];
+    const declared = declaredWeightTotal(source), recoveredWeight = round2(recovered.reduce((sum, item) => sum + item.netWeight, 0));
+    if (declared > 0 && Math.abs(recoveredWeight - declared) > Math.max(2, declared * 0.05)) return [];
+    return recovered;
   }
 
   function historyAlignment(items, rows) {
@@ -1373,7 +1479,7 @@
     options = options || {};
     documentData.items = Array.isArray(documentData.items) ? documentData.items : [];
     documentData.diagnostics = documentData.diagnostics || { version: VERSION };
-    const stateValue = liveState(), allRows = savedRows(), rows = savedRows(options.targetType), master = await mappings();
+    const stateValue = liveState(), allRows = savedRows(), rows = savedRows(options.targetType), itemEntries = savedItemEntries(rows), master = await mappings();
     const list = [...runtimeMappings(allRows), ...master];
     const documentRefs = [documentData.poNo, documentData.soNo, options.poNo, options.soNo].map(referenceKey).filter(Boolean);
     const searchable = compact(`${documentData.sourceFile || ""} ${documentData.sourceText || ""}`);
@@ -1404,6 +1510,24 @@
         documentData.diagnostics.extractionMethod = best.method;
         documentData.diagnostics.confidence = best.confidence;
         documentData.diagnostics.historyCandidateSelection = true;
+        documentData.diagnostics.usedSavedData = true;
+      }
+    }
+
+    if (itemEntries.length && Array.isArray(documentData.__candidateDocuments) && documentData.__candidateDocuments.length) {
+      const currentEvidence = storedItemEvidence(documentData.items, itemEntries);
+      const candidates = documentData.__candidateDocuments.map(candidate => {
+        const recovered = storedItemRowRecovery(candidate.text, itemEntries), items = recovered.length > candidate.items.length ? recovered : candidate.items;
+        return { ...candidate, items, savedItemRowRecovery: recovered.length > candidate.items.length, evidence: storedItemEvidence(items, itemEntries) };
+      })
+        .sort((left, right) => right.evidence.count - left.evidence.count || right.items.length - left.items.length || right.evidence.coverage - left.evidence.coverage || right.confidence - left.confidence);
+      const best = candidates[0];
+      if (best && best.items.length > documentData.items.length && best.evidence.count >= 2 && best.evidence.count > currentEvidence.count) {
+        documentData.items = best.items.map(item => ({ ...item }));
+        documentData.diagnostics.extractionMethod = best.method;
+        documentData.diagnostics.confidence = best.confidence;
+        documentData.diagnostics.savedItemCandidateSelection = true;
+        documentData.diagnostics.savedItemRowRecovery = !!best.savedItemRowRecovery;
         documentData.diagnostics.usedSavedData = true;
       }
     }
@@ -1447,6 +1571,7 @@
         const row = exact.row, matched = rowMarking(row) || item.marking;
         usedExactRows.add(row);
         item.matchedMarking = matched;
+        item.matchedItemName = clean(row.item || row.description || row.purchaseContractGrade || row.contractGrade || matched);
         item.matchedDescription = clean(row.description || row.detailGrade || item.description);
         item.productType = clean(row.productType || (stateValue.gradeTypes && stateValue.gradeTypes[matched]) || item.productType);
         item.mainGrade = clean(row.mainGrade || row.grade || matched);
@@ -1471,6 +1596,7 @@
       });
       if (best && best.score >= 0.68) {
         item.matchedMarking = best.map.marking;
+        item.matchedItemName = clean(best.map.itemName || best.map.description || best.map.marking);
         item.matchedDescription = best.map.description || item.description;
         item.productType = clean(best.map.productType || (stateValue.gradeTypes && stateValue.gradeTypes[best.map.marking]) || item.productType);
         item.mainGrade = clean(best.map.mainGrade || best.map.marking);
