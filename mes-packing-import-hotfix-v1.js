@@ -96,12 +96,12 @@
     throw Error("입고요청 입력 화면을 열 수 없습니다. 새로고침 후 다시 시도하세요.");
   }
 
-  async function parsePackingFile(file) {
+  async function parsePackingFile(file, options) {
     const importer = root.MesDocumentImporterV4 || root.__mesDocumentImporterV4;
     if (!importer || typeof importer.importFile !== "function") {
       throw Error("PACKING LIST 공용 분석기를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.");
     }
-    return importer.importFile(file);
+    return importer.importFile(file, options || {});
   }
 
   root.mesPdfLines = async function mesPdfLinesCompatibility(file) {
@@ -140,7 +140,7 @@
     progress?.classList.add("on");
     if (statusBox) statusBox.textContent = `${file.name} · P.O·INVOICE 분석 중`;
     try {
-      const parsed = await parsePackingFile(file);
+      const parsed = await parsePackingFile(file, { targetType: "PO" });
       if (!safeArray(parsed.items).length) throw Error("강종·중량 품목을 찾지 못했습니다.");
       if (statusBox) statusBox.textContent = `${parsed.items.length}개 품목 분석 완료`;
       if (typeof root.__mesOpenDirectPo === "function") root.__mesOpenDirectPo(parsed);
@@ -166,7 +166,7 @@
     if (statusBox) statusBox.textContent = `${file.name} · PACKING LIST 분석 중`;
 
     try {
-      const parsed = await parsePackingFile(file);
+      const parsed = await parsePackingFile(file, { targetType: "PACKING", poNo });
       const sourceRows = safeArray(po.rows);
       const parsedItems = safeArray(parsed.items);
       const items = parsedItems.map((item, index) => {
