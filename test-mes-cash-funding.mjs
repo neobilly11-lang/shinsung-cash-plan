@@ -71,16 +71,56 @@ assert.equal(so2.calculation.outstandingAmount, 0, '확정 차감액은 미수�
 const report = cash.buildCashReport(state, {
   now: '2026-08-22',
   inventory: [{ id: 'INV-1', grade: 'IN 718', weight: 100, costPerKg: 3000, value: 300000, receivedAt: '2026-05-14' }],
+  salesCostBasis: [{ id: 'COST-1', grade: 'IN 718', weight: 100, convertedAmount: 300000 }],
 });
 assert.equal(report.availableFunds, 500000, '현재 가용자금');
 assert.equal(report.receivables, 1500000, '판매총액 - 수금액 - 확정차감');
 assert.equal(report.payables, 1910000, '구매총액 - 지급액');
 assert.equal(report.inventoryCost, 300000, '미판매재고 원가');
-assert.equal(report.netWorkingCapital, 90000, '순운전자금 계산');
-assert.equal(report.forecast30, 90000, '30일 예정수금·예정지급 반영');
+assert.equal(report.netWorkingCapital, 390000, '순운전자금 = 현재자금 + 미수금 + 미판매재고원가 - 구매미지급금');
+assert.equal(report.inventoryAfter15Days, 300000, '입고 후 15일 이상 미판매재고 원가');
+assert.equal(report.receivablesOver60Days, 0, '수금예정일 60일 이상 지난 미수잔금');
+assert.equal(report.plannedSalesAmount, 2001000, '날짜와 관계없이 전체 미출하 판매계획 자금 반영');
+assert.equal(report.sameGradeSalesCost, 300000, '미출하 판매계획과 동일강종 실제 매입원가 차감');
+assert.equal(report.plannedSalesNet, 1701000, '판매계획자금 - 동일강종 판매원가');
+assert.equal(report.missingPlannedCostWeight, 10, '동일강종 원가 미확인 판매계획 중량 경고');
+assert.equal(report.forecast30, -909000, '30일 예상자금에 미출하 판매계획 순자금 추가');
 assert.equal(report.shortageDate, '2026-08-23', '날짜별 누적 잔액 최초 0원 이하 날짜 경고');
 assert.equal(report.inventory[0].bucket, '90~179일', '90일 이상 미판매재고 경고 구간');
 assert.equal(report.exceptions.length, 1, '로스·클레임·계근오류 임원 집계');
+
+const boundaryReport = cash.buildCashReport({
+  pos: [],
+  salesOrders: [
+    { id: 'SO-60', soNo: 'SO-60', customer: '60일 경과', amount: 100000, currency: 'KRW', cashPaymentDueDate: '2026-06-23', status: 'SHIPPED' },
+    { id: 'SO-59', soNo: 'SO-59', customer: '59일 경과', amount: 200000, currency: 'KRW', cashPaymentDueDate: '2026-06-24', status: 'SHIPPED' },
+  ],
+  systemSettings: { mesCashFundingV1: { availableFunds: 1000000 } },
+}, {
+  now: '2026-08-22',
+  inventory: [
+    { id: 'INV-15', grade: '15일 재고', weight: 10, value: 150000, receivedAt: '2026-08-07' },
+    { id: 'INV-14', grade: '14일 재고', weight: 10, value: 140000, receivedAt: '2026-08-08' },
+  ],
+});
+assert.equal(boundaryReport.inventoryAfter15Days, 150000, '입고 15일째부터 30일 예상자금에 포함');
+assert.equal(boundaryReport.receivablesOver60Days, 100000, '수금예정일 60일째부터 가산하고 59일은 제외');
+assert.equal(boundaryReport.netWorkingCapital, 1590000, '순운전자금에 전체 미판매재고 원가 포함');
+assert.equal(boundaryReport.forecast30, 950000, '30일 예상자금 경계값 계산');
+
+const partialPlan = cash.plannedSalesFunding({
+  pos: [],
+  salesOrders: [{ id: 'SO-PART', soNo: 'SO-PART', grade: 'IN 625', weight: 100, amount: 1000000, currency: 'KRW', status: 'WAITING' }],
+  shipments: [
+    { id: 'SHIP-PART', salesOrderId: 'SO-PART', soNo: 'SO-PART', weight: 40, status: 'SHIPPED', shippedAt: '2026-08-20' },
+    { id: 'SHIP-RESERVED', salesOrderId: 'SO-PART', soNo: 'SO-PART', weight: 30, status: 'WAITING' },
+  ],
+  shipmentAllocations: [{ id: 'ALLOC-RESERVED', shipmentId: 'SHIP-RESERVED', salesOrderId: 'SO-PART', weight: 30, status: 'CONFIRMED' }],
+}, [{ grade: 'IN 625', weight: 100, value: 200000 }]);
+assert.equal(partialPlan.rows[0].remainingWeight, 60, '부분 출하만 차감하고 미출하 배정재고는 판매계획에 유지');
+assert.equal(partialPlan.salesAmount, 600000, '부분 출하 비율만큼 판매계획자금 계산');
+assert.equal(partialPlan.salesCost, 120000, '동일강종 kg당 실제 매입원가로 남은 중량 계산');
+assert.equal(partialPlan.net, 480000, '부분 출하 미판매계획 순자금');
 
 const legacy = cash.orderGroups({ pos: [{ id: 'L1', poNo: 'PO-OLD', amount: 100, currency: 'KRW', status: 'CONFIRMED' }] }, 'purchase')[0];
 assert.equal(legacy.calculation.status, '미결제', '기존 자료는 수정 없이 미결제로 호환');
@@ -108,5 +148,7 @@ const html = fs.readFileSync(new URL('./mes.html', import.meta.url), 'utf8');
 assert.match(html, /mes-cash-funding-v1\.js/, 'MES 화면에서 자금 모듈 로드');
 assert.match(source, /\["결제현황"/, '구매·판매 결제현황 열 설치');
 assert.match(source, /자금부족 예상일/, '자금부족 예상일 화면 경고');
+assert.match(source, /현재자금 \+ 미수금 \+ 미판매재고원가 - 구매미지급금/, '순운전자금 계산식 화면 표기');
+assert.match(source, /미출하 판매계획/, '전체 미출하 판매계획 순자금 화면 표기');
 
 console.log('PASS MES cash funding calculations and compatibility');
