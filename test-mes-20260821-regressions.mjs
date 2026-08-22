@@ -154,6 +154,16 @@ assert.doesNotMatch(overseasPreview, /<th>Photo<\/th>/, '세틀 미리보기에�
 assert.match(overseasPreview, /Actual Value After Inspection<\/th>/);
 assert.match(overseasPreview, /colspan="5"/, '사진 열 제거 후 실제 검수 영역은 5열');
 const settlementSource = read('mes-settlement-exact-v1.js');
+const overseasColgroup = overseasPreview.match(/settlement-overseas-grid"><colgroup>([\s\S]*?)<\/colgroup>/)?.[1] || '';
+assert.equal((overseasColgroup.match(/<col /g) || []).length, 9, '해외 세틀 표 9개 열의 폭을 colgroup으로 고정');
+assert.match(settlementSource, /\.settlement-excel-paper table\{[^}]*min-width:0!important/, 'MES 공통 table 최소폭 1080px을 세틀 양식에서 완전히 해제');
+assert.match(settlementSource, /#mesSettlementFullscreenPreview\{position:fixed!important;inset:0!important/, '기존 모달과 분리된 전체화면 세틀 뷰어 제공');
+assert.match(settlementSource, /shell\.style\.width=visualWidth\+'px'/, '전체화면 문서 외곽 크기를 실제 축소 폭으로 고정하여 좌우 잘림 방지');
+assert.match(settlementSource, /openFullscreenViewer\(poNo,normalized\)/, '국내·해외 미리보기 버튼 클릭 시 전체화면 뷰어로 직접 전환');
+assert.match(settlementSource, /전체 열 화면맞춤/, '전체 열 화면맞춤 상태 안내');
+assert.equal(typeof settlementRoot.openMesSettlementFullscreen, 'function', '세틀 전체화면 열기 함수 공개');
+assert.equal(typeof settlementRoot.closeMesSettlementFullscreen, 'function', '세틀 전체화면 닫기 함수 공개');
+assert.equal(typeof settlementRoot.switchMesSettlementFullscreen, 'function', '전체화면에서 국내·해외 양식 전환 함수 공개');
 assert.match(settlementSource, /hideColumn\(doc,10\)/, '다운로드 Excel에서도 Photo 열 숨김');
 assert.doesNotMatch(settlementSource, /setSmall\(doc,'J12','Photo'/, '다운로드 Excel Photo 헤더 제거');
 
