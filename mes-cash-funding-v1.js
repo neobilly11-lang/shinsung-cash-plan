@@ -17,7 +17,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260822-cash-funding-1";
+  var VERSION = "20260822-cash-formulas-3";
   var DAY = 86400000;
   var EXCEPTION_LABELS = { LOSS: "로스", CLAIM: "클레임", WEIGHING_ERROR: "계근오류" };
 
@@ -198,6 +198,84 @@
       };
     }).filter(function (row) { return row.weight > 0 || row.value > 0; });
   }
+  function gradeKeys(row) {
+    row = row || {};
+    var composed = [row.productType, row.mainGrade || row.finalGrade, row.subGrade, row.detailGrade].filter(Boolean).join(" ");
+    return [composed, row.customerGrade, row.grade, row.gradeLabel, row.rawGrade, row.mainGrade, row.finalGrade, row.purchaseContractGrade, row.contractGrade, row.item, row.description]
+      .map(function (value) { return upper(value).replace(/[^A-Z0-9가-힣]/g, ""); })
+      .filter(Boolean).filter(function (value, index, all) { return all.indexOf(value) === index; });
+  }
+  function addGradeCost(map, row, weight, value) {
+    if (weight <= 0 || value <= 0) return;
+    gradeKeys(row).forEach(function (key) {
+      var entry = map[key] || (map[key] = { weight: 0, value: 0 });
+      entry.weight += weight; entry.value += value;
+    });
+  }
+  function completedShipment(row) {
+    return !!row && (/SHIPPED|DONE|COMPLETE|COMPLETED|DELIVERED|FINAL|출고완료|출하완료/.test(upper(row.status)) || !!firstValue(row, ["shippedAt", "shippingCompletedAt", "completedAt"]));
+  }
+  function remainingSalesWeight(state, row) {
+    var contract = number(firstValue(row, ["weight", "salesWeight", "quantity", "netWeight"]));
+    if (contract <= 0) return completedShipment(row) ? 0 : 0;
+    var shipments = list(state.shipments).filter(active).filter(function (shipment) {
+      return text(shipment.salesOrderId) === text(row.id) || (!shipment.salesOrderId && text(shipment.soNo) === text(row.soNo));
+    }).filter(completedShipment);
+    var shipmentIds = new Set(shipments.map(function (shipment) { return text(shipment.id); }));
+    var allocations = list(state.shipmentAllocations).filter(active).filter(function (allocation) {
+      return shipmentIds.has(text(allocation.shipmentId)) && (!allocation.salesOrderId || text(allocation.salesOrderId) === text(row.id));
+    });
+    var shipped = allocations.length
+      ? allocations.reduce(function (sum, allocation) { return sum + number(firstValue(allocation, ["weight", "netWeight", "nw"])); }, 0)
+      : shipments.reduce(function (sum, shipment) { return sum + number(firstValue(shipment, ["shippedWeight", "weight", "netWeight", "nw"])); }, 0);
+    if (shipped <= 0 && completedShipment(row)) return 0;
+    return round(Math.max(0, contract - shipped));
+  }
+  function plannedSalesFunding(state, costRows) {
+    state = state || {};
+    var currentCosts = {}, historicalCosts = {};
+    list(costRows).forEach(function (row) {
+      var weight = number(firstValue(row, ["weight", "netWeight", "nw"]));
+      var value = number(firstValue(row, ["convertedAmount", "inventoryValue", "value"]));
+      if (!value) value = weight * number(firstValue(row, ["costPerKg", "actualPurchaseCost"]));
+      addGradeCost(currentCosts, row, weight, value);
+    });
+    list(state.pos).filter(active).forEach(function (row) {
+      var weight = number(firstValue(row, ["purchaseContractWeight", "contractWeight", "weight", "netWeight", "quantity"]));
+      addGradeCost(historicalCosts, row, weight, krwLineAmount(row, "purchase"));
+    });
+    var rows = [];
+    list(state.salesOrders).filter(active).forEach(function (row) {
+      var contractWeight = number(firstValue(row, ["weight", "salesWeight", "quantity", "netWeight"]));
+      var remainingWeight = remainingSalesWeight(state, row);
+      var completed = completedShipment(row);
+      if (completed && remainingWeight <= 0) return;
+      if (contractWeight <= 0 && completed) return;
+      var ratio = contractWeight > 0 ? remainingWeight / contractWeight : 1;
+      var salesAmount = round(krwLineAmount(row, "sales") * ratio), match = null, matchedKey = "";
+      var keys = gradeKeys(row);
+      for (var index = 0; index < keys.length; index += 1) {
+        if (currentCosts[keys[index]]) { match = currentCosts[keys[index]]; matchedKey = keys[index]; break; }
+      }
+      if (!match) for (var historyIndex = 0; historyIndex < keys.length; historyIndex += 1) {
+        if (historicalCosts[keys[historyIndex]]) { match = historicalCosts[keys[historyIndex]]; matchedKey = keys[historyIndex]; break; }
+      }
+      var costPerKg = match && match.weight ? match.value / match.weight : 0;
+      var salesCost = round(remainingWeight * costPerKg);
+      rows.push({
+        id: text(row.id), soNo: text(row.soNo || row.salesNo || row.orderNo), grade: text(firstValue(row, ["grade", "mainGrade", "description"]) || "미분류"),
+        remainingWeight: remainingWeight, salesAmount: salesAmount, salesCost: salesCost, net: round(salesAmount - salesCost),
+        matchedGradeKey: matchedKey, costPerKg: round(costPerKg), costMissing: remainingWeight > 0 && !match
+      });
+    });
+    return {
+      rows: rows,
+      salesAmount: round(rows.reduce(function (sum, row) { return sum + row.salesAmount; }, 0)),
+      salesCost: round(rows.reduce(function (sum, row) { return sum + row.salesCost; }, 0)),
+      net: round(rows.reduce(function (sum, row) { return sum + row.net; }, 0)),
+      missingCostWeight: round(rows.filter(function (row) { return row.costMissing; }).reduce(function (sum, row) { return sum + row.remainingWeight; }, 0))
+    };
+  }
   function availableFunds(state) {
     return number(state && state.systemSettings && state.systemSettings.mesCashFundingV1 && state.systemSettings.mesCashFundingV1.availableFunds);
   }
@@ -205,10 +283,14 @@
     options = options || {};
     var now = localDate(options.now || Date.now());
     var purchases = orderGroups(state, "purchase"), sales = orderGroups(state, "sales");
-    var inventory = inventoryRows(options.inventory, now), funds = options.availableFunds == null ? availableFunds(state) : number(options.availableFunds);
+    var inventory = inventoryRows(options.inventory, now), plannedFunding = plannedSalesFunding(state, options.salesCostBasis), funds = options.availableFunds == null ? availableFunds(state) : number(options.availableFunds);
     var receivables = round(sales.reduce(function (sum, row) { return sum + row.outstandingKrw; }, 0));
     var payables = round(purchases.reduce(function (sum, row) { return sum + row.outstandingKrw; }, 0));
     var inventoryCost = round(inventory.reduce(function (sum, row) { return sum + row.value; }, 0));
+    var inventoryAfter15Days = round(inventory.filter(function (row) { return row.days >= 15; }).reduce(function (sum, row) { return sum + row.value; }, 0));
+    sales.forEach(function (row) { row.overdueDays = row.dueDate && row.dueDate < now && row.outstandingKrw > 0 ? dayDifference(row.dueDate, now) : 0; });
+    purchases.forEach(function (row) { row.dueInDays = row.dueDate ? dayDifference(now, row.dueDate) : null; });
+    var receivablesOver60Days = round(sales.filter(function (row) { return row.overdueDays >= 60; }).reduce(function (sum, row) { return sum + row.outstandingKrw; }, 0));
     function dueWithin(row, days) { return row.dueDate && row.dueDate <= addDays(now, days); }
     function upcoming(rows, days) { return round(rows.filter(function (row) { return row.outstandingKrw > 0 && dueWithin(row, days); }).reduce(function (sum, row) { return sum + row.outstandingKrw; }, 0)); }
     var horizons = [7, 30, 60, 90].map(function (days) {
@@ -229,17 +311,19 @@
       if (!shortageDate && balance <= 0) shortageDate = date;
       return { date: date, inflow: round(entry.inflow), outflow: round(entry.outflow), balance: balance };
     });
-    sales.forEach(function (row) { row.overdueDays = row.dueDate && row.dueDate < now && row.outstandingKrw > 0 ? dayDifference(row.dueDate, now) : 0; });
-    purchases.forEach(function (row) { row.dueInDays = row.dueDate ? dayDifference(now, row.dueDate) : null; });
     var exceptions = sales.concat(purchases).filter(function (row) { return row.exceptionKrw > 0 && row.calculation.exceptionType; });
     return {
       now: now, availableFunds: round(funds), purchases: purchases, sales: sales, inventory: inventory,
       purchaseTotal: round(purchases.reduce(function (sum, row) { return sum + row.totalKrw; }, 0)),
       salesTotal: round(sales.reduce(function (sum, row) { return sum + row.totalKrw; }, 0)),
       receivables: receivables, payables: payables, inventoryCost: inventoryCost,
-      netWorkingCapital: round(funds + receivables - payables),
+      inventoryAfter15Days: inventoryAfter15Days, receivablesOver60Days: receivablesOver60Days,
+      plannedSalesAmount: plannedFunding.salesAmount, sameGradeSalesCost: plannedFunding.salesCost,
+      plannedSalesNet: plannedFunding.net, plannedSalesRows: plannedFunding.rows, missingPlannedCostWeight: plannedFunding.missingCostWeight,
+      netWorkingCapital: round(funds + receivables + inventoryCost - payables),
       expectedReceipts30: upcoming(sales, 30), expectedPayments30: upcoming(purchases, 30),
-      forecast30: horizons[1].available, horizons: horizons, dailyBalances: dailyBalances, shortageDate: shortageDate,
+      forecast30: round(funds + inventoryAfter15Days - receivables - payables + receivablesOver60Days + plannedFunding.salesAmount - plannedFunding.salesCost),
+      horizons: horizons, dailyBalances: dailyBalances, shortageDate: shortageDate,
       missingDueDates: sales.concat(purchases).filter(function (row) { return row.outstandingKrw > 0 && !row.dueDate; }).length,
       exceptions: exceptions,
       aging: ["30일 미만", "30~59일", "60~89일", "90~179일", "180일 이상"].map(function (label) {
@@ -260,24 +344,29 @@
     function won(value) { return Math.round(number(value)).toLocaleString("ko-KR") + "원"; }
     function amount(value) { return number(value).toLocaleString("ko-KR", { maximumFractionDigits: 2 }); }
     function toast(message, bad) { var fn = runtime.getToast && runtime.getToast(); if (fn) fn(message, bad); }
-    function currentInventory() {
-      var source = [], usedExecutiveReport = false;
+    function currentFundingSources() {
+      var inventory = [], costBasis = [], usedExecutiveReport = false;
       try {
         if (root.MesExecutiveDashboard && root.MesExecutiveDashboard.buildExecutiveReport && typeof root.mesForecastRows === "function") {
           var current = state(), settings = current.systemSettings || {};
-          source = root.MesExecutiveDashboard.buildExecutiveReport(current, root.mesForecastRows(), settings.executiveExchangeRates || {}).unsold;
+          var executive = root.MesExecutiveDashboard.buildExecutiveReport(current, root.mesForecastRows(), settings.executiveExchangeRates || {});
+          inventory = executive.unsold; costBasis = executive.all;
+          try {
+            var financeMonth = localDate().slice(0, 7), financeReport = root.mesExecutiveFinance && root.mesExecutiveFinance.build(financeMonth);
+            if (financeReport && list(financeReport.physical).length) costBasis = financeReport.physical;
+          } catch (_) { /* 기존 동일강종 재고원가를 유지 */ }
           usedExecutiveReport = true;
         }
-      } catch (_) { source = []; }
+      } catch (_) { inventory = []; costBasis = []; }
       if (!usedExecutiveReport) {
         try {
           var month = localDate().slice(0, 7), finance = root.mesExecutiveFinance && root.mesExecutiveFinance.build(month);
-          source = finance && finance.physical || [];
-        } catch (_) { source = []; }
+          inventory = finance && finance.physical || []; costBasis = inventory;
+        } catch (_) { inventory = []; costBasis = []; }
       }
-      return source;
+      return { inventory: inventory, costBasis: costBasis };
     }
-    function report() { return buildCashReport(state(), { now: localDate(), inventory: currentInventory() }); }
+    function report() { var sources = currentFundingSources(); return buildCashReport(state(), { now: localDate(), inventory: sources.inventory, salesCostBasis: sources.costBasis }); }
     function summaryKey(kind, row) { return text(kind === "purchase" ? row.poNo || row.id : row.soNo || row.id); }
     function findOrder(kind, key) { return orderGroups(state(), kind).find(function (row) { return row.reference === text(key); }); }
     function statusButton(kind, row) {
@@ -430,13 +519,14 @@
         : '<div class="cash-shortage safe"><b>예정 자금잔액 정상</b><span>등록된 예정일 기준 자금부족 예상일이 없습니다.</span></div>';
       content.innerHTML = '<div class="dashboard-head cash-dashboard-head"><div><h1>자금현황판</h1><p>P.O 지급·S.O 수금·미판매재고를 연결한 실시간 자금 전망</p></div><div class="actions"><button class="btn" onclick="openMesAvailableFundsEditor()">현재자금 설정</button><button class="btn" onclick="openExecutiveFinanceDashboard()">기존 임원 현황판</button><button class="btn primary" onclick="loadState()">↻ 최신자료</button></div></div>' +
         shortage + (data.missingDueDates ? '<div class="cash-date-note">예정일 미입력 ' + data.missingDueDates + '건은 Cash Flow와 부족예상일 계산에서 제외되었습니다.</div>' : "") +
+        (data.missingPlannedCostWeight ? '<div class="cash-date-note">동일강종 실제 매입원가 미확인 판매계획 ' + amount(data.missingPlannedCostWeight) + ' kg은 판매원가 0원으로 계산되었습니다.</div>' : "") +
         '<div class="cash-kpis">' +
           kpiButton("funds", "현재 가용자금", won(data.availableFunds), "클릭하여 현재자금 수정", data.availableFunds <= 0) +
           kpiButton("receivables", "판매 미수금", won(data.receivables), "판매총액 - 수금액 - 확정차감", false) +
           kpiButton("payables", "구매 미지급금", won(data.payables), "구매총액 - 지급액 - 확정차감", false) +
           kpiButton("inventory", "미판매재고 원가", won(data.inventoryCost), amount(data.inventory.reduce(function (sum, row) { return sum + row.weight; }, 0)) + " kg", data.inventory.some(function (row) { return row.days >= 90; })) +
-          kpiButton("working", "순운전자금", won(data.netWorkingCapital), "현재자금 + 미수금 - 미지급금", data.netWorkingCapital <= 0) +
-          kpiButton("forecast", "30일 예상자금", won(data.forecast30), "예정수금 " + won(data.expectedReceipts30) + " - 예정지급 " + won(data.expectedPayments30), data.forecast30 <= 0) +
+          kpiButton("working", "순운전자금", won(data.netWorkingCapital), "현재자금 + 미수금 + 미판매재고원가 - 구매미지급금", data.netWorkingCapital <= 0) +
+          kpiButton("forecast", "30일 예상자금", won(data.forecast30), "15일 재고 " + won(data.inventoryAfter15Days) + " · 60일 미수 " + won(data.receivablesOver60Days) + " · 전체 미출하 판매계획 " + won(data.plannedSalesAmount) + " - 동일강종 원가 " + won(data.sameGradeSalesCost), data.forecast30 <= 0) +
         '</div>' + chartHtml(data) + orderTable("sales", data.sales) + orderTable("purchase", data.purchases) + inventoryTable(data) + exceptionTable(data);
       return true;
     }
@@ -545,6 +635,7 @@
     calculatePayment: calculatePayment,
     orderGroups: orderGroups,
     inventoryRows: inventoryRows,
+    plannedSalesFunding: plannedSalesFunding,
     buildCashReport: buildCashReport,
     install: install
   };
