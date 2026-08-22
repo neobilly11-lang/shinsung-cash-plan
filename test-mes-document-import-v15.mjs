@@ -92,6 +92,12 @@ assert.equal(lb.unit, "LB");
 assert.equal(lb.price, 14.8812);
 assert.equal(lb.amount, 297000);
 
+const mismatchedAmount = importer.normalizeItem("IN718 VQ TURNING", "", 1000, "KG", 12.65, "KG", 228130.1, {});
+assert.equal(mismatchedAmount.price, 12.65, "잘못 읽힌 총액이 정상 단가를 덮어쓰지 않음");
+assert.equal(mismatchedAmount.amount, 12650, "금액 불일치 시 중량×단가로 자동 보정");
+assert.equal(mismatchedAmount.sourceAmount, 228130.1, "원문 인식 금액은 진단용으로 보존");
+assert.equal(mismatchedAmount.amountMismatch, true, "금액 불일치 여부 표시");
+
 const mts = parse(fixtures[9].name, fixtures[9].text);
 assert.deepEqual(mts.items.map(item => item.packageCount), [16, 3]);
 assert.deepEqual(mts.items.map(item => item.marking), ["C-276 SOLIDS", "C-22 SOLIDS"]);

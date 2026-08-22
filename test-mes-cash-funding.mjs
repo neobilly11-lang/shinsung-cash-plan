@@ -60,6 +60,21 @@ assert.equal(po1.calculation.status, '선금 30% 지불', '구매 선금 비율 
 assert.equal(po1.calculation.outstandingAmount, 700, '선금 입력 후 잔금 자동 계산');
 assert.equal(po1.outstandingKrw, 910000, '미지급잔금을 원화로 환산');
 
+const cmmeRows = [
+  [1632, 12.65, 228130.1], [1519, 12.65, 13800], [1664, 12.65, 11426], [1761, 12.65, 4477.8], [1719, 12.65, 17578],
+  [1568, 12.65], [1586, 12.65], [1614, 12.65], [1680, 12.65], [1706, 12.65], [1585, 12.65], [1063, 12.65],
+  [1005, 8.48], [644, 5.8], [1326, 5.8], [1317, 3.4], [1000, 13.8],
+].map(([weight, unitPrice, purchaseAmount], index) => ({
+  id: `CMME-${index + 1}`, poNo: 'CMME260701', weight, unitPrice,
+  amount: Math.round(weight * unitPrice * 100) / 100,
+  ...(purchaseAmount ? { purchaseAmount } : {}), currency: 'USD', exchangeRate: 1415, status: 'CONFIRMED',
+}));
+const cmme = cash.orderGroups({ pos: cmmeRows }, 'purchase')[0];
+assert.equal(cmme.totalOriginal, 279803.25, '중량×단가와 일치하는 행 금액 합계로 CMME260701 구매금액 복구');
+assert.equal(cmme.amountValidation.legacyTotalOriginal, 450283.4, '잘못 우선되던 purchaseAmount 합계를 진단용으로 보존');
+assert.equal(cmme.amountValidation.correctedLines, 5, '불일치한 초기 5개 행을 자동 감지');
+assert.equal(cmme.totalKrw, 395921598.75, '보정된 외화금액에 환율 적용');
+
 const sales = cash.orderGroups(state, 'sales');
 const so1 = sales.find((row) => row.reference === 'SO-1');
 const so2 = sales.find((row) => row.reference === 'SO-2');
@@ -67,6 +82,9 @@ assert.equal(so1.calculation.status, '선금 25% 입금', '판매 선금 비율 
 assert.equal(so2.calculation.status, '수금완료 · 클레임', '잔금 차액의 클레임 마감 표기');
 assert.equal(so2.calculation.exceptionAmount, 100, '잔금 변경액과 계약잔금의 차이를 자동 계산');
 assert.equal(so2.calculation.outstandingAmount, 0, '확정 차감액은 미수잔금에서 제외');
+const agreedSale = cash.orderGroups({ salesOrders: [{ id: 'SO-AGREED', soNo: 'SO-AGREED', weight: 4502, unitPrice: 13.88, amount: 69400, currency: 'USD', status: 'WAITING' }] }, 'sales')[0];
+assert.equal(agreedSale.totalOriginal, 69400, '판매 계약 총액 한 필드는 중량×단가와 달라도 기존 금액 보존');
+assert.equal(agreedSale.amountValidation.corrected, false, '판매 계약금액을 자동으로 덮어쓰지 않음');
 
 const report = cash.buildCashReport(state, {
   now: '2026-08-22',

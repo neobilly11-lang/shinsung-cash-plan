@@ -17,7 +17,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  var VERSION = "20260822-cash-formulas-3";
+  var VERSION = "20260823-cash-amount-validation-4";
   var DAY = 86400000;
   var EXCEPTION_LABELS = { LOSS: "로스", CLAIM: "클레임", WEIGHING_ERROR: "계근오류" };
 
@@ -72,7 +72,15 @@
       ? 1
       : number(firstValue(row, ["exchangeRate", "purchaseRate", "salesRate", "rate"])) || 1;
   }
-  function rawLineAmount(row, kind) {
+  function amountCandidates(row, keys) {
+    return keys.map(function (key) {
+      return { key: key, value: number(row && row[key]) };
+    }).filter(function (candidate) { return candidate.value > 0; });
+  }
+  function amountClose(left, right) {
+    return Math.abs(number(left) - number(right)) <= Math.max(0.05, Math.abs(number(right)) * 0.005);
+  }
+  function lineAmountDetails(row, kind) {
     row = row || {};
     var weight = number(firstValue(row, kind === "purchase"
       ? ["purchaseContractWeight", "contractWeight", "weight", "netWeight", "quantity"]
@@ -80,17 +88,40 @@
     var unit = number(firstValue(row, kind === "purchase"
       ? ["unitPrice", "purchaseUnitPrice", "purchasePrice", "price"]
       : ["unitPrice", "salesUnitPrice", "salesPrice", "price"]));
-    var explicit = number(firstValue(row, kind === "purchase"
+    var candidates = amountCandidates(row, kind === "purchase"
       ? ["foreignAmount", "purchaseAmount", "amount", "lineAmount", "totalAmount"]
-      : ["foreignAmount", "salesAmount", "amount", "lineAmount", "totalAmount"]));
-    return round(explicit || weight * unit);
+      : ["foreignAmount", "salesAmount", "amount", "lineAmount", "totalAmount"]);
+    var calculated = weight > 0 && unit > 0 ? round(weight * unit) : 0;
+    var legacy = candidates.length ? round(candidates[0].value) : calculated;
+    if (!calculated) return { amount: legacy, calculated: 0, legacy: legacy, corrected: false, mismatchCount: 0, source: candidates[0] && candidates[0].key || "" };
+    if (kind !== "purchase" && candidates.length <= 1) {
+      return { amount: legacy, calculated: calculated, legacy: legacy, corrected: false, mismatchCount: amountClose(legacy, calculated) ? 0 : 1, source: candidates[0] && candidates[0].key || "weightUnitPrice" };
+    }
+    var matching = candidates.filter(function (candidate) { return amountClose(candidate.value, calculated); }).sort(function (left, right) {
+      return Math.abs(left.value - calculated) - Math.abs(right.value - calculated);
+    });
+    var selected = matching[0];
+    if (kind !== "purchase" && !selected) {
+      return { amount: legacy, calculated: calculated, legacy: legacy, corrected: false, mismatchCount: candidates.length, source: candidates[0] && candidates[0].key || "weightUnitPrice" };
+    }
+    var mismatchCount = candidates.filter(function (candidate) { return !amountClose(candidate.value, calculated); }).length;
+    return {
+      amount: round(selected ? selected.value : calculated), calculated: calculated, legacy: legacy,
+      corrected: mismatchCount > 0 && !amountClose(legacy, selected ? selected.value : calculated),
+      mismatchCount: mismatchCount, source: selected ? selected.key : "weightUnitPrice"
+    };
+  }
+  function rawLineAmount(row, kind) {
+    return lineAmountDetails(row, kind).amount;
   }
   function krwLineAmount(row, kind) {
-    var explicit = number(firstValue(row, kind === "purchase"
+    var raw = rawLineAmount(row, kind), expected = round(raw * rateFor(row));
+    var candidates = amountCandidates(row, kind === "purchase"
       ? ["krwPurchaseAmount", "krwAmount", "convertedAmount", "purchaseAmountKrw"]
-      : ["krwSalesAmount", "krwAmount", "convertedAmount", "salesAmountKrw"]));
-    if (explicit > 0) return round(explicit);
-    return round(rawLineAmount(row, kind) * rateFor(row));
+      : ["krwSalesAmount", "krwAmount", "convertedAmount", "salesAmountKrw"]);
+    if (!expected) return candidates.length ? round(candidates[0].value) : 0;
+    var matching = candidates.find(function (candidate) { return amountClose(candidate.value, expected); });
+    return round(matching ? matching.value : expected);
   }
   function groupBy(rows, key) {
     var groups = {};
@@ -158,7 +189,10 @@
     });
     return Object.keys(groups).map(function (reference) {
       var rows = groups[reference], first = rows[0] || {}, sourceRow = paymentSource(rows);
-      var totalOriginal = round(rows.reduce(function (sum, row) { return sum + rawLineAmount(row, kind); }, 0));
+      var lineAmounts = rows.map(function (row) { return lineAmountDetails(row, kind); });
+      var totalOriginal = round(lineAmounts.reduce(function (sum, detail) { return sum + detail.amount; }, 0));
+      var legacyTotalOriginal = round(lineAmounts.reduce(function (sum, detail) { return sum + detail.legacy; }, 0));
+      var correctedLines = lineAmounts.filter(function (detail) { return detail.corrected; }).length;
       var totalKrw = round(rows.reduce(function (sum, row) { return sum + krwLineAmount(row, kind); }, 0));
       var payment = readPayment(sourceRow), calculated = calculatePayment(totalOriginal, kind, payment);
       var paidRatio = totalOriginal ? calculated.settledAmount / totalOriginal : 0;
@@ -171,6 +205,7 @@
         weight: round(rows.reduce(function (sum, row) { return sum + number(firstValue(row, ["purchaseContractWeight", "contractWeight", "weight", "netWeight", "quantity"])); }, 0)),
         currency: currency(firstValue(first, ["currency", "purchaseCurrency", "salesCurrency"])),
         exchangeRate: rateFor(first), totalOriginal: totalOriginal, totalKrw: totalKrw,
+        amountValidation: { corrected: correctedLines > 0, correctedLines: correctedLines, legacyTotalOriginal: legacyTotalOriginal },
         payment: payment, calculation: calculated,
         depositKrw: round(totalKrw * (totalOriginal ? calculated.depositAmount / totalOriginal : 0)),
         settledKrw: round(totalKrw * paidRatio), exceptionKrw: round(totalKrw * exceptionRatio),
@@ -395,8 +430,12 @@
       if (!modal || !body) return false;
       if (title) title.textContent = order.reference + " · " + (kind === "purchase" ? "지급현황" : "수금현황");
       var balanceValue = payment.balanceChecked ? payment.balanceAmount : calculated.expectedBalance;
+      var amountWarning = order.amountValidation && order.amountValidation.corrected
+        ? '<div class="wide cash-amount-warning"><b>금액 오류 자동 보정</b><span>저장 금액 불일치 ' + order.amountValidation.correctedLines + '건을 감지해 중량×단가와 일치하는 값으로 계산했습니다. ' + amount(order.amountValidation.legacyTotalOriginal) + ' → ' + amount(order.totalOriginal) + ' ' + encode(order.currency) + '</span></div>'
+        : '';
       body.innerHTML = '<form class="form-grid cash-payment-form" data-kind="' + kind + '" data-key="' + urlToken(order.reference) + '" data-total="' + order.totalOriginal + '" onsubmit="saveMesPayment(event,this)">' +
         '<div class="wide cash-payment-total"><div><small>' + (kind === "purchase" ? "구매금액" : "판매금액") + '</small><strong>' + amount(order.totalOriginal) + ' ' + encode(order.currency) + '</strong></div><div><small>원화 환산</small><strong>' + won(order.totalKrw) + '</strong></div><div><small>거래처</small><strong>' + encode(order.partner || "-") + '</strong></div></div>' +
+        amountWarning +
         '<label class="cash-check"><span><input name="depositChecked" type="checkbox" ' + (payment.depositChecked ? "checked" : "") + ' onchange="cashPaymentAutoCalc(this.form)"> 선금 ' + (kind === "purchase" ? "지불" : "입금") + '</span><input name="depositAmount" type="number" min="0" step="0.01" inputmode="decimal" value="' + payment.depositAmount + '" oninput="cashPaymentAutoCalc(this.form)"></label>' +
         '<label><span>자동 계산 잔금</span><input name="expectedBalance" type="number" value="' + calculated.expectedBalance + '" readonly></label>' +
         '<label class="cash-check"><span><input name="balanceChecked" type="checkbox" ' + (payment.balanceChecked ? "checked" : "") + ' onchange="cashPaymentAutoCalc(this.form)"> 잔금 ' + (kind === "purchase" ? "지불" : "입금") + '</span><input name="balanceAmount" type="number" min="0" step="0.01" inputmode="decimal" value="' + balanceValue + '" oninput="this.form.dataset.balanceTouched=\'1\';cashPaymentAutoCalc(this.form)"></label>' +
@@ -620,7 +659,7 @@
 
     var style = root.document.createElement("style");
     style.id = "mesCashFundingV1Style";
-    style.textContent = '.cash-payment-status{border:1px solid #e2b46a;background:#fff6df;color:#8b5200;border-radius:999px;padding:7px 10px;font-weight:900;white-space:nowrap;cursor:pointer}.cash-payment-status.paid{border-color:#72c7b8;background:#e9f8f4;color:#087265}.cash-payment-total{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px;border-radius:14px;background:#eef8f6}.cash-payment-total small,.cash-payment-total strong{display:block}.cash-payment-total strong{font-size:19px;margin-top:5px}.cash-check>span{display:flex;align-items:center;gap:8px}.cash-check input[type=checkbox]{width:22px;height:22px}.cash-payment-preview{display:grid;gap:5px;padding:15px;border:2px solid #11978d;border-radius:13px;background:#edf9f7}.cash-payment-preview strong{font-size:22px}.cash-executive-alert{width:100%;display:flex;align-items:center;gap:14px;border:1px solid #d94f5c;border-radius:14px;background:#fff0f1;color:#9d1d2a;padding:14px 18px;margin:0 0 14px;text-align:left;cursor:pointer}.cash-executive-alert span{flex:1}.cash-executive-alert em{font-style:normal;font-weight:900}.cash-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.cash-kpi{border:1px solid #cadbd7;border-radius:17px;background:#fff;text-align:left;padding:18px;color:#102d28;cursor:pointer}.cash-kpi small,.cash-kpi span{display:block}.cash-kpi strong{display:block;font-size:25px;margin:8px 0}.cash-kpi.warning{border-color:#e0a438;background:#fff8df}.cash-shortage{display:flex;justify-content:space-between;gap:16px;padding:15px 18px;border-radius:14px;margin:14px 0}.cash-shortage.danger{background:#fff0f1;border:1px solid #d84e5a;color:#9d1d2a}.cash-shortage.safe{background:#eaf8f3;border:1px solid #69bba9;color:#096a5e}.cash-date-note{padding:11px 14px;border-radius:10px;background:#fff7d8;color:#85520c}.cash-section{background:#fff;border:1px solid #d5e2df;border-radius:18px;padding:18px;margin:16px 0}.cash-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.cash-section-head h2{margin:0}.cash-section-head p{margin:5px 0 0;color:#627571}.cash-legend{display:flex;gap:14px;flex-wrap:wrap}.cash-legend span:before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px}.cash-legend .in:before,.cash-bars .in{background:#1a9b87}.cash-legend .out:before,.cash-bars .out{background:#e06969}.cash-legend .balance:before,.cash-bars .balance{background:#376fc2}.cash-chart{height:255px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end;margin-top:12px}.cash-chart>button{height:100%;border:0;border-radius:13px;background:#f4f8f7;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;cursor:pointer}.cash-bars{height:150px;display:flex;align-items:flex-end;justify-content:center;gap:5px;border-bottom:1px solid #adbfba}.cash-bars i{display:block;width:20%;min-width:12px;border-radius:6px 6px 0 0}.cash-bars .negative{background:#b52432}.cash-chart small,.cash-chart strong{display:block}.cash-table{overflow:auto;margin-top:13px}.cash-table table{width:100%;border-collapse:collapse;white-space:nowrap}.cash-table th,.cash-table td{padding:11px;border-bottom:1px solid #e0e8e6;text-align:right}.cash-table th{background:#eef5f3}.cash-table .left{text-align:left}.cash-table tr.danger{background:#fff0f1}.cash-table tr.warning{background:#fff7df}.cash-link{border:0;background:none;color:#086d89;text-decoration:underline;font-weight:800;cursor:pointer;padding:0}.cash-red{color:#b42332}.cash-aging{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}.cash-aging button{border:1px solid #d5e2df;border-radius:11px;background:#f7faf9;padding:11px;text-align:left}.cash-aging small,.cash-aging b,.cash-aging span{display:block}.cash-aging b{margin:5px 0}.cash-exceptions{border-color:#e4b35a;background:#fffaf0}.cash-setting-note{padding:12px;border-radius:10px;background:#eef8f6}@media(max-width:900px){.cash-kpis{grid-template-columns:repeat(2,1fr)}.cash-aging{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.cash-kpis{grid-template-columns:1fr}.cash-chart{height:auto;grid-template-columns:1fr 1fr}.cash-chart>button{min-height:225px}.cash-payment-total{grid-template-columns:1fr}.cash-shortage{display:grid}.cash-aging{grid-template-columns:1fr}.cash-dashboard-head .actions{grid-template-columns:1fr!important}.cash-payment-status{white-space:normal}.cash-executive-alert{display:grid}}';
+    style.textContent = '.cash-payment-status{border:1px solid #e2b46a;background:#fff6df;color:#8b5200;border-radius:999px;padding:7px 10px;font-weight:900;white-space:nowrap;cursor:pointer}.cash-payment-status.paid{border-color:#72c7b8;background:#e9f8f4;color:#087265}.cash-payment-total{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px;border-radius:14px;background:#eef8f6}.cash-payment-total small,.cash-payment-total strong{display:block}.cash-payment-total strong{font-size:19px;margin-top:5px}.cash-amount-warning{display:grid;gap:4px;padding:12px 14px;border:1px solid #e3ad48;border-radius:12px;background:#fff7dc;color:#81500a}.cash-check>span{display:flex;align-items:center;gap:8px}.cash-check input[type=checkbox]{width:22px;height:22px}.cash-payment-preview{display:grid;gap:5px;padding:15px;border:2px solid #11978d;border-radius:13px;background:#edf9f7}.cash-payment-preview strong{font-size:22px}.cash-executive-alert{width:100%;display:flex;align-items:center;gap:14px;border:1px solid #d94f5c;border-radius:14px;background:#fff0f1;color:#9d1d2a;padding:14px 18px;margin:0 0 14px;text-align:left;cursor:pointer}.cash-executive-alert span{flex:1}.cash-executive-alert em{font-style:normal;font-weight:900}.cash-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.cash-kpi{border:1px solid #cadbd7;border-radius:17px;background:#fff;text-align:left;padding:18px;color:#102d28;cursor:pointer}.cash-kpi small,.cash-kpi span{display:block}.cash-kpi strong{display:block;font-size:25px;margin:8px 0}.cash-kpi.warning{border-color:#e0a438;background:#fff8df}.cash-shortage{display:flex;justify-content:space-between;gap:16px;padding:15px 18px;border-radius:14px;margin:14px 0}.cash-shortage.danger{background:#fff0f1;border:1px solid #d84e5a;color:#9d1d2a}.cash-shortage.safe{background:#eaf8f3;border:1px solid #69bba9;color:#096a5e}.cash-date-note{padding:11px 14px;border-radius:10px;background:#fff7d8;color:#85520c}.cash-section{background:#fff;border:1px solid #d5e2df;border-radius:18px;padding:18px;margin:16px 0}.cash-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.cash-section-head h2{margin:0}.cash-section-head p{margin:5px 0 0;color:#627571}.cash-legend{display:flex;gap:14px;flex-wrap:wrap}.cash-legend span:before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px}.cash-legend .in:before,.cash-bars .in{background:#1a9b87}.cash-legend .out:before,.cash-bars .out{background:#e06969}.cash-legend .balance:before,.cash-bars .balance{background:#376fc2}.cash-chart{height:255px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end;margin-top:12px}.cash-chart>button{height:100%;border:0;border-radius:13px;background:#f4f8f7;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;cursor:pointer}.cash-bars{height:150px;display:flex;align-items:flex-end;justify-content:center;gap:5px;border-bottom:1px solid #adbfba}.cash-bars i{display:block;width:20%;min-width:12px;border-radius:6px 6px 0 0}.cash-bars .negative{background:#b52432}.cash-chart small,.cash-chart strong{display:block}.cash-table{overflow:auto;margin-top:13px}.cash-table table{width:100%;border-collapse:collapse;white-space:nowrap}.cash-table th,.cash-table td{padding:11px;border-bottom:1px solid #e0e8e6;text-align:right}.cash-table th{background:#eef5f3}.cash-table .left{text-align:left}.cash-table tr.danger{background:#fff0f1}.cash-table tr.warning{background:#fff7df}.cash-link{border:0;background:none;color:#086d89;text-decoration:underline;font-weight:800;cursor:pointer;padding:0}.cash-red{color:#b42332}.cash-aging{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}.cash-aging button{border:1px solid #d5e2df;border-radius:11px;background:#f7faf9;padding:11px;text-align:left}.cash-aging small,.cash-aging b,.cash-aging span{display:block}.cash-aging b{margin:5px 0}.cash-exceptions{border-color:#e4b35a;background:#fffaf0}.cash-setting-note{padding:12px;border-radius:10px;background:#eef8f6}@media(max-width:900px){.cash-kpis{grid-template-columns:repeat(2,1fr)}.cash-aging{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.cash-kpis{grid-template-columns:1fr}.cash-chart{height:auto;grid-template-columns:1fr 1fr}.cash-chart>button{min-height:225px}.cash-payment-total{grid-template-columns:1fr}.cash-shortage{display:grid}.cash-aging{grid-template-columns:1fr}.cash-dashboard-head .actions{grid-template-columns:1fr!important}.cash-payment-status{white-space:normal}.cash-executive-alert{display:grid}}';
     root.document.head.appendChild(style);
     root.requestAnimationFrame(function () { decorateExecutiveButton(); decorateMobileCards(); });
     return true;
