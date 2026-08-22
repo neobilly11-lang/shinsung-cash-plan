@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260822-15";
+  const VERSION = "20260822-16-learning-ensemble";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -920,9 +920,9 @@
     if (!/AIM\s+HIGH\s+KOREA/i.test(text) || !/PROFORMA\s+INVOICE/i.test(text)) return [];
     const rows = [];
     let inTable = false;
-    for (const rawLine of lines) {
-      const line = clean(rawLine);
-      if (/COMMODITY/i.test(line) && /QUANTITY|KG/i.test(line)) { inTable = true; continue; }
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = clean(lines[lineIndex]), nearbyHeader = lines.slice(Math.max(0, lineIndex - 2), lineIndex + 3).join(" ");
+      if (/COMMODITY/i.test(line) && /QUANTITY|Q.?TY|KG|KGS/i.test(nearbyHeader)) { inTable = true; continue; }
       if (!inTable) continue;
       if (TOTAL_RE.test(line)) break;
       const lineNo = line.match(/^\s*(\d{1,3})\b/), tokens = numericTokens(line, "US");
@@ -1005,14 +1005,15 @@
         .filter(line => /\b(?:LTD|LIMITED|INC|LLC|BV|B\.V|COMPANY|CORP|METALS?|MATERIAL|RECYCLING|TRADING|ALLOYS?|INDONESIA)\b/i.test(line))
         .sort((a, b) => a.length - b.length)[0] || "";
     }
-    const fileCode = (upperFile.match(/(?:SSIY|SSTY)-\d{4}(?:,\d{4})?|[A-Z]{2,}[A-Z0-9-]*\d{6}[A-Z0-9-]*|\bP\d{4,8}\b/g) || [""])[0];
+    const filePoNumber = (upperFile.match(/\bPO[\s_-]*(\d{4,8})\b/) || ["", ""])[1];
+    const fileCode = filePoNumber || (upperFile.match(/(?:SSIY|SSTY)-\d{4}(?:,\d{4})?|[A-Z]{2,}[A-Z0-9-]*\d{6}[A-Z0-9-]*|\bP\d{4,8}\b/g) || [""])[0];
     const detectedPoNo = fieldFromLines(lines, [
       /(?:\bP\.?O\.?\b|\bPO\b|\bPURCHASE\s+ORDER\b)\s*(?:NO\.?|NUMBER|#|F)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
       /BUYER\s+REF\s+NO\.?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
       /(?:ORDER|CONTRACT)\s+(?:NO\.?|NUMBER)\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
       /O\/?NO\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i
     ]);
-    const poNo = /\d{6}/.test(fileCode) ? fileCode : detectedPoNo || fileCode;
+    const poNo = filePoNumber || (/\d{6}/.test(fileCode) ? fileCode : detectedPoNo || fileCode);
     const date = fieldFromLines(lines, [/(?:^|\b)DATE\s*[:#-]?\s*([0-9]{1,4}[-/.][A-Za-z0-9]{1,9}[-/.][0-9]{1,4})/i, /INVOICE\s+DATE\s*[:#-]?\s*([^\s]{6,20})/i]);
     const address = fieldFromLines(lines, [/^ADDRESS\s*[:#-]?\s*(.+?)(?=\s+(?:S\.?O\.?|P\.?O\.?)\s*NO|$)/i, /\bADD(?:RESS)?\s*[:#-]\s*(.+)$/i]);
     const tel = fieldFromLines(lines, [/(?:^|\b)(?:TEL|PHONE)\s*[:#-]?\s*([+()\d][+()\d .-]{6,})/i]);
@@ -1064,6 +1065,76 @@
       if (grade) item.marking = clean(grade[0]);
     });
     return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
+  }
+
+  function documentQuality(documentData) {
+    const data = documentData || {}, items = Array.isArray(data.items) ? data.items : [];
+    let score = 0;
+    if (data.documentType && data.documentType !== "UNKNOWN") score += 10;
+    if (clean(data.company)) score += 10;
+    if (clean(data.poNo || data.soNo)) score += 10;
+    if (!items.length) return Math.min(30, score);
+    score += 30;
+    const validRows = items.filter(item => clean(item.marking || item.description) && Number(item.netWeight || item.weight) > 0).length;
+    score += 20 * validRows / items.length;
+    const financialRows = items.filter(item => Number(item.price) > 0 && Number(item.amount) > 0);
+    if (financialRows.length) {
+      const consistent = financialRows.filter(item => Math.abs(Number(item.netWeight || item.weight) * Number(item.price) - Number(item.amount)) <= Math.max(5, Number(item.amount) * 0.08)).length;
+      score += 10 * consistent / financialRows.length;
+    } else if (data.documentType === "PACKING_LIST") score += 8;
+    const weightRows = items.filter(item => Number(item.grossWeight || item.netWeight || item.weight) >= Number(item.netWeight || item.weight) && Number(item.netWeight || item.weight) > 0).length;
+    score += 5 * weightRows / items.length;
+    const unique = new Set(items.map(item => `${compact(item.marking)}|${round2(item.netWeight || item.weight)}|${round2(item.amount)}`)).size;
+    if (unique < items.length) score -= Math.min(15, (items.length - unique) * 3);
+    return round2(Math.max(0, Math.min(100, score)));
+  }
+
+  function declaredWeightTotal(text) {
+    const values = [];
+    String(text || "").split(/\r?\n/).forEach(line => {
+      if (!TOTAL_RE.test(clean(line)) || !/\b(?:KG|KGS|MTS?|TONNES?|LBS?)\b/i.test(line) || /(?:USD|US\$|EUR|JPY)\s*$/i.test(clean(line))) return;
+      const unitMatch = line.match(/\b(KG|KGS|MTS?|TONNES?|LBS?)\b/i), beforeUnit = unitMatch ? line.slice(0, unitMatch.index) : line;
+      const tokens = numericTokens(beforeUnit, numberStyle(line));
+      if (!tokens.length) return;
+      const raw = tokens[tokens.length - 1].value, unit = unitCode(unitMatch && unitMatch[1], "KG"), factor = WEIGHT_FACTORS[unit] || 1;
+      if (raw > 0) values.push(round2(raw * factor));
+    });
+    return values.length ? values[values.length - 1] : 0;
+  }
+
+  function mergeParsedCandidates(candidates) {
+    const usable = (Array.isArray(candidates) ? candidates : []).filter(candidate => candidate && candidate.data);
+    if (!usable.length) return parseText("", "");
+    const methodPriority = method => /원본문자-위치/.test(method || "") ? 4 : /표.*OCR/.test(method || "") ? 3 : /OCR/.test(method || "") ? 2 : /원본문자/.test(method || "") ? 1 : 0;
+    const scored = usable.map((candidate, index) => {
+      const weight = round2((candidate.data.items || []).reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0)), declaredWeight = declaredWeightTotal(candidate.text);
+      const weightError = declaredWeight > 0 && weight > 0 ? Math.abs(weight - declaredWeight) / declaredWeight : 0;
+      const quality = Math.max(0, documentQuality(candidate.data) - (weightError > 0.03 ? Math.min(40, 10 + weightError * 35) : 0));
+      return { ...candidate, index, quality: round2(quality), weight, declaredWeight };
+    }).sort((left, right) => right.quality - left.quality || methodPriority(right.method) - methodPriority(left.method) || left.index - right.index);
+    const winner = scored[0], result = { ...winner.data, items: (winner.data.items || []).map(item => ({ ...item })) };
+    const fields = ["poNo", "soNo", "company", "contractDate", "address", "tel", "fax", "email", "a10No", "shipment", "loadingTerm", "paymentTerm", "packing", "note", "currency", "documentType"];
+    for (const field of fields) {
+      if (clean(result[field]) && !(field === "documentType" && result[field] === "UNKNOWN")) continue;
+      const source = scored.find(candidate => clean(candidate.data[field]) && !(field === "documentType" && candidate.data[field] === "UNKNOWN"));
+      if (source) result[field] = source.data[field];
+    }
+    const signatures = new Set(scored.map(candidate => `${(candidate.data.items || []).length}|${candidate.weight}`));
+    const declaredWeights = scored.map(candidate => candidate.declaredWeight).filter(value => value > 0).sort((left, right) => left - right);
+    const declaredNetWeight = declaredWeights.length ? declaredWeights[Math.floor(declaredWeights.length / 2)] : 0;
+    const selectedNetWeight = round2(result.items.reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0));
+    const weightTotalMismatch = declaredNetWeight > 0 && selectedNetWeight > 0 && Math.abs(selectedNetWeight - declaredNetWeight) > Math.max(2, declaredNetWeight * 0.03);
+    result.diagnostics = {
+      ...(result.diagnostics || {}), version: VERSION, extractionMethod: winner.method || "text", confidence: winner.quality,
+      extractionCandidates: scored.map(candidate => ({ method: candidate.method || "text", confidence: candidate.quality, itemCount: (candidate.data.items || []).length, netWeight: candidate.weight, declaredNetWeight: candidate.declaredWeight || 0 })),
+      candidateDisagreement: signatures.size > 1, declaredNetWeight, selectedNetWeight, weightTotalMismatch
+    };
+    result.sourceText = String(winner.text || "");
+    Object.defineProperty(result, "__candidateDocuments", {
+      value: scored.map(candidate => ({ method: candidate.method || "text", confidence: candidate.quality, items: (candidate.data.items || []).map(item => ({ ...item })) })),
+      enumerable: false, configurable: true, writable: true
+    });
+    return result;
   }
 
   function columnIndex(headers, aliases, excluded) {
@@ -1157,7 +1228,7 @@
     return meta;
   }
 
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseContainerMaterialPackingRows, parseVmetContainerPackingRows, parseVmetInvoiceRows, parseTonJumboPackingRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, parseQuantityDescriptionPriceRows, parsePurchaseOrderWeightRows, parseErpPurchaseOrderRows, parseJapanesePurchaseOrderRows, parseTosuiRows, parseParentheticalMtsPackingRows, parseMaterialAmountRows, parseMaterialPackageRows, parseParcelPackingRows, parseEuropeanGrossPackagingNetRows, parseCommodityQuantityRows, compact, headerKey };
+  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, documentQuality, declaredWeightTotal, mergeParsedCandidates, parsePackingListRows, parseContainerMaterialPackingRows, parseVmetContainerPackingRows, parseVmetInvoiceRows, parseTonJumboPackingRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, parseQuantityDescriptionPriceRows, parsePurchaseOrderWeightRows, parseErpPurchaseOrderRows, parseJapanesePurchaseOrderRows, parseTosuiRows, parseParentheticalMtsPackingRows, parseMaterialAmountRows, parseMaterialPackageRows, parseParcelPackingRows, parseEuropeanGrossPackagingNetRows, parseCommodityQuantityRows, compact, headerKey };
   root.MesDocumentImporterV4 = core;
   globalThis.MesDocumentImporterV4 = core;
   globalThis.__mesDocumentImporterV4 = core;
@@ -1170,6 +1241,7 @@
     .mes-import-steps b{padding:12px 8px;border-radius:12px;background:#edf5f2;text-align:center;color:#0d5f4d}
     .mes-import-drop{display:block;padding:26px;border:2px dashed #87aa9f;border-radius:18px;background:#f7fbf9;text-align:center;cursor:pointer}
     .mes-import-drop input{display:block;width:100%;margin-top:16px;font-size:16px}.mes-import-status{padding:14px;border-radius:12px;background:#f1f4f3;font-weight:700}
+    .mes-import-review{margin-bottom:14px;padding:14px;border-radius:12px;font-weight:800}.mes-import-review.ok{background:#e8f7f2;color:#086b58}.mes-import-review.warning{background:#fff0d5;color:#8b5400;border:1px solid #efbd5c}
     .mes-po-form-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:18px;border-radius:14px;background:#0b3228;color:#fff}
     .mes-po-items{display:grid;gap:12px}.mes-po-item{display:grid;gap:12px;padding:16px;border:1px solid #cbd8d4;border-radius:16px;background:#fff}
     .mes-po-item-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mes-po-item-grid label{min-width:0}.mes-po-item-grid input,.mes-po-item-grid select{width:100%}
@@ -1208,9 +1280,28 @@
     a = compact(a); b = compact(b);
     if (!a || !b) return 0;
     if (a === b) return 1;
-    if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length) + 0.15;
-    const set = new Set(a), common = [...new Set(b)].filter(value => set.has(value)).length;
-    return common / Math.max(new Set(a).size, new Set(b).size);
+    if (a.includes(b) || b.includes(a)) return Math.min(1, Math.min(a.length, b.length) / Math.max(a.length, b.length) + 0.15);
+    const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+    for (let left = 1; left <= a.length; left++) {
+      let diagonal = previous[0]; previous[0] = left;
+      for (let right = 1; right <= b.length; right++) {
+        const above = previous[right], cost = a[left - 1] === b[right - 1] ? 0 : 1;
+        previous[right] = Math.min(previous[right] + 1, previous[right - 1] + 1, diagonal + cost);
+        diagonal = above;
+      }
+    }
+    const editScore = 1 - previous[b.length] / Math.max(a.length, b.length);
+    const bigrams = value => {
+      const map = new Map();
+      for (let index = 0; index < value.length - 1; index++) map.set(value.slice(index, index + 2), (map.get(value.slice(index, index + 2)) || 0) + 1);
+      return map;
+    };
+    const leftPairs = bigrams(a), rightPairs = bigrams(b);
+    let commonPairs = 0, pairCount = 0;
+    leftPairs.forEach((count, key) => { pairCount += count; commonPairs += Math.min(count, rightPairs.get(key) || 0); });
+    rightPairs.forEach(count => { pairCount += count; });
+    const pairScore = pairCount ? 2 * commonPairs / pairCount : 0;
+    return Math.max(editScore, pairScore);
   }
 
   function liveState() {
@@ -1228,12 +1319,17 @@
     return compact(value).replace(/^(?:PO|SO)/, "");
   }
 
-  function savedRows() {
-    const source = liveState(), rows = [];
-    ["pos", "salesOrders", "splits", "bags", "gradeMasters"].forEach(collection => activeRows(source[collection]).forEach(row => rows.push(row)));
+  function savedRows(targetType) {
+    const source = liveState(), rows = [], add = (kind, row) => rows.push({ ...row, __historyKind: kind });
+    activeRows(source.pos).forEach(row => add("PO", row));
+    activeRows(source.salesOrders).forEach(row => add("SO", row));
+    ["splits", "bags", "gradeMasters"].forEach(collection => activeRows(source[collection]).forEach(row => add("GRADE", row)));
     activeRows(source.purchaseRequests).forEach(request => {
-      activeRows(request.items).forEach(item => rows.push({ ...request, ...item, poNo: item.poNo || request.poNo, company: item.company || request.company }));
+      activeRows(request.items).forEach(item => add("PO", { ...request, ...item, poNo: item.poNo || request.poNo, company: item.company || request.company }));
     });
+    const target = String(targetType || "").toUpperCase();
+    if (target === "SO") return rows.filter(row => row.__historyKind === "SO" || row.__historyKind === "GRADE");
+    if (target === "PO" || target === "PACKING") return rows.filter(row => row.__historyKind === "PO" || row.__historyKind === "GRADE");
     return rows;
   }
 
@@ -1253,17 +1349,94 @@
     })).filter(map => map.marking && map.sources.length);
   }
 
-  async function mapItems(documentData) {
-    const stateValue = liveState(), rows = savedRows(), master = await mappings();
-    const list = [...runtimeMappings(rows), ...master];
-    const documentRefs = [documentData.poNo, documentData.soNo].map(referenceKey).filter(Boolean);
-    const exactRows = rows.filter(row => documentRefs.includes(referenceKey(row.poNo || row.soNo || row.orderNo)));
+  function historyAlignment(items, rows) {
+    const sourceItems = Array.isArray(items) ? items : [], sourceRows = Array.isArray(rows) ? rows : [];
+    if (!sourceItems.length || !sourceRows.length) return 0;
+    const used = new Set();
+    let total = 0;
+    sourceItems.forEach((item, index) => {
+      let best = null;
+      sourceRows.forEach((row, rowIndex) => {
+        if (used.has(row)) return;
+        const gradeScore = Math.max(0, ...rowSources(row).map(value => similarity(item.marking || item.description, value)));
+        const rowWeight = Number(row.netWeight || row.weight || row.quantity || 0), itemWeight = Number(item.netWeight || item.weight || 0);
+        const weightScore = rowWeight > 0 && itemWeight > 0 ? Math.max(0, 1 - Math.abs(rowWeight - itemWeight) / Math.max(rowWeight, itemWeight)) : 0;
+        const score = gradeScore * 0.65 + weightScore * 0.3 + (rowIndex === index ? 0.05 : 0);
+        if (!best || score > best.score) best = { row, score };
+      });
+      if (best) { used.add(best.row); total += best.score; }
+    });
+    return total / Math.max(sourceItems.length, sourceRows.length);
+  }
+
+  async function mapItems(documentData, options) {
+    options = options || {};
+    documentData.items = Array.isArray(documentData.items) ? documentData.items : [];
+    documentData.diagnostics = documentData.diagnostics || { version: VERSION };
+    const stateValue = liveState(), allRows = savedRows(), rows = savedRows(options.targetType), master = await mappings();
+    const list = [...runtimeMappings(allRows), ...master];
+    const documentRefs = [documentData.poNo, documentData.soNo, options.poNo, options.soNo].map(referenceKey).filter(Boolean);
+    const searchable = compact(`${documentData.sourceFile || ""} ${documentData.sourceText || ""}`);
+    rows.forEach(row => {
+      [row.poNo, row.soNo, row.orderNo].map(referenceKey).filter(value => value.length >= 4).forEach(value => {
+        if (searchable.includes(value) && !documentRefs.includes(value)) documentRefs.push(value);
+      });
+    });
+    const exactRows = rows.filter(row => [row.poNo, row.soNo, row.orderNo].map(referenceKey).some(value => value && documentRefs.includes(value)));
     const partnerRow = exactRows.find(row => clean(row.company || row.customer || row.partner));
     if (partnerRow) documentData.company = clean(partnerRow.company || partnerRow.customer || partnerRow.partner);
+    else if (documentData.company) {
+      const names = [...new Set(allRows.map(row => clean(row.company || row.customer || row.partner)).filter(Boolean))];
+      const nearest = names.map(name => ({ name, score: similarity(documentData.company, name) })).sort((left, right) => right.score - left.score)[0];
+      if (nearest && nearest.score >= 0.72) {
+        documentData.company = nearest.name;
+        documentData.diagnostics.partnerMatchedFromHistory = true;
+      }
+    }
 
+    if (exactRows.length && Array.isArray(documentData.__candidateDocuments) && documentData.__candidateDocuments.length > 1) {
+      const currentAlignment = historyAlignment(documentData.items, exactRows);
+      const candidates = documentData.__candidateDocuments.map(candidate => ({ ...candidate, alignment: historyAlignment(candidate.items, exactRows) }))
+        .sort((left, right) => right.alignment - left.alignment || right.confidence - left.confidence);
+      const best = candidates[0];
+      if (best && best.items.length && best.alignment >= 0.55 && best.alignment > currentAlignment + 0.05) {
+        documentData.items = best.items.map(item => ({ ...item }));
+        documentData.diagnostics.extractionMethod = best.method;
+        documentData.diagnostics.confidence = best.confidence;
+        documentData.diagnostics.historyCandidateSelection = true;
+        documentData.diagnostics.usedSavedData = true;
+      }
+    }
+
+    if (!documentData.items.length && exactRows.length) {
+      const recovered = [], seen = new Set();
+      exactRows.forEach((row, index) => {
+        const marking = rowMarking(row), weight = Number(row.netWeight || row.weight || row.quantity || 0);
+        const key = `${compact(marking)}|${round2(weight)}|${clean(row.packageNo || row.id || index)}`;
+        if (!marking || weight <= 0 || seen.has(key)) return;
+        seen.add(key);
+        const unitPrice = Number(row.unitPrice || row.price || 0), amount = Number(row.purchaseAmount || row.amount || row.foreignAmount || 0);
+        const item = normalizeItem(marking, clean(row.description || row.detailGrade), weight, "KG", unitPrice, "KG", amount, {
+          gross: row.grossWeight || weight, packageNo: row.packageNo, packageCount: row.packageCount || row.plannedPackageCount || 1,
+          packingType: row.packingType || row.packing, sourceGradeLocked: true, sourceLineNo: index + 1
+        });
+        item.historyRecovered = true;
+        recovered.push(item);
+      });
+      if (recovered.length) {
+        documentData.items = recovered;
+        documentData.diagnostics.historyRecovery = true;
+        documentData.diagnostics.reviewRequired = true;
+        documentData.diagnostics.warning = "문서 표 인식이 불완전하여 동일 번호의 저장자료로 품목을 복구했습니다. 저장 전 중량과 단가를 확인하세요.";
+        documentData.diagnostics.confidence = Math.min(88, Number(documentData.diagnostics.confidence) || 88);
+      }
+    }
+
+    const usedExactRows = new Set();
     documentData.items.forEach((item, index) => {
       let exact = null;
       exactRows.forEach((row, rowIndex) => {
+        if (usedExactRows.has(row)) return;
         const sources = rowSources(row), gradeScore = Math.max(0, ...sources.map(value => similarity(item.marking, value)));
         const rowWeight = Number(row.netWeight || row.weight || row.quantity || 0), itemWeight = Number(item.netWeight || item.weight || 0);
         const weightScore = rowWeight > 0 && itemWeight > 0 ? Math.max(0, 1 - Math.abs(rowWeight - itemWeight) / Math.max(rowWeight, itemWeight)) : 0;
@@ -1272,6 +1445,7 @@
       });
       if (exact && (exact.score >= 0.45 || exactRows.length === documentData.items.length)) {
         const row = exact.row, matched = rowMarking(row) || item.marking;
+        usedExactRows.add(row);
         item.matchedMarking = matched;
         item.matchedDescription = clean(row.description || row.detailGrade || item.description);
         item.productType = clean(row.productType || (stateValue.gradeTypes && stateValue.gradeTypes[matched]) || item.productType);
@@ -1279,6 +1453,7 @@
         item.subGrade = clean(row.subGrade);
         item.detailGrade = clean(row.detailGrade || row.description || item.description);
         item.matchConfidence = round2(Math.max(0.8, exact.score) * 100);
+        documentData.diagnostics.usedSavedData = true;
         return;
       }
       if (item.sourceGradeLocked) {
@@ -1302,6 +1477,7 @@
         item.subGrade = clean(best.map.subGrade || item.subGrade);
         item.detailGrade = clean(best.map.detailGrade || item.detailGrade || item.description);
         item.matchConfidence = round2(best.score * 100);
+        documentData.diagnostics.usedSavedData = true;
       }
     });
     return documentData;
@@ -1309,60 +1485,158 @@
 
   core.mapItems = mapItems;
 
-  async function pdfText(file, requestId) {
+  function textContentVariants(items) {
+    const words = (items || []).map(item => ({
+      text: clean(item.str), x: Number(item.transform && item.transform[4]) || 0,
+      y: Number(item.transform && item.transform[5]) || 0
+    })).filter(item => item.text);
+    const groups = [];
+    words.slice().sort((left, right) => right.y - left.y || left.x - right.x).forEach(item => {
+      let row = groups.find(group => Math.abs(group.y - item.y) <= 3);
+      if (!row) { row = { y: item.y, words: [] }; groups.push(row); }
+      row.words.push(item);
+    });
+    const layout = groups.sort((left, right) => right.y - left.y).map(group => group.words.sort((left, right) => left.x - right.x).map(item => item.text).join(" ")).join("\n");
+    return { layout, raw: words.map(item => item.text).join(" "), chars: words.reduce((sum, item) => sum + item.text.length, 0) };
+  }
+
+  function enhanceOcrCanvas(canvas) {
+    const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    const image = context.getImageData(0, 0, canvas.width, canvas.height), data = image.data;
+    for (let index = 0; index < data.length; index += 4) {
+      const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+      const value = gray > 218 ? 255 : Math.max(0, Math.min(255, (gray - 128) * 1.45 + 128));
+      data[index] = data[index + 1] = data[index + 2] = value;
+      data[index + 3] = 255;
+    }
+    context.putImageData(image, 0, 0);
+    return canvas;
+  }
+
+  async function ocrPdfPages(pdf, pageNumbers, pageSegMode, requestId) {
+    await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
+    let worker = null;
+    const pages = [];
+    try {
+      worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
+        if (message.status === "recognizing text" && requestId === importRequest && typeof setSync === "function") setSync(`사진 OCR ${pageSegMode === "6" ? "표" : "전체"} · ${Math.round((message.progress || 0) * 100)}%`);
+      }});
+      await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: String(pageSegMode), user_defined_dpi: "300" });
+      for (const pageNumber of pageNumbers) {
+        if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
+        if (typeof setSync === "function") setSync(`페이지 사진 ${pageNumber}/${pdf.numPages} · OCR ${pageSegMode === "6" ? "표 재구성" : "전체 읽기"}`);
+        const page = await pdf.getPage(pageNumber), viewport = page.getViewport({ scale: pageSegMode === "6" ? 2.65 : 3 });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d", { alpha: false, willReadFrequently: pageSegMode === "6" });
+        context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: context, viewport, background: "white" }).promise;
+        const result = await worker.recognize(pageSegMode === "6" ? enhanceOcrCanvas(canvas) : canvas);
+        pages.push(String(result.data && result.data.text || ""));
+        canvas.width = 1; canvas.height = 1;
+      }
+    } finally { if (worker) await worker.terminate(); }
+    return pages.join("\n");
+  }
+
+  async function ocrPdfTableBands(pdf, pageNumbers, baseText, requestId) {
+    await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
+    let worker = null;
+    const bandTexts = [[], []], bands = [{ top: 0.17, height: 0.52 }, { top: 0.36, height: 0.52 }];
+    try {
+      worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
+        if (message.status === "recognizing text" && requestId === importRequest && typeof setSync === "function") setSync(`표 영역 정밀 OCR · ${Math.round((message.progress || 0) * 100)}%`);
+      }});
+      await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "4", user_defined_dpi: "300" });
+      for (const pageNumber of pageNumbers) {
+        if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
+        const page = await pdf.getPage(pageNumber), viewport = page.getViewport({ scale: 4.15 }), source = document.createElement("canvas");
+        source.width = Math.ceil(viewport.width); source.height = Math.ceil(viewport.height);
+        const sourceContext = source.getContext("2d", { alpha: false });
+        sourceContext.fillStyle = "#fff"; sourceContext.fillRect(0, 0, source.width, source.height);
+        await page.render({ canvasContext: sourceContext, viewport, background: "white" }).promise;
+        for (let bandIndex = 0; bandIndex < bands.length; bandIndex++) {
+          const band = bands[bandIndex], top = Math.floor(source.height * band.top), height = Math.min(source.height - top, Math.floor(source.height * band.height));
+          const crop = document.createElement("canvas"); crop.width = source.width; crop.height = height;
+          const cropContext = crop.getContext("2d", { alpha: false, willReadFrequently: true });
+          cropContext.fillStyle = "#fff"; cropContext.fillRect(0, 0, crop.width, crop.height);
+          cropContext.drawImage(source, 0, top, source.width, height, 0, 0, crop.width, crop.height);
+          const result = await worker.recognize(enhanceOcrCanvas(crop));
+          bandTexts[bandIndex].push(String(result.data && result.data.text || ""));
+          crop.width = 1; crop.height = 1;
+        }
+        source.width = 1; source.height = 1;
+      }
+    } finally { if (worker) await worker.terminate(); }
+    return bandTexts.map((pages, index) => ({ method: `페이지사진-표영역OCR-${index + 1}`, text: `${pages.join("\n")}\n${baseText || ""}` }));
+  }
+
+  async function pdfDocuments(file, requestId) {
     await loadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", () => !!root.pdfjsLib);
     root.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
     const pdf = await root.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-    const lines = [], ocrPages = [];
-    let worker = null;
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-      if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
-      if (typeof setSync === "function") setSync(`문서 ${pageNumber}/${pdf.numPages} 페이지 분석 중`);
-      const page = await pdf.getPage(pageNumber), content = await page.getTextContent();
-      const words = content.items.map(item => ({ text: clean(item.str), x: Number(item.transform && item.transform[4]) || 0, y: Number(item.transform && item.transform[5]) || 0 })).filter(item => item.text);
-      const nativeChars = words.reduce((sum, item) => sum + item.text.length, 0);
-      if (nativeChars >= 80) {
-        const groups = [];
-        words.sort((a, b) => b.y - a.y || a.x - b.x).forEach(item => {
-          let row = groups.find(group => Math.abs(group.y - item.y) <= 3);
-          if (!row) { row = { y: item.y, words: [] }; groups.push(row); }
-          row.words.push(item);
-        });
-        groups.sort((a, b) => b.y - a.y).forEach(group => lines.push(group.words.sort((a, b) => a.x - b.x).map(item => item.text).join(" ")));
-        continue;
+    const layoutPages = [], rawPages = [], scannedPages = [], candidates = [];
+    try {
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
+        if (typeof setSync === "function") setSync(`원본문자 ${pageNumber}/${pdf.numPages} 페이지 분석 중`);
+        const page = await pdf.getPage(pageNumber), content = await page.getTextContent(), variants = textContentVariants(content.items);
+        layoutPages.push(variants.layout); rawPages.push(variants.raw);
+        if (variants.chars < 80) scannedPages.push(pageNumber);
       }
-      await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
-      if (!worker) {
-        worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
-          if (message.status === "recognizing text" && typeof setSync === "function") setSync(`OCR ${pageNumber}/${pdf.numPages} · ${Math.round((message.progress || 0) * 100)}%`);
-        }});
-        await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "3", user_defined_dpi: "300" });
+      const layoutText = layoutPages.join("\n"), rawText = rawPages.join("\n");
+      if (clean(layoutText)) candidates.push({ method: "원본문자-위치복원", text: layoutText, data: parseText(layoutText, file.name) });
+      if (clean(rawText) && compact(rawText) !== compact(layoutText)) candidates.push({ method: "원본문자-연속읽기", text: rawText, data: parseText(rawText, file.name) });
+      let combined = mergeParsedCandidates(candidates), ocrPageNumbers = scannedPages.length ? scannedPages : Array.from({ length: Math.min(pdf.numPages, 3) }, (_, index) => index + 1);
+      if (combined.documentType !== "INSURANCE" && ocrPageNumbers.length) {
+        const ocrFull = await ocrPdfPages(pdf, ocrPageNumbers, "3", requestId);
+        if (clean(ocrFull)) candidates.push({ method: "페이지사진-OCR", text: ocrFull, data: parseText(ocrFull, file.name) });
+        combined = mergeParsedCandidates(candidates);
+        if (scannedPages.length || combined.diagnostics.confidence < 85 || combined.diagnostics.candidateDisagreement) {
+          const ocrTable = await ocrPdfPages(pdf, ocrPageNumbers, "6", requestId);
+          if (clean(ocrTable)) candidates.push({ method: "페이지사진-표OCR", text: ocrTable, data: parseText(ocrTable, file.name) });
+          combined = mergeParsedCandidates(candidates);
+        }
+        if (!combined.items.length || combined.diagnostics.confidence < 80 || combined.diagnostics.weightTotalMismatch) {
+          const baseText = candidates.map(candidate => candidate.text).find(text => declaredWeightTotal(text) > 0) || candidates.map(candidate => candidate.text).find(Boolean) || "";
+          const bands = await ocrPdfTableBands(pdf, ocrPageNumbers, baseText, requestId);
+          bands.forEach(candidate => { if (clean(candidate.text)) candidates.push({ ...candidate, data: parseText(candidate.text, file.name) }); });
+          combined = mergeParsedCandidates(candidates);
+        }
       }
-      const viewport = page.getViewport({ scale: 3 }), canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-      const context = canvas.getContext("2d", { alpha: false });
-      context.fillStyle = "#fff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: context, viewport, background: "white" }).promise;
-      const imageSource = canvas.toDataURL("image/png");
-      const result = await worker.recognize(imageSource);
-      const pageText = String(result.data && result.data.text || "");
-      lines.push(...pageText.split(/\r?\n/));
-      ocrPages.push(pageNumber);
-    }
-    if (worker) await worker.terminate();
-    return { text: lines.map(clean).filter(Boolean).join("\n"), ocrPages, pageCount: pdf.numPages };
+      combined.diagnostics.pageCount = pdf.numPages;
+      combined.diagnostics.ocrPages = combined.diagnostics.extractionCandidates.some(candidate => /OCR/.test(candidate.method)) ? ocrPageNumbers : [];
+      if (combined.diagnostics.weightTotalMismatch) {
+        combined.diagnostics.reviewRequired = true;
+        combined.diagnostics.warning = `문서 합계 ${combined.diagnostics.declaredNetWeight.toLocaleString()} kg과 인식행 합계 ${combined.diagnostics.selectedNetWeight.toLocaleString()} kg이 달라 저장 전 확인이 필요합니다.`;
+      }
+      combined.sourceFile = combined.sourceFile || file.name;
+      return combined;
+    } finally { if (pdf && pdf.destroy) await pdf.destroy(); }
   }
 
-  async function imageText(file, requestId) {
+  async function imageDocuments(file, requestId) {
     await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", () => !!root.Tesseract);
-    const result = await root.Tesseract.recognize(file, "eng", { logger: message => {
-      if (requestId === importRequest && message.status === "recognizing text" && typeof setSync === "function") setSync(`사진 문자 인식 ${Math.round((message.progress || 0) * 100)}%`);
-    }});
-    return { text: String(result.data && result.data.text || ""), ocrPages: [1], pageCount: 1 };
+    let worker = null;
+    const candidates = [];
+    try {
+      worker = await root.Tesseract.createWorker("eng", 1, { logger: message => {
+        if (requestId === importRequest && message.status === "recognizing text" && typeof setSync === "function") setSync(`사진 문자 인식 ${Math.round((message.progress || 0) * 100)}%`);
+      }});
+      for (const mode of ["3", "6"]) {
+        await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: mode, user_defined_dpi: "300" });
+        const result = await worker.recognize(file), text = String(result.data && result.data.text || "");
+        if (clean(text)) candidates.push({ method: mode === "3" ? "사진-OCR" : "사진-표OCR", text, data: parseText(text, file.name) });
+      }
+    } finally { if (worker) await worker.terminate(); }
+    const combined = mergeParsedCandidates(candidates);
+    combined.diagnostics.ocrPages = [1]; combined.diagnostics.pageCount = 1;
+    combined.sourceFile = combined.sourceFile || file.name;
+    return combined;
   }
 
-  async function importFile(file) {
+  async function importFile(file, options) {
+    options = options || {};
     if (!file) throw Error("파일을 선택하세요.");
     const requestId = ++importRequest, name = file.name || "", lower = name.toLowerCase();
     let parsed;
@@ -1371,26 +1645,20 @@
       else await loadScript("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", () => !!root.XLSX);
       const workbook = root.XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
       const candidates = workbook.SheetNames.map(sheetName => parseMatrix(root.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: false }), name));
-      parsed = candidates.sort((a, b) => b.items.length - a.items.length)[0];
+      parsed = candidates.sort((a, b) => documentQuality(b) - documentQuality(a) || b.items.length - a.items.length)[0];
       parsed.diagnostics.sheets = workbook.SheetNames.length;
-    } else if (/\.pdf$/.test(lower)) {
-      const extracted = await pdfText(file, requestId);
-      parsed = parseText(extracted.text, name);
-      parsed.diagnostics.ocrPages = extracted.ocrPages;
-      parsed.diagnostics.pageCount = extracted.pageCount;
-    } else if (/\.(?:png|jpe?g|webp|bmp|heic)$/i.test(lower) || /^image\//.test(file.type || "")) {
-      const extracted = await imageText(file, requestId);
-      parsed = parseText(extracted.text, name);
-      parsed.diagnostics.ocrPages = extracted.ocrPages;
-      parsed.diagnostics.pageCount = extracted.pageCount;
-    } else {
-      parsed = parseText(await file.text(), name);
-
+      parsed.diagnostics.confidence = documentQuality(parsed);
+    } else if (/\.pdf$/.test(lower)) parsed = await pdfDocuments(file, requestId);
+    else if (/\.(?:png|jpe?g|webp|bmp|heic)$/i.test(lower) || /^image\//.test(file.type || "")) parsed = await imageDocuments(file, requestId);
+    else {
+      const text = await file.text();
+      parsed = mergeParsedCandidates([{ method: "텍스트", text, data: parseText(text, name) }]);
     }
     if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
     if (parsed.documentType === "INSURANCE") throw Error("보험증권은 품목 불러오기 대상이 아닙니다. 해당 거래의 Invoice 또는 Packing List를 선택하세요.");
-    if (!parsed.items.length) throw Error("강종·중량 행을 찾지 못했습니다. 표 전체가 보이는 원본 PDF·Excel 또는 선명한 사진을 선택하세요.");
-    return mapItems(parsed);
+    parsed = await mapItems(parsed, options);
+    if (!parsed.items.length) throw Error("원본문자·페이지 사진 OCR·저장자료 대조에서도 강종·중량 행을 찾지 못했습니다. 표 전체가 보이는 파일인지 확인하세요.");
+    return parsed;
   }
 
   core.importFile = importFile;
@@ -1537,7 +1805,7 @@
     if (statusBox) statusBox.textContent = `${file.name} · 분석 준비 중`;
     byId("progress")?.classList.add("on");
     try {
-      const parsed = await importFile(file);
+      const parsed = await importFile(file, { targetType: "PO" });
       if (statusBox) statusBox.textContent = `${parsed.items.length}개 품목 분석 완료`;
       openDirectPo(parsed);
       toast(`${file.name} · ${parsed.items.length}개 품목 자동완성 완료`);
@@ -1566,7 +1834,7 @@
     byId("progress")?.classList.add("on");
     const statusBox = byId("mesPackingImportStatus");
     try {
-      const parsed = await importFile(file), sourceRows = safe(po.rows);
+      const parsed = await importFile(file, { targetType: "PACKING", poNo }), sourceRows = safe(po.rows);
       const items = parsed.items.map((item, index) => {
         const matched = sourceRows.find(row => compact(row.grade) === compact(item.matchedMarking || item.marking)) || sourceRows.find(row => similarity(row.grade, item.marking) >= 0.68) || sourceRows[index] || {};
         return {

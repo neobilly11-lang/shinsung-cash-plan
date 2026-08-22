@@ -88,7 +88,7 @@
     try{
       var importer=window.MesDocumentImporterV4||window.__mesDocumentImporterV4;
       if(!importer||typeof importer.importFile!=='function')throw Error('PACKING LIST 공용 분석기를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.');
-      var documentData=await importer.importFile(file),parsed={rows:list(documentData.items).map(function(item){return{packageNo:item.packageNo||'',grade:item.matchedMarking||item.marking||'',gw:number(item.grossWeight||item.weight),nw:number(item.netWeight||item.weight),packingType:item.packingType||documentData.packing||'',memo:item.memo||'',packageCount:number(item.packageCount)||1};})};
+      var documentData=await importer.importFile(file,{targetType:'PACKING',poNo:poNo}),parsed={rows:list(documentData.items).map(function(item){return{packageNo:item.packageNo||'',grade:item.matchedMarking||item.marking||'',gw:number(item.grossWeight||item.weight),nw:number(item.netWeight||item.weight),packingType:item.packingType||documentData.packing||'',memo:item.memo||'',packageCount:number(item.packageCount)||1};})};
       var po=poRows().find(function(row){return text(row.poNo)===text(poNo);}),defaults=stageRequestDefaultItems(po);
       var items=list(parsed.rows).map(function(row,index){var base=defaults[index]||(defaults.length===1?defaults[0]:{});return{packageNo:row.packageNo||base.packingPackageNo||base.packageNo||'',grade:row.grade||base.grade||'',gw:number(row.gw||row.weight),nw:number(row.nw||row.weight),packingType:row.packingType||base.packingType||'',memo:row.memo||'',packageCount:number(row.packageCount)||1};});
       if(!items.length)throw Error('강종과 중량을 찾지 못했습니다.');
