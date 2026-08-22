@@ -16,6 +16,13 @@
     button.addEventListener('click',function(event){event.preventDefault();location.href='/mes.html';});
     nav.appendChild(button);
   }
+  function installPackingCompletionFlow(){
+    if(document.querySelector('script[data-packing-completion-v1]'))return;
+    var script=document.createElement('script');
+    script.src='field-packing-completion-v1.js?v=20260822-1';
+    script.dataset.packingCompletionV1='1';
+    document.head.appendChild(script);
+  }
   function installMesAuthReturn(){
     if(!mesReturn)return;
     try{
@@ -50,6 +57,7 @@
     if(isPending()&&attempts<2)setTimeout(rescue,3000);
   }
   installMesEntry();
+  installPackingCompletionFlow();
   installMesAuthReturn();
   document.documentElement.dataset.fieldStartupWatchdogV1='ready';
   setTimeout(function(){installMesEntry();installMesAuthReturn();},0);
