@@ -148,11 +148,14 @@ function focusStockMoveDestination(bagId){
   show('repack');
   prepareStockMove(bag);
   const destination=byId('moveLocation');
-  setTimeout(()=>{
+  const focusDestination=()=>{
     destination?.scrollIntoView({behavior:'smooth',block:'center'});
     try{destination?.focus({preventScroll:true})}catch(_){destination?.focus()}
     if(typeof renderMoveLocationChoices==='function')renderMoveLocationChoices();
-  },140);
+  };
+  focusDestination();
+  setTimeout(focusDestination,120);
+  setTimeout(focusDestination,320);
 }
 
 async function confirmPackingCompletion(){
@@ -200,7 +203,7 @@ function wrapQrClose(){
     const result=previous.apply(this,arguments);
     const continueButton=byId('completionQrContinue');
     if(continueButton)continueButton.textContent='QR 닫기 · 다음 입력칸으로';
-    if(bagId)setTimeout(()=>focusStockMoveDestination(bagId),80);
+    if(bagId)focusStockMoveDestination(bagId);
     return result;
   };
   wrapped.__packingCompletionMove=true;

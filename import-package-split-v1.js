@@ -3,9 +3,9 @@
   if(root.__importPackageSplitV1)return;
   root.__importPackageSplitV1=true;
   if(!document.getElementById('importPackageSplitV1Style')){
-    var style=document.createElement('style');style.id='importPackageSplitV1Style';style.textContent='.import-method-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.split-mode-button{background:#ffe8b2!important;color:#684600!important;border:2px solid #edae2e!important}.import-split-card{border:2px solid var(--line)}.import-split-card.selected{border-color:var(--green);box-shadow:0 0 0 4px #16856f22}.import-split-editor{margin-top:18px;border:3px solid var(--green)}.import-split-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) auto;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid var(--line)}.import-split-row b{font-size:19px}.split-over-message{min-height:28px;margin:10px 0;color:var(--red);font-weight:900}@media(max-width:760px){.import-method-grid{grid-template-columns:1fr}.import-split-row{grid-template-columns:1fr}.import-split-row .btn{width:100%}}';document.head.appendChild(style);
+    var style=document.createElement('style');style.id='importPackageSplitV1Style';style.textContent='.import-method-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.split-mode-button{background:#ffe8b2!important;color:#684600!important;border:2px solid #edae2e!important}.package-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.package-mode-tabs .active{background:var(--green);color:#fff;border-color:var(--green)}.import-split-card{border:2px solid var(--line)}.import-split-card.selected{border-color:var(--green);box-shadow:0 0 0 4px #16856f22;background:#edfff8}.import-merge-select{display:grid;grid-template-columns:42px 1fr;gap:10px;align-items:center}.import-merge-select input{width:30px;height:30px;min-height:30px}.import-split-editor{margin-top:18px;border:3px solid var(--green)}.import-split-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) auto;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid var(--line)}.import-split-row b{font-size:19px}.split-over-message{min-height:28px;margin:10px 0;color:var(--red);font-weight:900}.import-merge-confirm{width:100%;min-height:66px;margin-top:14px;font-size:20px}@media(max-width:760px){.import-method-grid{grid-template-columns:1fr}.import-split-row{grid-template-columns:1fr}.import-split-row .btn{width:100%}}';document.head.appendChild(style);
   }
-  var splitSourceNo='',splitParts=[];
+  var splitSourceNo='',splitParts=[],packageMode='SPLIT',mergeSelected=[];
   function focusSplitWeight(index,delay){
     setTimeout(function(){
       var input=E('importSplitWeight'+index);if(!input)return;
@@ -14,39 +14,60 @@
     },delay||40);
   }
   function queueSplitDraft(){if(typeof queueWorkflowDraftStructuralSave==='function')queueWorkflowDraftStructuralSave('importReceiptSplit');}
-  root.importPackageSplitDraftContext=function(){return splitSourceNo||selectedImportPoNo||'';};
-  root.importPackageSplitDraftSnapshot=function(){return{sourceNo:splitSourceNo,parts:splitParts.slice(),poNo:selectedImportPoNo||''};};
+  root.importPackageSplitDraftContext=function(){return splitSourceNo||mergeSelected[0]||selectedImportPoNo||'';};
+  root.importPackageSplitDraftSnapshot=function(){return{sourceNo:splitSourceNo,parts:splitParts.slice(),poNo:selectedImportPoNo||'',mode:packageMode,mergeSelected:mergeSelected.slice()};};
   root.restoreImportPackageSplitDraft=function(snapshot){
-    if(!snapshot||!snapshot.sourceNo)return false;
+    if(!snapshot||(!snapshot.sourceNo&&!safeArray(snapshot.mergeSelected).length))return false;
     if(snapshot.poNo)selectedImportPoNo=snapshot.poNo;
-    splitSourceNo=String(snapshot.sourceNo||'');splitParts=(Array.isArray(snapshot.parts)?snapshot.parts:[]).map(round2);
-    if(!activeSource(splitSourceNo)){splitSourceNo='';splitParts=[];return false;}
+    packageMode=snapshot.mode==='MERGE'?'MERGE':'SPLIT';splitSourceNo=String(snapshot.sourceNo||'');splitParts=(Array.isArray(snapshot.parts)?snapshot.parts:[]).map(round2);mergeSelected=safeArray(snapshot.mergeSelected).map(String).filter(function(no){return activeSource(no);});
+    if(packageMode==='SPLIT'&&!activeSource(splitSourceNo)){splitSourceNo='';splitParts=[];return false;}
+    if(packageMode==='MERGE'&&!mergeSelected.length)return false;
     renderImportSplitList();return true;
   };
   function activeSource(no){return state.pos.find(function(row){return row.packageNo===no&&row.status!=='CANCELLED'&&!row.receivedAt&&row.receiptStatus!=='RECEIVED';});}
   function round2(value){return Math.round(num(value)*100)/100;}
+  function normalizedMergeValue(value){return String(value||'').trim().toUpperCase().replace(/\s+/g,' ');}
+  function mergeValidation(rows){
+    if(!Array.isArray(rows)||rows.length<2)return'합칠 패키지를 2개 이상 선택하세요.';
+    if(new Set(rows.map(function(row){return normalizedMergeValue(row.poNo);})).size!==1)return'같은 P.O의 패키지만 합칠 수 있습니다.';
+    if(new Set(rows.map(function(row){return normalizedMergeValue(row.company);})).size!==1)return'같은 거래처의 패키지만 합칠 수 있습니다.';
+    if(new Set(rows.map(function(row){return normalizedMergeValue(row.grade);})).size!==1)return'같은 강종의 패키지만 합칠 수 있습니다.';
+    return'';
+  }
+  root.__importPackageSplitMergeApi={mergeValidation:mergeValidation,normalizedMergeValue:normalizedMergeValue};
   function visibleGrade(value){var text=String(value||'').trim(),chars=Array.from(text);return chars.length>=20?chars.slice(0,20).join('')+' 그 외':text||'미지정';}
   function ensureUi(){
     if(E('importReceiptSplit'))return;
     var anchor=E('importReceiptDirect')||E('importReceiptMethod');
-    anchor.insertAdjacentHTML('afterend',`<section id="importReceiptSplit" class="view"><p class="eyebrow">수입입고 수행 · 패키지 나누기</p><h1 id="importSplitTitle">패키지 나누기</h1><button class="btn" type="button" onclick="openImportReceiptMethod(selectedImportPoNo)">← 입고방법 선택</button><div id="importSplitCounts" class="import-receipt-count"></div><div class="card"><label>사내입고번호·거래처·강종 검색<input id="importSplitSearch" placeholder="나눌 패키지 검색" oninput="renderImportSplitList()"></label></div><div id="importSplitList"></div><div id="importSplitEditor"></div><div id="importSplitMsg" class="msg"></div></section>`);
+    anchor.insertAdjacentHTML('afterend',`<section id="importReceiptSplit" class="view"><p class="eyebrow">수입입고 수행 · 패키지 나누고 합치기</p><h1 id="importSplitTitle">패키지 나누고 합치기</h1><button class="btn" type="button" onclick="openImportReceiptMethod(selectedImportPoNo)">← 입고방법 선택</button><div class="package-mode-tabs"><button id="importPackageSplitMode" class="btn" type="button" onclick="setImportPackageMode('SPLIT')">패키지 나누기</button><button id="importPackageMergeMode" class="btn" type="button" onclick="setImportPackageMode('MERGE')">패키지 합치기</button></div><div id="importSplitCounts" class="import-receipt-count"></div><div class="card"><label>사내입고번호·거래처·강종 검색<input id="importSplitSearch" placeholder="패키지 검색" oninput="renderImportSplitList()"></label></div><div id="importSplitList"></div><div id="importSplitEditor"></div><div id="importSplitMsg" class="msg"></div></section>`);
   }
   function decorateMethod(){
     ensureUi();var choices=E('importReceiptMethodChoices');if(!choices||E('importReceiptSplitMethodButton'))return;
-    choices.insertAdjacentHTML('beforeend','<button id="importReceiptSplitMethodButton" class="btn split-mode-button" type="button" onclick="openImportPackageSplit()">✂ 패키지 나누기</button>');
+    choices.insertAdjacentHTML('beforeend','<button id="importReceiptSplitMethodButton" class="btn split-mode-button" type="button" onclick="openImportPackageSplit()">✂ 패키지 나누고 합치기</button>');
   }
   function waiting(){return importWaitingPackages().filter(function(row){return !selectedImportPoNo||row.poNo===selectedImportPoNo;});}
   root.openImportPackageSplit=function(poNo){
-    if(poNo)selectedImportPoNo=poNo;splitSourceNo='';splitParts=[];ensureUi();renderImportSplitList();show('importReceiptSplit');
+    if(poNo)selectedImportPoNo=poNo;splitSourceNo='';splitParts=[];mergeSelected=[];packageMode='SPLIT';ensureUi();renderImportSplitList();show('importReceiptSplit');
     requestAnimationFrame(function(){E('importSplitSearch')?.focus();});
   };
+  root.setImportPackageMode=function(mode){packageMode=mode==='MERGE'?'MERGE':'SPLIT';splitSourceNo='';splitParts=[];mergeSelected=[];renderImportSplitList();requestAnimationFrame(function(){E('importSplitSearch')?.focus();});};
   root.renderImportSplitList=function(){
     ensureUi();var all=waiting(),q=String(E('importSplitSearch')?.value||'').trim().toLowerCase(),rows=all.filter(function(row){return !q||[row.packageNo,row.packingPackageNo,row.poNo,row.company,row.grade].some(function(value){return String(value||'').toLowerCase().includes(q);});});
-    if(E('importSplitTitle'))E('importSplitTitle').textContent=(selectedImportPoNo||'수입입고')+' 패키지 나누기';
+    if(E('importSplitTitle'))E('importSplitTitle').textContent=(selectedImportPoNo||'수입입고')+' 패키지 나누고 합치기';
+    E('importPackageSplitMode')?.classList.toggle('active',packageMode==='SPLIT');E('importPackageMergeMode')?.classList.toggle('active',packageMode==='MERGE');
+    if(packageMode==='MERGE')return renderImportMergeList(all,rows);
     if(E('importSplitCounts'))E('importSplitCounts').innerHTML='<div><small>나누기 가능</small><b>'+all.length+'건</b></div><div><small>검색결과</small><b>'+rows.length+'건</b></div><div><small>선택</small><b>'+(splitSourceNo||'-')+'</b></div>';
-    if(E('importSplitList'))E('importSplitList').innerHTML=rows.length?rows.map(function(row){return '<article class="donecard import-split-card '+(row.packageNo===splitSourceNo?'selected':'')+'"><span class="status-chip warn">입고대기</span><h2>'+esc(row.packageNo)+' · '+esc(row.company)+'</h2><p>거래처 패키지 '+esc(row.packingPackageNo||'-')+' · 강종 '+esc(visibleGrade(row.grade))+'</p><div class="summary"><div><small>G/W</small><b>'+kg(row.grossWeight||row.weight)+'</b></div><div><small>N/W</small><b>'+kg(row.netWeight||row.weight)+'</b></div></div><button class="btn primary" type="button" data-split-source="'+esc(row.packageNo)+'" onclick="selectImportSplitSource(this.dataset.splitSource)">이 패키지 쪼개기</button></article>';}).join(''):'<div class="card">나누기 가능한 수입입고대기 패키지가 없습니다.</div>';
+    if(E('importSplitList'))E('importSplitList').innerHTML=rows.length?rows.map(function(row){return '<article class="donecard import-split-card '+(row.packageNo===splitSourceNo?'selected':'')+'"><span class="status-chip warn">입고대기</span><h2>'+esc(row.packageNo)+' · '+esc(row.company)+'</h2><p>거래처 패키지 '+esc(row.packingPackageNo||'-')+' · 강종 '+esc(visibleGrade(row.grade))+'</p><div class="summary"><div><small>G/W</small><b>'+kg(row.grossWeight||row.weight)+'</b></div><div><small>N/W</small><b>'+kg(row.netWeight||row.weight)+'</b></div></div><button class="btn primary" type="button" data-split-source="'+esc(row.packageNo)+'" onclick="selectImportSplitSource(this.dataset.splitSource)">이 패키지 나누기</button></article>';}).join(''):'<div class="card">나누기 가능한 수입입고대기 패키지가 없습니다.</div>';
     renderImportSplitEditor();
   };
+  function selectedMergeRows(){return mergeSelected.map(activeSource).filter(Boolean);}
+  function renderImportMergeList(all,rows){
+    var selected=selectedMergeRows(),totalNw=round2(selected.reduce(function(sum,row){return sum+num(row.netWeight||row.weight);},0)),totalGw=round2(selected.reduce(function(sum,row){return sum+num(row.grossWeight||row.weight);},0)),validation=mergeValidation(selected);
+    if(E('importSplitCounts'))E('importSplitCounts').innerHTML='<div><small>합치기 가능</small><b>'+all.length+'건</b></div><div><small>선택</small><b>'+selected.length+'건</b></div><div><small>합친 N/W</small><b>'+kg(totalNw)+'</b></div><div><small>합친 G/W</small><b>'+kg(totalGw)+'</b></div>';
+    if(E('importSplitList'))E('importSplitList').innerHTML=(rows.length?rows.map(function(row){var checked=mergeSelected.includes(row.packageNo);return '<article class="donecard import-split-card '+(checked?'selected':'')+'"><label class="import-merge-select"><input type="checkbox" '+(checked?'checked':'')+' data-merge-package="'+esc(row.packageNo)+'" onchange="toggleImportMergePackage(this.dataset.mergePackage,this.checked)"><span><b>'+esc(row.packageNo)+' · '+esc(row.company)+'</b><small>거래처 패키지 '+esc(row.packingPackageNo||'-')+' · 강종 '+esc(visibleGrade(row.grade))+'</small></span></label><div class="summary"><div><small>G/W</small><b>'+kg(row.grossWeight||row.weight)+'</b></div><div><small>N/W</small><b>'+kg(row.netWeight||row.weight)+'</b></div></div></article>';}).join(''):'<div class="card">합치기 가능한 수입입고대기 패키지가 없습니다.</div>')+(selected.length?'<div class="card"><b>'+(validation?esc(validation):'선택한 '+selected.length+'개 패키지를 첫 번째 번호 '+esc(selected[0].packageNo)+'로 합칩니다.')+'</b><button class="btn primary import-merge-confirm" type="button" '+(validation?'disabled':'')+' onclick="saveImportPackageMerge()">선택 패키지 합치기</button></div>':'');
+    if(E('importSplitEditor'))E('importSplitEditor').innerHTML='';
+  }
+  root.toggleImportMergePackage=function(no,checked){if(checked&&!mergeSelected.includes(no))mergeSelected.push(no);if(!checked)mergeSelected=mergeSelected.filter(function(value){return value!==no;});renderImportSplitList();queueSplitDraft();};
   root.selectImportSplitSource=function(no){
     var source=activeSource(no);if(!source)return msg('importSplitMsg','입고완료되었거나 찾을 수 없는 패키지입니다.',true);
     splitSourceNo=no;var total=round2(source.netWeight||source.weight),half=round2(total/2);splitParts=[half,round2(total-half)];renderImportSplitList();
@@ -83,11 +104,37 @@
     try{await saveState();splitSourceNo='';splitParts=[];renderImportReceiptHomeCount();renderImportSplitList();showFlowToast(originalNo+' 패키지 나누기 완료 · '+names.join(', '));msg('importSplitMsg',(withLoss?'남은 '+kg(info.remain)+' 로스처리 · ':'')+names.length+'개 파생 패키지 저장완료');}
     catch(error){state=defaults(backup);renderAll();msg('importSplitMsg','패키지 나누기 저장 실패: '+error.message,true);}finally{endSaveProgress();}
   };
+  function packageMatchesItem(item,row){
+    return item.internalPackageNo===row.packageNo||(!item.internalPackageNo&&row.packingPackageNo&&item.packageNo===row.packingPackageNo);
+  }
+  root.saveImportPackageMerge=async function(){
+    var rows=selectedMergeRows(),validation=mergeValidation(rows);if(validation)return msg('importSplitMsg',validation,true);
+    var target=rows[0],sourceNos=rows.map(function(row){return row.packageNo;}),totalNw=round2(rows.reduce(function(sum,row){return sum+num(row.netWeight||row.weight);},0)),totalGw=round2(rows.reduce(function(sum,row){return sum+num(row.grossWeight||row.weight);},0));
+    if(!confirm(sourceNos.join(', ')+' 패키지를 '+target.packageNo+' 하나로 합칠까요?'))return;
+    var backup=stateClone(state),createdAt=new Date().toISOString(),operator=currentUserName();
+    target.weight=totalNw;target.netWeight=totalNw;target.grossWeight=totalGw;target.packagingWeight=round2(Math.max(0,totalGw-totalNw));target.mergedFromPackageNos=Array.from(new Set(safeArray(target.mergedFromPackageNos).concat(sourceNos)));target.mergeCount=target.mergedFromPackageNos.length;target.mergedAt=createdAt;target.mergedByName=operator;target.updatedAt=createdAt;
+    rows.slice(1).forEach(function(row){row.status='CANCELLED';row.cancelReason='수입입고 패키지 합치기';row.cancelledAt=createdAt;row.mergedInto=target.packageNo;row.updatedAt=createdAt;});
+    safeArray(state.purchaseRequests).forEach(function(request){
+      if(request.poNo!==target.poNo&&!rows.some(function(row){return row.inboundRequestId&&request.id===row.inboundRequestId;}))return;
+      var items=safeArray(request.items),matched=items.filter(function(item){return rows.some(function(row){return packageMatchesItem(item,row);});});if(!matched.length)return;
+      var base=matched.find(function(item){return packageMatchesItem(item,target);})||matched[0],inserted=false,next=[];
+      items.forEach(function(item){
+        if(rows.some(function(row){return packageMatchesItem(item,row);})){
+          if(!inserted){next.push(Object.assign({},base,{internalPackageNo:target.packageNo,packageNo:target.packingPackageNo||base.packageNo,nw:totalNw,gw:totalGw,mergedFromPackageNos:sourceNos.slice(),mergeCount:sourceNos.length}));inserted=true;}
+        }else next.push(item);
+      });
+      request.items=next;request.updatedAt=createdAt;
+    });
+    state.auditLogs=safeArray(state.auditLogs);state.auditLogs.push({id:crypto.randomUUID(),action:'IMPORT_PACKAGE_MERGE',poNo:target.poNo,packageNo:target.packageNo,sourcePackageNos:sourceNos,label:sourceNos.join(', ')+' → '+target.packageNo,note:'합친 N/W '+totalNw+'kg · G/W '+totalGw+'kg',operatorName:operator,createdAt:createdAt});
+    beginSaveProgress('패키지 합치기 저장 중',sourceNos.length+'개 입고대기 패키지를 '+target.packageNo+'로 합치고 있습니다.');
+    try{await saveState();mergeSelected=[];if(typeof clearWorkflowDrafts==='function')clearWorkflowDrafts(1,sourceNos.concat([target.poNo]));renderImportReceiptHomeCount();renderImportSplitList();showFlowToast(target.packageNo+' 패키지 합치기 완료');msg('importSplitMsg',sourceNos.length+'개 패키지를 '+target.packageNo+' · N/W '+kg(totalNw)+'로 합쳤습니다.');}
+    catch(error){state=defaults(backup);renderAll();msg('importSplitMsg','패키지 합치기 저장 실패: '+error.message,true);}finally{endSaveProgress();}
+  };
   var saveSplitBeforeDraftCleanup=root.saveImportPackageSplit;
   root.saveImportPackageSplit=async function(){var sourceBefore=splitSourceNo,poBefore=selectedImportPoNo,result=await saveSplitBeforeDraftCleanup.apply(this,arguments);if(sourceBefore&&!splitSourceNo&&typeof clearWorkflowDrafts==='function')clearWorkflowDrafts(1,[sourceBefore,poBefore]);return result;};
   if(typeof root.workflowDraftViewLabel==='function'){
     var splitDraftLabelBefore=root.workflowDraftViewLabel;
-    root.workflowDraftViewLabel=function(viewId){return viewId==='importReceiptSplit'?'패키지 쪼개기':splitDraftLabelBefore.apply(this,arguments);};
+    root.workflowDraftViewLabel=function(viewId){return viewId==='importReceiptSplit'?'패키지 나누고 합치기':splitDraftLabelBefore.apply(this,arguments);};
     try{workflowDraftViewLabel=root.workflowDraftViewLabel;}catch(_){}
   }
   var renderMethodBefore=root.renderImportReceiptMethod;
