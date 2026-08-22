@@ -170,9 +170,32 @@ assert.match(zebraSource, /printZebraLocationQr/, '장소 QR을 Zebra ZD421 출�
 const fieldHtml = read('stable-inspection-mobile-v4.html');
 const manualSource = read('mes-manual-v1.js');
 const executiveSource = read('mes-executive-dashboard-v1.js');
+const workflowSource = read('mes-workflow-suite-v1.js');
 assert.match(fieldHtml, /7 · 그림 메뉴얼/, '현장관리 그림 메뉴얼을 7번으로 이동');
 assert.match(manualSource, /id:'manual',icon:'14'/, 'MES 튜토리얼을 14번으로 변경');
 assert.match(executiveSource, /<b>15<\/b> 임원용 현황판/, 'MES 임원용 현황판을 15번으로 변경');
+
+const orderLineSource = workflowSource.match(/function orderLine\(type,row,index\).*?\n  }/s)?.[0];
+assert.ok(orderLineSource, 'P.O 품목 입력 생성 함수를 찾을 수 있어야 함');
+const orderLineContext = {
+  txt: value => String(value || '').trim(),
+  html: value => String(value || ''),
+  mesProductTypeOptions: selected => `<option>${selected || 'NI'}</option>`,
+};
+vm.runInNewContext(orderLineSource, orderLineContext);
+const poOrderLine = orderLineContext.orderLine('PO', { description: 'IN 718 SCRAP' }, 0);
+assert.match(poOrderLine, />ITEM OR DESCRIPTION<input name="item"/, 'P.O는 ITEM 단일 입력란으로 통합');
+assert.match(poOrderLine, /품종<select name="productType" required>/, 'P.O 품목별 품종 선택 추가');
+assert.doesNotMatch(poOrderLine, /name="description"/, 'P.O에서 DESCRIPTION 입력란 제거');
+assert.match(poOrderLine, /value="IN 718 SCRAP"/, '기존 DESCRIPTION 값을 통합 ITEM 입력란에 승계');
+const soOrderLine = orderLineContext.orderLine('SO', { item: 'IN 718', description: 'SCRAP' }, 0);
+assert.match(soOrderLine, />ITEM<input name="item"/, 'S.O의 ITEM 입력란 유지');
+assert.match(soOrderLine, />DESCRIPTION<input name="description"/, 'S.O의 DESCRIPTION 입력란 유지');
+assert.match(workflowSource, /headers=po\?\['No\.','품종','ITEM OR DESCRIPTION'/, 'P.O PDF에 품종과 통합 ITEM 열 출력');
+assert.match(workflowSource, /productType:r\.productType,item:r\.item,grade:r\.item,mainGrade:r\.item/, 'P.O 저장 시 품종과 통합 ITEM 값을 저장');
+const packingFixSource = read('mes-packing-price-fix.js');
+assert.match(packingFixSource, /품종<select name="productType" required/, '구매계획 상세 수정에서 품종 선택 제공');
+assert.match(packingFixSource, /productType:d\.productType,purchaseContractGrade/, '구매계획 상세 수정 시 선택 품종 저장');
 
 const apiSource = read('api/scrap-state.js');
 assert.match(apiSource, /'purchaseRequests'/, '입고요청 자료가 서버 저장 허용 목록에 포함');
