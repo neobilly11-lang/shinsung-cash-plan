@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260823-18-amount-validation";
+  const VERSION = "20260823-19-invoice-total-guard";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -1091,7 +1091,10 @@
     const items = dedupeItems([best]);
     if (/IRELAND\s+ALLOYS/i.test(text)) items.forEach(item => {
       const grade = item.marking.match(/\bMP35N\b.*$/i);
-      if (grade) item.marking = clean(grade[0]);
+      if (grade) {
+        item.marking = clean(grade[0]);
+        item.sourceGradeLocked = true;
+      }
     });
     return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
   }
@@ -1121,8 +1124,14 @@
   }
 
   function declaredWeightTotal(text) {
+    const source = String(text || "");
+    const explicitNetWeights = [...source.matchAll(/TOTAL\s+NETT?\s*(?:WT|WEIGHT)\s*(?:\(\s*(KG|KGS|MTS?|TONNES?|LBS?)\s*\)|(KG|KGS|MTS?|TONNES?|LBS?))?\s*[:#-]?\s*([\d,.]+)/ig)].map(match => {
+      const unit = unitCode(match[1] || match[2] || "KG", "KG");
+      return round2(numberValue(match[3], numberStyle(match[0])) * (WEIGHT_FACTORS[unit] || 1));
+    }).filter(value => value > 0);
+    if (explicitNetWeights.length) return explicitNetWeights[explicitNetWeights.length - 1];
     const values = [];
-    String(text || "").split(/\r?\n/).forEach(line => {
+    source.split(/\r?\n/).forEach(line => {
       if (!TOTAL_RE.test(clean(line)) || !/\b(?:KG|KGS|MTS?|TONNES?|LBS?)\b/i.test(line) || /(?:USD|US\$|EUR|JPY)\s*$/i.test(clean(line))) return;
       const unitMatch = line.match(/\b(KG|KGS|MTS?|TONNES?|LBS?)\b/i), beforeUnit = unitMatch ? line.slice(0, unitMatch.index) : line;
       const tokens = numericTokens(beforeUnit, numberStyle(line));
@@ -1137,8 +1146,10 @@
     const usable = (Array.isArray(candidates) ? candidates : []).filter(candidate => candidate && candidate.data);
     if (!usable.length) return parseText("", "");
     const methodPriority = method => /원본문자-위치/.test(method || "") ? 4 : /표.*OCR/.test(method || "") ? 3 : /OCR/.test(method || "") ? 2 : /원본문자/.test(method || "") ? 1 : 0;
+    const sharedDeclaredWeights = usable.map(candidate => declaredWeightTotal(candidate.text)).filter(value => value > 0).sort((left, right) => left - right);
+    const sharedDeclaredWeight = sharedDeclaredWeights.length ? sharedDeclaredWeights[Math.floor(sharedDeclaredWeights.length / 2)] : 0;
     const scored = usable.map((candidate, index) => {
-      const weight = round2((candidate.data.items || []).reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0)), declaredWeight = declaredWeightTotal(candidate.text);
+      const weight = round2((candidate.data.items || []).reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0)), declaredWeight = declaredWeightTotal(candidate.text) || sharedDeclaredWeight;
       const weightError = declaredWeight > 0 && weight > 0 ? Math.abs(weight - declaredWeight) / declaredWeight : 0;
       const rowBonus = Math.min(12, Math.max(0, (candidate.data.items || []).length - 1) * 1.5);
       const quality = Math.max(0, Math.min(100, documentQuality(candidate.data) + rowBonus - (weightError > 0.03 ? Math.min(40, 10 + weightError * 35) : 0)));
@@ -1414,6 +1425,15 @@
     return { matches, count: matches.length, coverage: items && items.length ? matches.length / items.length : 0 };
   }
 
+  function itemWeightTotal(items) {
+    return round2((Array.isArray(items) ? items : []).reduce((sum, item) => sum + Number(item.netWeight || item.weight || 0), 0));
+  }
+
+  function weightFitsDeclared(items, declaredWeight) {
+    const total = itemWeightTotal(items);
+    return !(declaredWeight > 0 && total > 0) || Math.abs(total - declaredWeight) <= Math.max(2, declaredWeight * 0.03);
+  }
+
   function storedItemRowRecovery(text, entries) {
     const source = String(text || ""), lines = source.split(/\r?\n/).map(clean).filter(Boolean);
     if (!lines.length || !entries.length) return [];
@@ -1493,6 +1513,11 @@
     options = options || {};
     documentData.items = Array.isArray(documentData.items) ? documentData.items : [];
     documentData.diagnostics = documentData.diagnostics || { version: VERSION };
+    const candidateDeclaredWeights = Array.isArray(documentData.__candidateDocuments)
+      ? documentData.__candidateDocuments.map(candidate => declaredWeightTotal(candidate.text)).filter(value => value > 0).sort((left, right) => left - right)
+      : [];
+    const declaredWeight = Number(documentData.diagnostics.declaredNetWeight) || declaredWeightTotal(documentData.sourceText)
+      || (candidateDeclaredWeights.length ? candidateDeclaredWeights[Math.floor(candidateDeclaredWeights.length / 2)] : 0);
     const stateValue = liveState(), allRows = savedRows(), rows = savedRows(options.targetType), itemEntries = savedItemEntries(rows), master = await mappings();
     const list = [...runtimeMappings(allRows), ...master];
     const documentRefs = [documentData.poNo, documentData.soNo, options.poNo, options.soNo].map(referenceKey).filter(Boolean);
@@ -1516,10 +1541,10 @@
 
     if (exactRows.length && Array.isArray(documentData.__candidateDocuments) && documentData.__candidateDocuments.length > 1) {
       const currentAlignment = historyAlignment(documentData.items, exactRows);
-      const candidates = documentData.__candidateDocuments.map(candidate => ({ ...candidate, alignment: historyAlignment(candidate.items, exactRows) }))
-        .sort((left, right) => right.alignment - left.alignment || right.confidence - left.confidence);
+      const candidates = documentData.__candidateDocuments.map(candidate => ({ ...candidate, alignment: historyAlignment(candidate.items, exactRows), weightFits: weightFitsDeclared(candidate.items, declaredWeight) }))
+        .sort((left, right) => Number(right.weightFits) - Number(left.weightFits) || right.alignment - left.alignment || right.confidence - left.confidence);
       const best = candidates[0];
-      if (best && best.items.length && best.alignment >= 0.55 && best.alignment > currentAlignment + 0.05) {
+      if (best && best.weightFits && best.items.length && best.alignment >= 0.55 && best.alignment > currentAlignment + 0.05) {
         documentData.items = best.items.map(item => ({ ...item }));
         documentData.diagnostics.extractionMethod = best.method;
         documentData.diagnostics.confidence = best.confidence;
@@ -1532,11 +1557,11 @@
       const currentEvidence = storedItemEvidence(documentData.items, itemEntries);
       const candidates = documentData.__candidateDocuments.map(candidate => {
         const recovered = storedItemRowRecovery(candidate.text, itemEntries), items = recovered.length > candidate.items.length ? recovered : candidate.items;
-        return { ...candidate, items, savedItemRowRecovery: recovered.length > candidate.items.length, evidence: storedItemEvidence(items, itemEntries) };
+        return { ...candidate, items, savedItemRowRecovery: recovered.length > candidate.items.length, evidence: storedItemEvidence(items, itemEntries), weightFits: weightFitsDeclared(items, declaredWeight) };
       })
-        .sort((left, right) => right.evidence.count - left.evidence.count || right.items.length - left.items.length || right.evidence.coverage - left.evidence.coverage || right.confidence - left.confidence);
+        .sort((left, right) => Number(right.weightFits) - Number(left.weightFits) || right.evidence.count - left.evidence.count || right.items.length - left.items.length || right.evidence.coverage - left.evidence.coverage || right.confidence - left.confidence);
       const best = candidates[0];
-      if (best && best.items.length > documentData.items.length && best.evidence.count >= 2 && best.evidence.count > currentEvidence.count) {
+      if (best && best.weightFits && best.items.length > documentData.items.length && best.evidence.count >= 2 && best.evidence.count > currentEvidence.count) {
         documentData.items = best.items.map(item => ({ ...item }));
         documentData.diagnostics.extractionMethod = best.method;
         documentData.diagnostics.confidence = best.confidence;
@@ -1561,7 +1586,7 @@
         item.historyRecovered = true;
         recovered.push(item);
       });
-      if (recovered.length) {
+      if (recovered.length && weightFitsDeclared(recovered, declaredWeight)) {
         documentData.items = recovered;
         documentData.diagnostics.historyRecovery = true;
         documentData.diagnostics.reviewRequired = true;
