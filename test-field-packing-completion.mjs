@@ -17,6 +17,9 @@ assert.match(source,/packingCompletedAt/,'완료번호에 포장완료 시각을
 assert.match(source,/selectAllBatchStockMoves\('false'\)|selectAllBatchStockMoves\(false\)/,'기존 재고이동 선택 해제 후 대상 지정');
 assert.match(source,/toggleBatchStockMove\(bag\.id,true\)/,'확정한 완료번호를 ④ 재고이동에 자동 선택');
 assert.match(source,/destination\?\.focus/,'QR 창을 닫은 뒤 이동 후 장소로 커서 이동');
+assert.match(source,/if\(bagId\)focusStockMoveDestination\(bagId\)/,'모바일 클릭 이벤트 안에서 이동 후 장소로 즉시 이동');
+assert.match(source,/setTimeout\(focusDestination,120\)/,'화면 전환 직후 이동 후 장소 포커스 재시도');
+assert.match(source,/setTimeout\(focusDestination,320\)/,'다른 후속 포커스보다 이동 후 장소가 최종 포커스를 갖도록 재시도');
 assert.match(source,/renderMoveLocationChoices/,'이동 후 저장장소 선택 목록 자동 표시');
 assert.match(source,/QR 닫기 · ④ 이동 후 장소 선택/,'QR 프린터 다음 단계 안내 표시');
 

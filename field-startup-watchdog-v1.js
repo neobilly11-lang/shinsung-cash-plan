@@ -23,6 +23,13 @@
     script.dataset.packingCompletionV1='1';
     document.head.appendChild(script);
   }
+  function installInspectionSubgradeRules(){
+    if(document.querySelector('script[data-inspection-subgrade-rules-v1]'))return;
+    var script=document.createElement('script');
+    script.src='field-inspection-subgrade-rules-v1.js?v=20260822-1';
+    script.dataset.inspectionSubgradeRulesV1='1';
+    document.head.appendChild(script);
+  }
   function installMesAuthReturn(){
     if(!mesReturn)return;
     try{
@@ -57,6 +64,7 @@
     if(isPending()&&attempts<2)setTimeout(rescue,3000);
   }
   installMesEntry();
+  installInspectionSubgradeRules();
   installPackingCompletionFlow();
   installMesAuthReturn();
   document.documentElement.dataset.fieldStartupWatchdogV1='ready';
