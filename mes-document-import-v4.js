@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260814-14";
+  const VERSION = "20260822-15";
   const WEIGHT_FACTORS = { KG: 1, LB: 0.45359237, TON: 1000 };
   const DESC_RE = /(Nickel\s+Alloy\s+Scrap|Cobalt\s+Scrap|Stainless\s+Steel\s+Scrap|Titanium\s+Scrap|Copper\s+Scrap|Tungsten\s+Scrap|Molybden(?:um|ium)\s+Scrap|Ferro\s+Titanium\s+Scrap)/i;
   const TOTAL_RE = /^(?:T\s*O\s*T\s*A\s*L|TOTAL|SUBTOTAL|GRAND\s+TOTAL|합계)\b/i;
@@ -21,6 +21,7 @@
   };
 
   const round2 = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+  const round4 = value => Math.round((Number(value || 0) + Number.EPSILON) * 10000) / 10000;
   const clean = value => String(value == null ? "" : value).replace(/[|]+/g, " ").replace(/\s+/g, " ").trim();
   const headerKey = value => clean(value).toUpperCase().replace(/[^A-Z0-9가-힣]/g, "");
   const compact = value => clean(value).toUpperCase().replace(/[^A-Z0-9가-힣]/g, "");
@@ -65,7 +66,7 @@
     const rawPrice = numberValue(price, extra && extra.style);
     const rawAmount = numberValue(amount, extra && extra.style);
     const weight = round2(qty * qtyFactor);
-    const unitPrice = round2(rawAmount > 0 && weight > 0 ? rawAmount / weight : rawPrice / priceFactor);
+    const unitPrice = round4(rawAmount > 0 && weight > 0 ? rawAmount / weight : rawPrice / priceFactor);
     const total = round2(rawAmount || weight * unitPrice);
     const grossWeight = extra && extra.gross != null ? round2(numberValue(extra.gross, extra.style) * qtyFactor) : weight;
     const tareWeight = extra && extra.tare != null ? round2(numberValue(extra.tare, extra.style) * qtyFactor) : Math.max(0, round2(grossWeight - weight));
@@ -149,7 +150,9 @@
           gross: match[2], tare: match[3], style
         });
         const expected = round2(item.weight * item.price);
-        if (!item.marking || item.weight <= 0 || item.price <= 0 || Math.abs(expected - item.amount) > Math.max(5, item.amount * 0.08)) continue;
+        const weightError = Math.abs(item.grossWeight - item.tareWeight - item.netWeight);
+        if (!item.marking || item.weight <= 0 || item.price <= 0 || item.grossWeight < item.netWeight || item.tareWeight > item.grossWeight
+          || weightError > Math.max(2, item.grossWeight * 0.01) || Math.abs(expected - item.amount) > Math.max(5, item.amount * 0.08)) continue;
         rows.push(item);
         index += width - 1;
         break;
@@ -690,6 +693,266 @@
     return rows;
   }
 
+  /* Purchase contracts whose rows are QTY | DESCRIPTION | PRICE. */
+  function parseQuantityDescriptionPriceRows(lines, text) {
+    if (!/QUANTITY\s*\(?KGS?\)?.*DESCRIPTION.*PRICE\s*\(?USD\s*\/\s*KG\)?/is.test(String(text || ""))) return [];
+    const rows = [];
+    lines.forEach((rawLine, index) => {
+      const line = clean(rawLine).replace(/([\d])\s*[}\]|{]\s*/g, "$1 ");
+      const match = line.match(/^\s*([\d,.]+)\s+[_\s]*(.+?)\s+USD\s*([\d,.]+)\s*[).]?\s*$/i);
+      if (!match) return;
+      const ocrNumber = value => {
+        let source = String(value || "").replace(/[^\d.,]/g, "").replace(/[.,]+$/, "");
+        if (/^\d{1,3}(?:,\d{3})+,\d{2}$/.test(source)) {
+          const split = source.lastIndexOf(",");
+          source = source.slice(0, split).replace(/,/g, "") + "." + source.slice(split + 1);
+        } else if (/^\d+,\d{2}$/.test(source)) source = source.replace(",", ".");
+        return source;
+      };
+      const marking = clean(match[2]).replace(/^[_\s]+/, "");
+      const item = normalizeItem(marking, "", ocrNumber(match[1]), "KG", ocrNumber(match[3]), "KG", 0, {
+        style: "US", sourceGradeLocked: true, sourceLineNo: index + 1
+      });
+      if (item.marking && item.weight > 0 && item.price > 0) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* Common North-American P.O rows using LB price/weight or metric-ton quantity. */
+  function parsePurchaseOrderWeightRows(lines, text) {
+    if (!/PURCHASE\s+ORDER/i.test(text)) return [];
+    const rows = [];
+    lines.forEach((rawLine, index) => {
+      const line = clean(rawLine);
+      let match = line.match(/^(.+?)\s+\$?([\d,.]+)\s+per\s+LB\s+([\d,.]+)\s*(M\/?TON|MTON|MT|TONS?)\b/i);
+      if (match) {
+        const item = normalizeItem(match[1], "", match[3], "TON", match[2], "LB", 0, {
+          style: "US", sourceGradeLocked: true, sourceLineNo: index + 1
+        });
+        if (item.marking && item.weight > 0 && item.price > 0) rows.push(item);
+        return;
+      }
+      match = line.match(/^\s*\d{1,3}\s+([\d,.]+)\s+(.+?)\s+\$?([\d,.]+)\s*\/\s*(LB|LBS|KG|KGS)\s+\$?([\d,.]+)\s*$/i);
+      if (!match) return;
+      const unit = unitCode(match[4], "LB");
+      const item = normalizeItem(match[2], "", match[1], unit, match[3], unit, match[5], {
+        style: "US", sourceGradeLocked: true, sourceLineNo: index + 1
+      });
+      if (item.marking && item.weight > 0 && item.price > 0) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* India ERP P.O rows may wrap the item name onto the following line. */
+  function parseErpPurchaseOrderRows(lines, text) {
+    if (!/RM-IMPORT/i.test(text) || !/PURCHASE\s+ORDER/i.test(text)) return [];
+    const rows = [];
+    for (let index = 0; index < lines.length; index++) {
+      const line = clean(lines[index]).replace(/[|}\]]/g, " ");
+      const match = line.match(/^\s*\d{1,3}\s+\[?(.+?)\s+\d{8}\s+([\d,.]+)\s+KG\s+\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\s+([\d,.]+).*?([\d,.]+)\s*$/i);
+      if (!match) continue;
+      let marking = clean(match[1]);
+      const next = clean(lines[index + 1] || "").replace(/^I(?=[A-Z])/, "");
+      if (next && /^[A-Z][A-Z0-9 /()._-]{3,}$/i.test(next) && !TOTAL_RE.test(next)) marking = clean(`${marking} ${next}`);
+      const item = normalizeItem(marking, "", match[2], "KG", match[3], "KG", match[4], {
+        style: "US", sourceGradeLocked: true, sourceLineNo: index + 1
+      });
+      if (item.marking && item.weight > 0 && item.price > 0) rows.push(item);
+    }
+    return rows;
+  }
+
+  /* Japanese P.O rows: order code | description | kg | JPY/kg | JPY amount. */
+  function parseJapanesePurchaseOrderRows(lines, text) {
+    if (!/JPY|GPY|¥/.test(text) || !/DESCRIPTION\s+OF\s+GOODS/i.test(text)) return [];
+    const rows = [];
+    lines.forEach((rawLine, index) => {
+      const line = clean(rawLine).replace(/[|\[\]}]/g, " ");
+      const match = line.match(/^([A-Z]{3,6})\s*-\s*(\d{3,5})\s+(.+?)\s+([\d,.]+)\s*KG\s+¥?\s*([\d,.]+)\s+¥?\s*([\d,.]+)\s*$/i);
+      if (!match) return;
+      const item = normalizeItem(match[3], "", match[4], "KG", match[5], "KG", match[6], {
+        style: "US", sourceGradeLocked: true, sourceLineNo: index + 1,
+        memo: `Order ${match[1].toUpperCase()}-${match[2]}`
+      });
+      if (item.marking && item.weight > 0 && item.price > 0) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* TOSUI invoice/packing rows share the same material and gross/net columns. */
+  function parseTosuiRows(lines, text) {
+    if (!/TOSUI\s+TRADING/i.test(text) || !/(?:INVOICE|PACKING\s+LIST)/i.test(text)) return [];
+    const invoice = /\bINVOICE\b/i.test(text) && !/PACKING\s+LIST/i.test(text);
+    const rows = [];
+    let inTable = false;
+    for (let index = 0; index < lines.length; index++) {
+      const line = clean(lines[index]);
+      if (/NAME\s*_?OF\s+COMMODITY/i.test(line)) { inTable = true; continue; }
+      if (!inTable) continue;
+      if (TOTAL_RE.test(line)) break;
+      const tokens = numericTokens(line, "US");
+      const count = invoice ? 4 : 2;
+      if (tokens.length < count) continue;
+      const tail = tokens.slice(-count);
+      const gross = tail[0].value, net = tail[1].value;
+      if (!(gross > 0 && net > 0 && gross >= net)) continue;
+      const marking = clean(line.slice(0, tail[0].index)).replace(/[_|]+/g, " ")
+        .replace(/^N\/?M\s*(?:\|\s*)?/i, "")
+        .replace(/^\d+\s+PACKAGES?\s+/i, "")
+        .trim();
+      if (!marking || !/[A-Z]/i.test(marking)) continue;
+      const price = invoice ? tail[2].value : 0, amount = invoice ? tail[3].value : 0;
+      const item = normalizeItem(marking, "", net, "KG", price, "KG", amount, {
+        style: "US", gross, packageCount: 1, sourceGradeLocked: true, sourceLineNo: index + 1
+      });
+      if (item.weight > 0 && (!invoice || item.price > 0)) rows.push(item);
+    }
+    return rows;
+  }
+
+  /* QTY in metric tons with the useful grade printed on following parenthetical lines. */
+  function parseParentheticalMtsPackingRows(lines, text) {
+    if (!/PACKING\s+LIST/i.test(text) || !/QTY\s*\(MTS\)/i.test(text)) return [];
+    const rows = [];
+    for (let index = 0; index < lines.length; index++) {
+      const line = clean(lines[index]);
+      const match = line.match(/^\s*(\d{1,3})\s+(.+?)\s+([\d,.]+)\s+([\d,.]+)\s*$/i);
+      if (!match || TOTAL_RE.test(line)) continue;
+      let end = index + 1;
+      const nextMaterialRow = value => /^\d{1,3}\s+.+?\s+[\d,.]+\s+[\d,.]+\s*$/i.test(clean(value));
+      while (end < lines.length && end < index + 7 && !nextMaterialRow(lines[end]) && !TOTAL_RE.test(clean(lines[end]))) end++;
+      const fragments = [];
+      for (let cursor = index + 1; cursor < end; cursor++) {
+        const next = clean(lines[cursor]);
+        const parenthetical = next.match(/^\((.+?)(?:\)|$)/);
+        if (parenthetical) fragments.push(parenthetical[1]);
+        else if (fragments.length && /\)/.test(next)) fragments.push(next.split(")")[0]);
+      }
+      let marking = clean(fragments.join(" ")).replace(/\s*-\s*\d+\s+JUMBO\s+BAGS?.*$/i, "");
+      if (!marking) marking = clean(match[2]);
+      const block = lines.slice(index + 1, end).join(" ");
+      const packages = [...block.matchAll(/(\d+)\s+(?:PALLETS?|JUMBO\s+BAGS?)/ig)].reduce((sum, value) => sum + Number(value[1] || 0), 0);
+      const item = normalizeItem(marking, clean(match[2]), match[3], "TON", 0, "TON", 0, {
+        style: "US", gross: match[4], packageCount: packages || 1,
+        packingType: packages ? clean((block.match(/\d+\s+PALLETS?(?:\s*&\s*\d+\s+JUMBO\s+BAGS?)?|\d+\s+JUMBO\s+BAGS?/i) || [""])[0]) : "",
+        sourceGradeLocked: true, sourceLineNo: Number(match[1])
+      });
+      if (item.marking && item.weight > 0) rows.push(item);
+    }
+    return rows;
+  }
+
+  /* Invoice/material rows with a suffix A-G that must not be discarded. */
+  function parseMaterialAmountRows(lines, text) {
+    if (!/DESCRIPTION\s+OF\s+MATERIAL|DESCRIPTION\s+OF\s+GOODS/i.test(text) && !/PRICE\s*\/\s*KG\s+USD/i.test(text)) return [];
+    const rows = [];
+    lines.forEach((rawLine, index) => {
+      const line = clean(rawLine);
+      const match = line.match(/^\s*\d{1,3}\s+(.+?)\s+([\d,.]+)\s+\$?([\d,.]+)\s+\$?([\d,.]+)\s*$/i);
+      if (!match || TOTAL_RE.test(line)) return;
+      const item = normalizeItem(match[1], "", match[2], "KG", match[3], "KG", match[4], {
+        style: "US", sourceGradeLocked: true, sourceLineNo: index + 1
+      });
+      if (item.marking && item.weight > 0 && item.price > 0) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* Packing rows: No. | material | packages | gross kg | net kg. */
+  function parseMaterialPackageRows(lines, text) {
+    if (!/PACKING\s+LIST/i.test(text) || !/\bPKG\b/i.test(text) || !/GROSS\s+WT/i.test(text) || !/NET\s+WT/i.test(text)) return [];
+    const rows = [];
+    lines.forEach((rawLine, index) => {
+      const line = clean(rawLine);
+      const match = line.match(/^\s*(\d{1,3})\s+(.+?)\s+(\d{1,4})\s+([\d,.]+)\s+([\d,.]+)\s*$/i);
+      if (!match || TOTAL_RE.test(line)) return;
+      const item = normalizeItem(match[2], "", match[5], "KG", 0, "KG", 0, {
+        style: "US", gross: match[4], packageCount: Number(match[3]),
+        packageNo: `PL-${String(Number(match[1])).padStart(3, "0")}`,
+        sourceGradeLocked: true, sourceLineNo: Number(match[1])
+      });
+      if (item.marking && item.weight > 0 && item.grossWeight >= item.netWeight) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* A single grade followed by physical package rows: No. | gross | tare | net. */
+  function parseParcelPackingRows(lines, text) {
+    if (!/PACKING\s+LIST/i.test(text) || !/\bGROSS\b.*\bTARE\b.*\bNET\b.*\bPACKAGING\b/i.test(text)) return [];
+    let grade = "";
+    const gradeLine = lines.findIndex(line => /IRELAND\s+ALLOYS/i.test(line));
+    if (gradeLine >= 0) grade = clean(lines[gradeLine + 1] || "");
+    if (!grade || /PACKING\s+LIST/i.test(grade)) return [];
+    const rows = [];
+    lines.forEach(rawLine => {
+      const line = clean(rawLine).replace(/[}|]/g, " ").replace(/(\d)\.(\d{3})\s*KG/ig, "$1$2 kg");
+      const match = line.match(/^\s*(\d{1,3})\s+([\d,.]+)\s*KG\s+([\d,.]+)\s*KG\s+([\d,.]+)\s*KG\s*[|/]?\s*(.+)?$/i);
+      if (!match) return;
+      const item = normalizeItem(grade, "", match[4], "KG", 0, "KG", 0, {
+        style: "US", gross: match[2], tare: match[3], packageNo: `PL-${String(Number(match[1])).padStart(3, "0")}`,
+        packageCount: 1, packingType: clean(match[5]), sourceGradeLocked: true, sourceLineNo: Number(match[1])
+      });
+      if (item.weight > 0 && item.grossWeight >= item.netWeight) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* European numeric packing row used by KOCA: gross | packaging | net. */
+  function parseEuropeanGrossPackagingNetRows(lines, text) {
+    if (!/KOCA/i.test(text) || !/PACKING\s+LIST/i.test(text)) return [];
+    const rows = [];
+    lines.forEach((rawLine, index) => {
+      const line = clean(rawLine);
+      if (TOTAL_RE.test(line)) return;
+      const match = line.match(/^(.+?)\s+([\d.]+,\d+)\s*KGS?\s+([\d.]+,\d+)\s*KGS?\s+([\d.]+,\d+)\s*KGS?\s*$/i);
+      if (!match) return;
+      const item = normalizeItem(match[1], "", match[4], "KG", 0, "KG", 0, {
+        style: "EU", gross: match[2], tare: match[3], packageCount: Number((text.match(/\((\d+)\s+PACKAGES?/i) || ["", "1"])[1]),
+        sourceGradeLocked: true, sourceLineNo: index + 1
+      });
+      if (item.marking && item.weight > 0) rows.push(item);
+    });
+    return rows;
+  }
+
+  /* Price-less proforma/packing summary rows are still useful for inbound requests. */
+  function parseCommodityQuantityRows(lines, text) {
+    if (!/AIM\s+HIGH\s+KOREA/i.test(text) || !/PROFORMA\s+INVOICE/i.test(text)) return [];
+    const rows = [];
+    let inTable = false;
+    for (const rawLine of lines) {
+      const line = clean(rawLine);
+      if (/COMMODITY/i.test(line) && /QUANTITY|KG/i.test(line)) { inTable = true; continue; }
+      if (!inTable) continue;
+      if (TOTAL_RE.test(line)) break;
+      const lineNo = line.match(/^\s*(\d{1,3})\b/), tokens = numericTokens(line, "US");
+      if (!lineNo || tokens.length < 2) continue;
+      const afterLineNo = tokens.filter(token => token.index >= lineNo[0].length);
+      const decimalTokens = afterLineNo.filter(token => /[.,]\d/.test(token.text));
+      const quantityToken = decimalTokens[decimalTokens.length - 1] || afterLineNo[afterLineNo.length - 1];
+      const marking = clean(line.slice(lineNo[0].length, quantityToken.index));
+      if (!marking || !/[A-Z]/i.test(marking)) continue;
+      const item = normalizeItem(marking, "", quantityToken.text, "KG", 0, "KG", 0, {
+        style: "US", packageNo: `PL-${String(Number(lineNo[1])).padStart(3, "0")}`,
+        sourceGradeLocked: true, sourceLineNo: Number(lineNo[1])
+      });
+      if (item.marking && item.weight > 0) rows.push(item);
+    }
+    const expected = numberValue((String(text || "").match(/TOTAL[^\n]*?([\d,.]+)\s*KG/i) || ["", ""])[1], "US");
+    const actual = round2(rows.reduce((sum, item) => sum + item.weight, 0));
+    if (expected > 0 && Math.abs(actual - expected) > 0.1) {
+      for (const item of rows) {
+        const corrected = round2(actual - item.weight + item.weight / 10);
+        if (Math.abs(corrected - expected) > 0.1) continue;
+        item.quantity = round2(item.quantity / 10);
+        item.weight = item.netWeight = item.grossWeight = item.quantity;
+        item.amount = round2(item.weight * item.price);
+        break;
+      }
+    }
+    return rows;
+  }
+
   function dedupeItems(groups) {
     const out = [], seen = new Set();
     groups.flat().forEach(item => {
@@ -712,18 +975,42 @@
 
   function metadata(lines, fileName) {
     const all = lines.join("\n");
-    const supplierLine = lines.find(line => /^(?:MESSRS|SUPPLIER|VENDOR|SELLER|FROM)\b/i.test(line));
-    let company = supplierLine ? clean(supplierLine.replace(/^(?:MESSRS|SUPPLIER|VENDOR|SELLER|FROM)\s*[:#-]?\s*/i, "").split(/\b(?:DATE|P\.?O\.?\s*NO|S\.?O\.?\s*NO)\b/i)[0]) : "";
+    const upperFile = String(fileName || "").toUpperCase();
+    const ownCompany = /CASH\s*COW\s+METAL|SHIN\s*SUNG\s+METAL|SHINSUNG\s+METAL/i;
+    const knownCompanies = [
+      [/METAL\s+(?:DO|BO|OG|OO)\s+CO/i, "METAL DO CO., LTD."],
+      [/ALL[-\s]*MET\s+RECYCLING/i, "ALL-MET RECYCLING, INC."],
+      [/ICD\s+ALLOYS?\s+AND\s+METALS?/i, "ICD Alloys and Metals, LLC"],
+      [/ARFIN\s+INDIA\s+LIMITED/i, "ARFIN INDIA LIMITED"],
+      [/FUJI\s+MATERIAL\s+COMPANY/i, "FUJI MATERIAL COMPANY, LTD."],
+      [/DAIDO\s+KOGYO/i, "Daido Kogyo Co., Ltd."],
+      [/TOSUI\s+TRADING/i, "TOSUI TRADING CO., LTD."],
+      [/AEROMET\s+ALLOYS/i, "AEROMET ALLOYS PRIVATE LIMITED"],
+      [/GREEN\s+ZONE\s+METAL/i, "GREEN ZONE METAL TR. LLC"],
+      [/IRELAND\s+ALLOYS/i, "IRELAND ALLOYS"],
+      [/KOCA\s*METAL/i, "KOCA METAL"],
+      [/AIM\s+HIGH\s+KOREA/i, "AIM HIGH KOREA INC."]
+    ];
+    const fileCompany = /^CGZM/i.test(upperFile || String(fileName || "")) ? "GREEN ZONE METAL TR. LLC"
+      : /^CIRE/i.test(upperFile || String(fileName || "")) ? "IRELAND ALLOYS"
+      : /^CKC/i.test(upperFile || String(fileName || "")) ? "KOCA METAL"
+      : /^CAE/i.test(upperFile || String(fileName || "")) ? "AEROMET ALLOYS PRIVATE LIMITED"
+      : /^P0366/i.test(upperFile || String(fileName || "")) ? "TOSUI TRADING CO., LTD."
+      : /^P0392/i.test(upperFile || String(fileName || "")) ? "AIM HIGH KOREA INC." : "";
+    const known = knownCompanies.find(entry => entry[0].test(all));
+    const supplierLine = lines.find(line => /^(?:MESSRS|SUPPLIER|VENDOR|SELLER|FROM|CONSIGNOR(?:\s+DETAILS)?)\b/i.test(line) && !ownCompany.test(line));
+    let company = known ? known[1] : fileCompany || (supplierLine ? clean(supplierLine.replace(/^(?:MESSRS|SUPPLIER|VENDOR|SELLER|FROM|CONSIGNOR(?:\s+DETAILS)?)\s*[:#-]?\s*/i, "").split(/\b(?:DATE|P\.?O\.?\s*NO|S\.?O\.?\s*NO)\b/i)[0]) : "");
     if (!company) {
-      company = lines.slice(0, 16).filter(line => !/CASH\s+COW\s+METAL|SHIN\s+SUNG\s+METAL|PURCHASE|INVOICE|ADDRESS|CONTACT|CUSTOMER/i.test(line))
+      company = lines.slice(0, 20).filter(line => !ownCompany.test(line) && !/PURCHASE|INVOICE|ADDRESS|CONTACT|CUSTOMER/i.test(line))
         .filter(line => /\b(?:LTD|LIMITED|INC|LLC|BV|B\.V|COMPANY|CORP|METALS?|MATERIAL|RECYCLING|TRADING|ALLOYS?|INDONESIA)\b/i.test(line))
-        .sort((a, b) => b.length - a.length)[0] || "";
+        .sort((a, b) => a.length - b.length)[0] || "";
     }
-    const fileCode = (String(fileName || "").toUpperCase().match(/[A-Z]{2,}[A-Z0-9-]*\d{6}[A-Z0-9-]*/g) || [""])[0];
+    const fileCode = (upperFile.match(/(?:SSIY|SSTY)-\d{4}(?:,\d{4})?|[A-Z]{2,}[A-Z0-9-]*\d{6}[A-Z0-9-]*|\bP\d{4,8}\b/g) || [""])[0];
     const detectedPoNo = fieldFromLines(lines, [
-      /(?:\bP\.?O\.?\b|\bPURCHASE\s+ORDER\b)\s*(?:NO\.?|NUMBER|#)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
+      /(?:\bP\.?O\.?\b|\bPO\b|\bPURCHASE\s+ORDER\b)\s*(?:NO\.?|NUMBER|#|F)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
       /BUYER\s+REF\s+NO\.?\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
-      /ORDER\s+NUMBER\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i
+      /(?:ORDER|CONTRACT)\s+(?:NO\.?|NUMBER)\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i,
+      /O\/?NO\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{3,})/i
     ]);
     const poNo = /\d{6}/.test(fileCode) ? fileCode : detectedPoNo || fileCode;
     const date = fieldFromLines(lines, [/(?:^|\b)DATE\s*[:#-]?\s*([0-9]{1,4}[-/.][A-Za-z0-9]{1,9}[-/.][0-9]{1,4})/i, /INVOICE\s+DATE\s*[:#-]?\s*([^\s]{6,20})/i]);
@@ -735,13 +1022,27 @@
       || fieldFromLines(lines.filter(line => !/LOADING\s+TERM|SHIPPING\s+TERM/i.test(line)), [/\bTERMS?\s*[:#-]?\s*(.+)$/i]);
     return {
       poNo: clean(poNo).replace(/[.,;:]$/, ""), company: clean(company), contractDate: clean(date), address: clean(address), tel: clean(tel), fax: clean(fax), email: clean(email),
-      soNo: fieldFromLines(lines, [/(?:S\.?O\.?)\s*(?:NO\.?|#)?\s*[:#-]?\s*([A-Z0-9./_-]+)/i]),
+      soNo: fieldFromLines(lines, [/(?:^|\s)(?:S\.O\.|S\.O|SO)\s*(?:NO\.?|#)\s*[:#-]?\s*([A-Z0-9][A-Z0-9./_-]{2,})\b/i]),
       a10No: fieldFromLines(lines, [/A10\s*NO\s*[:#-]?\s*([A-Z0-9./_-]+)/i]),
       shipment: fieldFromLines(lines, [/SHIPMENT\s*[:#-]?\s*(.+?)(?=\s+LOADING\s+TERM|$)/i, /SHIPPING\s+TERMS?\s*[:#-]?\s*(.+)$/i]),
       loadingTerm: fieldFromLines(lines, [/LOADING\s+TERM\s*[:#-]?\s*([^|]+)$/i, /SAILING\s+ON\s*\/?\s*ABT\s*[:#-]?\s*([^|]+)$/i]),
       paymentTerm,
       packing: fieldFromLines(lines, [/PACKING\s*[:#-]?\s*(.+)$/i]),
       note: fieldFromLines(lines, [/NOTE\s*[:#-]?\s*(.+)$/i]),
+      currency: /(?:\bUSD\b|US\s*\$|\$\s*\d)/i.test(all) ? "USD" : /(?:\bJPY\b|GPY|¥)/i.test(all) ? "JPY" : /(?:\bEUR\b|€)/i.test(all) ? "EUR" : /(?:\bKRW\b|₩)/i.test(all) ? "KRW" : /(?:\bGBP\b|£)/i.test(all) ? "GBP" : "USD",
+      documentType: (() => {
+        const header = lines.slice(0, 35).join("\n"), titleLines = lines.slice(0, 22);
+        if (/INSURANCE\s+(?:CERTIFICATE|POLICY)|MARINE\s+CARGO\s+INSURANCE/i.test(all)) return "INSURANCE";
+        if (/PROFORMA\s+INVOICE/i.test(header)) return "PROFORMA_INVOICE";
+        if (/SALES\s+CONTRACT/i.test(header)) return "SALES_CONTRACT";
+        if (/CONTRACT\s+NO\.?/i.test(header)) return "CONTRACT";
+        for (const line of titleLines) {
+          if (/PACKING\s+LIST/i.test(line)) return "PACKING_LIST";
+          if (/\b(?:COMMERCIAL\s+)?INVOICE\b/i.test(line)) return "INVOICE";
+          if (/PURCHASE\s+ORDER|PURCHASE\s+CONTRACT/i.test(line)) return "PURCHASE_ORDER";
+        }
+        return "UNKNOWN";
+      })(),
       sourceFile: String(fileName || "")
     };
   }
@@ -753,9 +1054,15 @@
       const actualNetKg = round2(tonJumboRows.reduce((sum, item) => sum + item.netWeight, 0));
       if (Math.abs(actualNetKg - tonJumboRows.expectedNetKg) > 2) throw Error(`PACKING LIST 총 N/W ${tonJumboRows.expectedNetKg.toLocaleString()} kg 중 ${actualNetKg.toLocaleString()} kg만 인식했습니다. 일부 행 누락을 방지하여 등록을 중단했습니다.`);
     }
-    const groups = [parseVmetInvoiceRows(lines, text), parseVmetContainerPackingRows(lines, text), parseContainerMaterialPackingRows(lines, text), tonJumboRows, parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseColumnarContractOcr(lines, text), parseGenericRows(lines, text)];
-    const best = groups.slice().sort((a, b) => b.length - a.length)[0] || [];
+    const priorityGroups = [parseQuantityDescriptionPriceRows(lines, text), parsePurchaseOrderWeightRows(lines, text), parseErpPurchaseOrderRows(lines, text), parseJapanesePurchaseOrderRows(lines, text), parseTosuiRows(lines, text), parseParentheticalMtsPackingRows(lines, text), parseMaterialAmountRows(lines, text), parseMaterialPackageRows(lines, text), parseParcelPackingRows(lines, text), parseEuropeanGrossPackagingNetRows(lines, text), parseCommodityQuantityRows(lines, text)];
+    const fallbackGroups = [parseVmetInvoiceRows(lines, text), parseVmetContainerPackingRows(lines, text), parseContainerMaterialPackingRows(lines, text), tonJumboRows, parseIrelandAlloysPackingRows(lines, text), parseMaterialNettGrossRows(lines, text), parseMergedMaterialPackingRows(lines, text), parsePackingListRows(lines, text), parsePricePerTon(lines), parseGrossTareNet(lines, text), parseContractRows(lines, text), parseColumnarContractOcr(lines, text), parseGenericRows(lines, text)];
+    const groups = [...priorityGroups, ...fallbackGroups];
+    const best = priorityGroups.find(group => group.length) || fallbackGroups.slice().sort((a, b) => b.length - a.length)[0] || [];
     const items = dedupeItems([best]);
+    if (/IRELAND\s+ALLOYS/i.test(text)) items.forEach(item => {
+      const grade = item.marking.match(/\bMP35N\b.*$/i);
+      if (grade) item.marking = clean(grade[0]);
+    });
     return { ...metadata(lines, fileName), items, lines, diagnostics: { parser: "text", candidates: groups.map(group => group.length), version: VERSION } };
   }
 
@@ -850,7 +1157,7 @@
     return meta;
   }
 
-  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseContainerMaterialPackingRows, parseVmetContainerPackingRows, parseVmetInvoiceRows, parseTonJumboPackingRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, compact, headerKey };
+  const core = { VERSION, round2, numberValue, unitCode, sourceUnits, normalizeItem, parseText, parseMatrix, parsePackingListRows, parseContainerMaterialPackingRows, parseVmetContainerPackingRows, parseVmetInvoiceRows, parseTonJumboPackingRows, parseMergedMaterialPackingRows, parseMaterialNettGrossRows, parseIrelandAlloysPackingRows, parseColumnarContractOcr, parseQuantityDescriptionPriceRows, parsePurchaseOrderWeightRows, parseErpPurchaseOrderRows, parseJapanesePurchaseOrderRows, parseTosuiRows, parseParentheticalMtsPackingRows, parseMaterialAmountRows, parseMaterialPackageRows, parseParcelPackingRows, parseEuropeanGrossPackagingNetRows, parseCommodityQuantityRows, compact, headerKey };
   root.MesDocumentImporterV4 = core;
   globalThis.MesDocumentImporterV4 = core;
   globalThis.__mesDocumentImporterV4 = core;
@@ -906,12 +1213,78 @@
     return common / Math.max(new Set(a).size, new Set(b).size);
   }
 
+  function liveState() {
+    try {
+      if (typeof state !== "undefined" && state) return state;
+    } catch (_) { /* separate browser script global */ }
+    return root.state && typeof root.state === "object" ? root.state : {};
+  }
+
+  function activeRows(value) {
+    return (Array.isArray(value) ? value : []).filter(row => row && !/CANCELLED|SUPERSEDED/i.test(String(row.status || row.inboundRequestStatus || "")));
+  }
+
+  function referenceKey(value) {
+    return compact(value).replace(/^(?:PO|SO)/, "");
+  }
+
+  function savedRows() {
+    const source = liveState(), rows = [];
+    ["pos", "salesOrders", "splits", "bags", "gradeMasters"].forEach(collection => activeRows(source[collection]).forEach(row => rows.push(row)));
+    activeRows(source.purchaseRequests).forEach(request => {
+      activeRows(request.items).forEach(item => rows.push({ ...request, ...item, poNo: item.poNo || request.poNo, company: item.company || request.company }));
+    });
+    return rows;
+  }
+
+  function rowMarking(row) {
+    return clean(row && (row.mainGrade || row.grade || row.item || row.marking || row.detailGrade || row.description));
+  }
+
+  function rowSources(row) {
+    return [...new Set([row && row.marking, row && row.sourceGrade, row && row.purchaseContractGrade, row && row.contractGrade, row && row.item, row && row.description, row && row.grade, row && row.mainGrade, row && row.subGrade, row && row.detailGrade].map(clean).filter(Boolean))];
+  }
+
+  function runtimeMappings(rows) {
+    return rows.map(row => ({
+      marking: rowMarking(row), description: clean(row.description || row.detailGrade), sources: rowSources(row),
+      productType: clean(row.productType || row.type), mainGrade: clean(row.mainGrade || row.grade),
+      subGrade: clean(row.subGrade), detailGrade: clean(row.detailGrade || row.description)
+    })).filter(map => map.marking && map.sources.length);
+  }
+
   async function mapItems(documentData) {
-    const list = await mappings();
-    documentData.items.forEach(item => {
+    const stateValue = liveState(), rows = savedRows(), master = await mappings();
+    const list = [...runtimeMappings(rows), ...master];
+    const documentRefs = [documentData.poNo, documentData.soNo].map(referenceKey).filter(Boolean);
+    const exactRows = rows.filter(row => documentRefs.includes(referenceKey(row.poNo || row.soNo || row.orderNo)));
+    const partnerRow = exactRows.find(row => clean(row.company || row.customer || row.partner));
+    if (partnerRow) documentData.company = clean(partnerRow.company || partnerRow.customer || partnerRow.partner);
+
+    documentData.items.forEach((item, index) => {
+      let exact = null;
+      exactRows.forEach((row, rowIndex) => {
+        const sources = rowSources(row), gradeScore = Math.max(0, ...sources.map(value => similarity(item.marking, value)));
+        const rowWeight = Number(row.netWeight || row.weight || row.quantity || 0), itemWeight = Number(item.netWeight || item.weight || 0);
+        const weightScore = rowWeight > 0 && itemWeight > 0 ? Math.max(0, 1 - Math.abs(rowWeight - itemWeight) / Math.max(rowWeight, itemWeight)) : 0;
+        const score = gradeScore * 0.65 + weightScore * 0.3 + (rowIndex === index ? 0.05 : 0);
+        if (!exact || score > exact.score) exact = { row, score };
+      });
+      if (exact && (exact.score >= 0.45 || exactRows.length === documentData.items.length)) {
+        const row = exact.row, matched = rowMarking(row) || item.marking;
+        item.matchedMarking = matched;
+        item.matchedDescription = clean(row.description || row.detailGrade || item.description);
+        item.productType = clean(row.productType || (stateValue.gradeTypes && stateValue.gradeTypes[matched]) || item.productType);
+        item.mainGrade = clean(row.mainGrade || row.grade || matched);
+        item.subGrade = clean(row.subGrade);
+        item.detailGrade = clean(row.detailGrade || row.description || item.description);
+        item.matchConfidence = round2(Math.max(0.8, exact.score) * 100);
+        return;
+      }
       if (item.sourceGradeLocked) {
         item.matchedMarking = item.marking;
         item.matchedDescription = item.description || "";
+        item.productType = clean(item.productType || (stateValue.gradeTypes && stateValue.gradeTypes[item.marking]));
         item.matchConfidence = 100;
         return;
       }
@@ -924,11 +1297,17 @@
       if (best && best.score >= 0.68) {
         item.matchedMarking = best.map.marking;
         item.matchedDescription = best.map.description || item.description;
+        item.productType = clean(best.map.productType || (stateValue.gradeTypes && stateValue.gradeTypes[best.map.marking]) || item.productType);
+        item.mainGrade = clean(best.map.mainGrade || best.map.marking);
+        item.subGrade = clean(best.map.subGrade || item.subGrade);
+        item.detailGrade = clean(best.map.detailGrade || item.detailGrade || item.description);
         item.matchConfidence = round2(best.score * 100);
       }
     });
     return documentData;
   }
+
+  core.mapItems = mapItems;
 
   async function pdfText(file, requestId) {
     await loadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", () => !!root.pdfjsLib);
@@ -1009,6 +1388,7 @@
 
     }
     if (requestId !== importRequest) throw Error("새 파일을 선택하여 이전 분석을 중단했습니다.");
+    if (parsed.documentType === "INSURANCE") throw Error("보험증권은 품목 불러오기 대상이 아닙니다. 해당 거래의 Invoice 또는 Packing List를 선택하세요.");
     if (!parsed.items.length) throw Error("강종·중량 행을 찾지 못했습니다. 표 전체가 보이는 원본 PDF·Excel 또는 선명한 사진을 선택하세요.");
     return mapItems(parsed);
   }
@@ -1059,7 +1439,7 @@
   function poDocumentDefaults(documentData) {
     const source = documentData || {};
     return {
-      poNo: source.poNo || "", company: source.company || "", contractDate: source.contractDate || "", address: source.address || "", tel: source.tel || "", fax: source.fax || "", email: source.email || "", soNo: source.soNo || "", a10No: source.a10No || "", shipment: source.shipment || "", loadingTerm: source.loadingTerm || "", paymentTerm: source.paymentTerm || "", packing: source.packing || "", note: source.note || "", sourceFile: source.sourceFile || "직접입력", items: source.items && source.items.length ? source.items : [{}]
+      poNo: source.poNo || "", company: source.company || "", contractDate: source.contractDate || "", address: source.address || "", tel: source.tel || "", fax: source.fax || "", email: source.email || "", soNo: source.soNo || "", a10No: source.a10No || "", shipment: source.shipment || "", loadingTerm: source.loadingTerm || "", paymentTerm: source.paymentTerm || "", packing: source.packing || "", note: source.note || "", currency: source.currency || "USD", sourceFile: source.sourceFile || "직접입력", items: source.items && source.items.length ? source.items : [{}]
     };
   }
 
@@ -1078,7 +1458,7 @@
       <label>Email<input name="email" type="email" value="${escHtml(source.email)}"></label><label>S.O NO<input name="soNo" value="${escHtml(source.soNo)}"></label>
       <label>A10 NO<input name="a10No" value="${escHtml(source.a10No)}"></label><label>Loading Term<input name="loadingTerm" value="${escHtml(source.loadingTerm)}"></label>
       <label>Shipment<input name="shipment" value="${escHtml(source.shipment)}"></label><label>Packing<input name="packing" value="${escHtml(source.packing)}"></label>
-      <label>통화<select name="currency"><option>USD</option><option>KRW</option></select></label><label>환율<input name="rate" type="number" step="0.01" value="1"></label>
+      <label>통화<select name="currency">${["USD", "KRW", "JPY", "EUR", "GBP"].map(value => `<option ${source.currency === value ? "selected" : ""}>${value}</option>`).join("")}</select></label><label>환율<input name="rate" type="number" step="0.01" value="1"></label>
       <label class="wide">Payment<textarea name="paymentTerm">${escHtml(source.paymentTerm)}</textarea></label>
       <label class="wide">Note<textarea name="note">${escHtml(source.note)}</textarea></label>
       <input type="hidden" name="sourceFile" value="${escHtml(source.sourceFile)}">
