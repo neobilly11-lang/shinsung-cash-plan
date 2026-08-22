@@ -31,8 +31,8 @@ const inventoryState = {
   splits: [], losses: [], inputs: [], bags: [], salesOrders: [], shipments: [],
   shipmentAllocations: [], waitingMoves: [], workWaits: [], domesticReceipts: [],
   pos: [
-    { id: 'P1', packageNo: 'PK-1', poNo: 'PO-1', grade: 'NICKEL ALLOY', mainGrade: 'IN 718', weight: 100, receivedAt: '2026-08-01', status: 'CONFIRMED' },
-    { id: 'P2', packageNo: 'PK-2', poNo: 'PO-2', grade: 'COPPER ALLOY', mainGrade: '70/30 CuNi', weight: 200, receivedAt: '2026-08-01', status: 'CONFIRMED' },
+    { id: 'P1', packageNo: 'PK-1', poNo: 'PO-1', productType: 'NI', grade: 'NICKEL ALLOY', mainGrade: 'IN 718', weight: 100, receivedAt: '2026-08-01', status: 'CONFIRMED' },
+    { id: 'P2', packageNo: 'PK-2', poNo: 'PO-2', productType: 'CU', grade: 'COPPER ALLOY', mainGrade: '70/30 CuNi', weight: 200, receivedAt: '2026-08-01', status: 'CONFIRMED' },
     { id: 'P3', packageNo: 'PK-3', poNo: 'PO-3', purchaseContractGrade: 'NICKEL ALLOY', grade: 'IN 939', mainGrade: 'IN 939', weight: 50, receivedAt: '2026-08-01', status: 'CONFIRMED' },
   ],
 };
@@ -71,7 +71,9 @@ const nickel = gradeRows.find(row => row.mainGrade === 'IN 718');
 const copper = gradeRows.find(row => row.mainGrade === '70/30 CuNi');
 const explicitGeneric = gradeRows.find(row => row.mainGrade === 'NICKEL ALLOY');
 assert.equal(nickel.customerGrade, 'IN 718', '재고현황 거래처 강종도 상세 강종으로 복구');
+assert.equal(nickel.productType, 'NI', '구매계획에서 수정한 품종을 미검수 재고에 승계');
 assert.equal(copper.customerGrade, '70/30 CuNi', 'COPPER ALLOY 오표기를 CuNi 상세 강종으로 복구');
+assert.equal(copper.productType, 'CU', '구매계획 품종을 재고현황에 표시');
 assert.equal(explicitGeneric.customerGrade, 'NICKEL ALLOY', '명시 계약 강종은 재고현황에서도 보존');
 
 inventoryState.inventoryGradeMappings.push({

@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  var VERSION='20260821-stock-stage-columns-3';
+  var VERSION='20260822-purchase-product-type-1';
   var sharedExpectedSoId='';
   var sharedExpectedSoOpened='';
   var inventoryDisplayModeValue='GRADE';
@@ -79,7 +79,7 @@
   }
   function incomingGradeSource(row){
     var label=sourceCustomerGrade(row)||gradeLabel(row);
-    return{grade:label,originalGrade:label};
+    return{productType:text(row&&row.productType),grade:label,originalGrade:label};
   }
   function gradeParts(row){
     row=row||{};
